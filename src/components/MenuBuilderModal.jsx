@@ -10,6 +10,12 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
   const [selectedBoisson, setSelectedBoisson] = useState(boissons[0] || null);
   const [selectedDessert, setSelectedDessert] = useState(menu.allowedDesserts ? (desserts[0] || null) : null);
 
+  const extraPlat = selectedPlat?.extraMenuPrice || 0;
+  const extraBoisson = selectedBoisson?.extraMenuPrice || 0;
+  const extraDessert = selectedDessert?.extraMenuPrice || 0;
+  const totalExtra = extraPlat + extraBoisson + extraDessert;
+  const computedPrice = menu.price + totalExtra;
+
   const isFormValid = selectedPlat && selectedBoisson && (!menu.allowedDesserts || selectedDessert);
 
   const handleConfirm = () => {
@@ -19,7 +25,7 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
       boisson: selectedBoisson,
       ...(menu.allowedDesserts ? { dessert: selectedDessert } : {})
     };
-    onAddMenuToCart(menu, choices);
+    onAddMenuToCart(menu, choices, computedPrice);
     onClose();
   };
 
@@ -33,9 +39,20 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
           </button>
         </div>
 
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          Prix fixe de la formule : <strong style={{ color: 'var(--color-primary)' }}>{menu.price.toFixed(2)} €</strong>
-        </p>
+        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Prix de base du menu : {menu.price.toFixed(2)} €</span>
+            {totalExtra > 0 && (
+              <div style={{ fontSize: '0.85rem', color: '#FBBF24', fontWeight: 600 }}>
+                + Suppléments options : +{totalExtra.toFixed(2)} €
+              </div>
+            )}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Total Formule</span>
+            <strong style={{ fontSize: '1.4rem', color: 'var(--color-primary)' }}>{computedPrice.toFixed(2)} €</strong>
+          </div>
+        </div>
 
         {/* 1. SELECTION DU PLAT */}
         <div className="form-group">
@@ -61,6 +78,11 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <span>{p.icon}</span>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.name}</span>
+                  {p.extraMenuPrice > 0 && (
+                    <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
+                      +{p.extraMenuPrice.toFixed(2)} €
+                    </span>
+                  )}
                 </div>
                 {selectedPlat?.id === p.id && <Check size={16} color="var(--color-primary)" />}
               </div>
@@ -92,6 +114,11 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <span>{b.icon}</span>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{b.name}</span>
+                  {b.extraMenuPrice > 0 && (
+                    <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
+                      +{b.extraMenuPrice.toFixed(2)} €
+                    </span>
+                  )}
                 </div>
                 {selectedBoisson?.id === b.id && <Check size={16} color="var(--color-primary)" />}
               </div>
@@ -124,6 +151,11 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <span>{d.icon}</span>
                     <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{d.name}</span>
+                    {d.extraMenuPrice > 0 && (
+                      <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
+                        +{d.extraMenuPrice.toFixed(2)} €
+                      </span>
+                    )}
                   </div>
                   {selectedDessert?.id === d.id && <Check size={16} color="var(--color-primary)" />}
                 </div>
@@ -140,7 +172,7 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
             disabled={!isFormValid}
             style={{ flex: 2 }}
           >
-            Ajouter le Menu au Panier
+            Ajouter le Menu au Panier ({computedPrice.toFixed(2)} €)
           </button>
         </div>
       </div>

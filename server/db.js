@@ -19,11 +19,12 @@ const defaultData = {
     // PLATS
     {
       id: 'p1',
-      name: 'Sandwich Poulet Avocat',
+      name: 'Sandwich Poulet Avocat (Premium)',
       category: 'plat',
       price: 3.80,
-      description: 'Pain baguette croustillant, aiguillettes de poulet marinées, avocat frais, tomates & sauce ciboulette.',
-      badge: 'Bestseller',
+      extraMenuPrice: 1.00,
+      description: 'Pain baguette croustillant, aiguillettes de poulet marinées, avocat frais, tomates & sauce ciboulette (+1€ en menu).',
+      badge: 'Premium (+1€)',
       available: true,
       icon: '🥪'
     },
@@ -110,10 +111,22 @@ const defaultData = {
       name: 'Monster Energy 50cl',
       category: 'boisson',
       price: 2.00,
-      description: 'Pour les rushes de fin de piscine & nuit de code.',
-      badge: 'Booster',
+      extraMenuPrice: 1.00,
+      description: 'Pour les rushes de fin de piscine & nuit de code. (+1€ en formule menu)',
+      badge: 'Booster (+1€)',
       available: true,
       icon: '⚡'
+    },
+    {
+      id: 'b6',
+      name: 'Red Bull Energy 25cl',
+      category: 'boisson',
+      price: 2.20,
+      extraMenuPrice: 1.00,
+      description: 'Canette Red Bull Energy 25cl glacée. (+1€ en formule menu)',
+      badge: 'Energy (+1€)',
+      available: true,
+      icon: '🐂'
     },
 
     // DESSERTS
@@ -251,8 +264,9 @@ class DB {
       available: true,
       badge: '',
       icon: product.icon || '🥪',
+      extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
       ...product,
-      price: parseFloat(product.price) || 0
+      price: parseFloat(product.price) || 0,
     };
     this.data.products.unshift(newProduct);
     this.save();
@@ -265,6 +279,9 @@ class DB {
       this.data.products[idx] = { ...this.data.products[idx], ...updates };
       if (updates.price !== undefined) {
         this.data.products[idx].price = parseFloat(updates.price);
+      }
+      if (updates.extraMenuPrice !== undefined) {
+        this.data.products[idx].extraMenuPrice = parseFloat(updates.extraMenuPrice) || 0;
       }
       this.save();
       return this.data.products[idx];

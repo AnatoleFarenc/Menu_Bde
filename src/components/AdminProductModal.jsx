@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 
-const ICONS = ['🥪', '🧀', '🐟', '🥗', '🔥', '🥤', '🧃', '🍑', '💧', '⚡', '🍪', '🍩', '🧁', '🍎', '🥓', '🌶️', '🍱', '🍔', '🌮', '🌯'];
+const ICONS = ['🥪', '🐟', '🥗', '🥤', '🦈', '💧', '⚡', '🍗', '🍩', '🥧', '🍎', '🍫', '🎣'];
 
 export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product' }) {
   const [formData, setFormData] = useState({
@@ -20,6 +20,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         name: editingItem.name || '',
         category: editingItem.category || 'plat',
         price: editingItem.price || '',
+        extraMenuPrice: editingItem.extraMenuPrice || '',
         description: editingItem.description || '',
         badge: editingItem.badge || '',
         icon: editingItem.icon || '🥪',
@@ -30,6 +31,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         name: '',
         category: 'plat',
         price: '',
+        extraMenuPrice: '',
         description: '',
         badge: '',
         icon: type === 'menu' ? '🍱' : '🥪',
@@ -86,14 +88,13 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 <option value="plat">Plat (Sandwich, Panini, Salade...)</option>
                 <option value="boisson">Boisson</option>
                 <option value="dessert">Dessert</option>
-                <option value="supplement">Supplément</option>
               </select>
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label className="form-label">Prix (€)</label>
+              <label className="form-label">Prix à l'unité (€)</label>
               <input
                 type="number"
                 step="0.10"
@@ -106,16 +107,31 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Badge (Optionnel)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ex: Bestseller, Chaud, Nouveau..."
-                value={formData.badge}
-                onChange={e => setFormData({ ...formData, badge: e.target.value })}
-              />
-            </div>
+            {type === 'product' ? (
+              <div className="form-group">
+                <label className="form-label">Supplément Formule Menu (€)</label>
+                <input
+                  type="number"
+                  step="0.50"
+                  min="0"
+                  className="form-input"
+                  placeholder="Ex: 1.00 (Pour RedBull, Sandwich Premium...)"
+                  value={formData.extraMenuPrice || ''}
+                  onChange={e => setFormData({ ...formData, extraMenuPrice: e.target.value })}
+                />
+              </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Badge (Optionnel)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Bestseller, Chaud, Nouveau..."
+                  value={formData.badge}
+                  onChange={e => setFormData({ ...formData, badge: e.target.value })}
+                />
+              </div>
+            )}
           </div>
 
           <div className="form-group">

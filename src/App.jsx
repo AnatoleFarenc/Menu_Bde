@@ -154,14 +154,15 @@ export default function App() {
     setIsCartOpen(true);
   };
 
-  const handleAddMenuToCart = (menu, choices) => {
+  const handleAddMenuToCart = (menu, choices, calculatedPrice) => {
+    const itemPrice = calculatedPrice !== undefined ? calculatedPrice : menu.price;
     setCart(prev => [
       ...prev,
       {
         id: menu.id + '_' + Date.now(),
         menuId: menu.id,
         name: menu.name,
-        price: menu.price,
+        price: itemPrice,
         icon: menu.icon || '🍱',
         type: 'menu',
         choices,
@@ -316,9 +317,6 @@ export default function App() {
             <button className={`tab-btn ${categoryFilter === 'dessert' ? 'active' : ''}`} onClick={() => setCategoryFilter('dessert')}>
               🍩 Desserts
             </button>
-            <button className={`tab-btn ${categoryFilter === 'supplement' ? 'active' : ''}`} onClick={() => setCategoryFilter('supplement')}>
-              🥓 Suppléments
-            </button>
           </div>
 
           {/* MENUS SECTION (When All or Menu) */}
@@ -345,12 +343,12 @@ export default function App() {
           {categoryFilter !== 'menu' && (
             <section>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem' }}>
-                🥪 Produits à l'Unité
+                {categoryFilter === 'plat' ? '🥪 Plats Principal' : categoryFilter === 'boisson' ? '🥤 Boissons Fraîches' : categoryFilter === 'dessert' ? '🍩 Desserts' : '✨ Tous les Produits'} ({filteredProducts.length})
               </h2>
               <div className="grid-container">
-                {filteredProducts.map(product => (
+                {filteredProducts.map((product, idx) => (
                   <ProductCard
-                    key={product.id}
+                    key={`${product.id}_${idx}`}
                     item={product}
                     type="product"
                     onAddToCart={handleAddToCart}
