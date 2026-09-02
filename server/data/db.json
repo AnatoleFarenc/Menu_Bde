@@ -1,0 +1,192 @@
+{
+  "products": [
+    {
+      "id": "p1",
+      "name": "Sandwich Poulet Avocat",
+      "category": "plat",
+      "price": 3.8,
+      "description": "Pain baguette croustillant, aiguillettes de poulet marinées, avocat frais, tomates & sauce ciboulette.",
+      "badge": "Bestseller",
+      "available": true,
+      "icon": "🥪"
+    },
+    {
+      "id": "p2",
+      "name": "Panini 3 Fromages",
+      "category": "plat",
+      "price": 3.5,
+      "description": "Mozzarella fondu, cheddar affiné & emmental français fondu chaud dans un pain panini grillé.",
+      "badge": "Chaud",
+      "available": true,
+      "icon": "🧀"
+    },
+    {
+      "id": "p3",
+      "name": "Sandwich Thon Mayonnaise",
+      "category": "plat",
+      "price": 3.5,
+      "description": "Thon pêché durablement, oeuf dur, salade fraîche et sauce crémeuse mayonnaise citronnée.",
+      "badge": "",
+      "available": true,
+      "icon": "🐟"
+    },
+    {
+      "id": "p4",
+      "name": "Sandwich Vege Falafel",
+      "category": "plat",
+      "price": 3.6,
+      "description": "Falafels croustillants, houmous maison, concombre et sauce tahini au sésame.",
+      "badge": "Végétarien",
+      "available": true,
+      "icon": "🥗"
+    },
+    {
+      "id": "p5",
+      "name": "Panini Poulet Curry",
+      "category": "plat",
+      "price": 3.8,
+      "description": "Poulet rôti doux au curry, emmental fondu et poivrons grillés.",
+      "badge": "Chaud",
+      "available": false,
+      "icon": "🔥"
+    },
+    {
+      "id": "b1",
+      "name": "Coca-Cola Zero 33cl",
+      "category": "boisson",
+      "price": 1.2,
+      "description": "Cannette fraîche 33cl.",
+      "available": true,
+      "icon": "🥤"
+    },
+    {
+      "id": "b2",
+      "name": "Oasis Tropical 33cl",
+      "category": "boisson",
+      "price": 1.2,
+      "description": "Boisson rafraîchissante aux fruits.",
+      "available": true,
+      "icon": "🧃"
+    },
+    {
+      "id": "b3",
+      "name": "Ice Tea Pêche 33cl",
+      "category": "boisson",
+      "price": 1.2,
+      "description": "Thé glacé au goût de pêche.",
+      "available": true,
+      "icon": "🍑"
+    },
+    {
+      "id": "b4",
+      "name": "Eau Minérale Cristaline 50cl",
+      "category": "boisson",
+      "price": 0.8,
+      "description": "Bouteille d'eau plate 50cl.",
+      "available": true,
+      "icon": "💧"
+    },
+    {
+      "id": "b5",
+      "name": "Monster Energy 50cl",
+      "category": "boisson",
+      "price": 2,
+      "description": "Pour les rushes de fin de piscine & nuit de code.",
+      "badge": "Booster",
+      "available": true,
+      "icon": "⚡"
+    },
+    {
+      "id": "d1",
+      "name": "Cookie Pépites de Chocolat",
+      "category": "dessert",
+      "price": 1.5,
+      "description": "Fait maison, cœur moelleux et grosses pépites chocolat noir.",
+      "badge": "Maison",
+      "available": true,
+      "icon": "🍪"
+    },
+    {
+      "id": "d2",
+      "name": "Donut Glaçage Nutella",
+      "category": "dessert",
+      "price": 1.6,
+      "description": "Donut moelleux généreusement fourré au chocolat noisette.",
+      "available": true,
+      "icon": "🍩"
+    },
+    {
+      "id": "d3",
+      "name": "Muffin Myrtilles",
+      "category": "dessert",
+      "price": 1.5,
+      "description": "Muffin moelleux aux myrtilles sauvages.",
+      "available": true,
+      "icon": "🧁"
+    },
+    {
+      "id": "d4",
+      "name": "Pomme Bio",
+      "category": "dessert",
+      "price": 0.8,
+      "description": "Pomme croquante locale.",
+      "available": true,
+      "icon": "🍎"
+    },
+    {
+      "id": "s1",
+      "name": "Extra Bacon Croustillant",
+      "category": "supplement",
+      "price": 0.8,
+      "description": "Tranches de bacon grillé.",
+      "available": true,
+      "icon": "🥓"
+    },
+    {
+      "id": "s2",
+      "name": "Extra Cheddar Affiné",
+      "category": "supplement",
+      "price": 0.6,
+      "description": "Tranche de cheddar supplémentaire.",
+      "available": true,
+      "icon": "🧀"
+    },
+    {
+      "id": "s3",
+      "name": "Sauce Algérienne BDE",
+      "category": "supplement",
+      "price": 0.3,
+      "description": "Pot de sauce algérienne relevée.",
+      "available": true,
+      "icon": "🌶️"
+    }
+  ],
+  "menus": [
+    {
+      "id": "m1",
+      "name": "Formule Cadets (Plat + Boisson)",
+      "price": 4.5,
+      "description": "Le snack parfait entre deux évaluations. Choisissez 1 Plat + 1 Boisson au choix.",
+      "badge": "Économique",
+      "available": true,
+      "allowedPlats": true,
+      "allowedBoissons": true,
+      "allowedDesserts": false,
+      "icon": "🎯"
+    },
+    {
+      "id": "m2",
+      "name": "Formule BDE Complète (Plat + Boisson + Dessert)",
+      "price": 5.5,
+      "description": "La formule incontournable du midi ! 1 Plat + 1 Boisson + 1 Dessert au choix.",
+      "badge": "Le + Populaire",
+      "available": true,
+      "allowedPlats": true,
+      "allowedBoissons": true,
+      "allowedDesserts": true,
+      "icon": "🏆"
+    }
+  ],
+  "orders": [],
+  "users": []
+}
