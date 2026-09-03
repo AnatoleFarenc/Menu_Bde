@@ -7,6 +7,7 @@ import CartDrawer from './components/CartDrawer';
 import AdminProductModal from './components/AdminProductModal';
 import KitchenDashboard from './components/KitchenDashboard';
 import OrderStatus from './components/OrderStatus';
+import AdminCatalogTools from './components/AdminCatalogTools';
 import { Sparkles, Utensils, Coffee, Cake, Plus, ShieldCheck, LogIn } from 'lucide-react';
 
 export default function App() {
@@ -18,6 +19,8 @@ export default function App() {
 
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
@@ -61,6 +64,7 @@ export default function App() {
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
       fetchAdminOrders();
+      fetchAdminTemplates();
       const refreshTimer = setInterval(fetchAdminOrders, 5000);
       return () => clearInterval(refreshTimer);
     }
@@ -95,6 +99,7 @@ export default function App() {
       const res = await axios.get('/api/products');
       setProducts(res.data.products || []);
       setMenus(res.data.menus || []);
+      setCategories(res.data.categories || []);
     } catch (e) {
       console.error('Error fetching products:', e);
     }
@@ -120,6 +125,15 @@ export default function App() {
       setSynthesisByTime(res.data.synthesisByTime || {});
     } catch (e) {
       console.error('Error fetching admin orders:', e);
+    }
+  };
+
+  const fetchAdminTemplates = async () => {
+    try {
+      const res = await axios.get('/api/admin/templates', { headers: { Authorization: `Bearer ${authToken}` } });
+      setTemplates(res.data.templates || []);
+    } catch (e) {
+      console.error('Error fetching templates:', e);
     }
   };
 
@@ -235,8 +249,10 @@ export default function App() {
         }
       }
       fetchProducts();
+      return true;
     } catch (e) {
-      alert('Erreur lors de l\'enregistrement.');
+      alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
+      return false;
     }
   };
 
@@ -248,6 +264,69 @@ export default function App() {
       fetchProducts();
     } catch (e) {
       alert('Erreur lors de la suppression.');
+    }
+  };
+
+  const handleAddCategory = async category => {
+    try {
+      const res = await axios.post('/api/admin/categories', category, { headers: { Authorization: `Bearer ${authToken}` } });
+      setCategories(res.data.categories || []);
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la création de la catégorie.');
+      return false;
+    }
+  };
+
+  const handleDeleteCategory = async id => {
+    if (!confirm('Supprimer cette catégorie ?')) return;
+    try {
+      const res = await axios.delete(`/api/admin/categories/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      setCategories(res.data.categories || []);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
+    }
+  };
+
+  const handleToggleCategory = async id => {
+    try {
+      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      setCategories(res.data.categories || []);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
+    }
+  };
+
+  const handleSaveTemplate = async template => {
+    try {
+      await axios.post('/api/admin/templates', template, { headers: { Authorization: `Bearer ${authToken}` } });
+      await fetchAdminTemplates();
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la sauvegarde de la carte.');
+      return false;
+    }
+  };
+
+  const handleApplyTemplate = async id => {
+    if (!confirm('Appliquer cette carte et remplacer la carte actuelle ?')) return;
+    try {
+      const res = await axios.post(`/api/admin/templates/${id}/apply`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      setProducts(res.data.products || []);
+      setMenus(res.data.menus || []);
+      setCategories(res.data.categories || []);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de l’application de la carte.');
+    }
+  };
+
+  const handleDeleteTemplate = async id => {
+    if (!confirm('Supprimer cette carte enregistrée ?')) return;
+    try {
+      await axios.delete(`/api/admin/templates/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      fetchAdminTemplates();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la suppression de la carte.');
     }
   };
 
@@ -263,11 +342,14 @@ export default function App() {
   };
 
   // Filter products by category tab
+  const visibleCategoryIds = new Set(categories.filter(category => category.isVisible !== false).map(category => category.id));
+  const visibleProducts = products.filter(product => visibleCategoryIds.has(product.category));
   const filteredProducts = categoryFilter === 'all'
-    ? products
-    : products.filter(p => p.category === categoryFilter);
+    ? visibleProducts
+    : visibleProducts.filter(product => product.category === categoryFilter);
 
   const cartTotalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const selectedCategory = categories.find(category => category.id === categoryFilter);
 
   if (isAuthChecking) {
     return <main className="auth-page"><p>Vérification de votre compte 42...</p></main>;
@@ -326,21 +408,17 @@ export default function App() {
 
           {/* CATEGORY TABS */}
           <div className="tabs-bar">
-            <button className={`tab-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>
+            <button aria-pressed={categoryFilter === 'all'} className={`tab-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>
               ✨ Tous les Produits
             </button>
-            <button className={`tab-btn ${categoryFilter === 'menu' ? 'active' : ''}`} onClick={() => setCategoryFilter('menu')}>
+            <button aria-pressed={categoryFilter === 'menu'} className={`tab-btn ${categoryFilter === 'menu' ? 'active' : ''}`} onClick={() => setCategoryFilter('menu')}>
               🍱 Formules Menus
             </button>
-            <button className={`tab-btn ${categoryFilter === 'plat' ? 'active' : ''}`} onClick={() => setCategoryFilter('plat')}>
-              🥪 Plats Principal
-            </button>
-            <button className={`tab-btn ${categoryFilter === 'boisson' ? 'active' : ''}`} onClick={() => setCategoryFilter('boisson')}>
-              🥤 Boissons
-            </button>
-            <button className={`tab-btn ${categoryFilter === 'dessert' ? 'active' : ''}`} onClick={() => setCategoryFilter('dessert')}>
-              🍩 Desserts
-            </button>
+            {categories.filter(category => category.isVisible !== false).map(category => (
+              <button key={category.id} aria-pressed={categoryFilter === category.id} className={`tab-btn ${categoryFilter === category.id ? 'active' : ''}`} onClick={() => setCategoryFilter(category.id)}>
+                {category.icon} {category.name}
+              </button>
+            ))}
           </div>
 
           {/* MENUS SECTION (When All or Menu) */}
@@ -367,18 +445,24 @@ export default function App() {
           {categoryFilter !== 'menu' && (
             <section>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem' }}>
-                {categoryFilter === 'plat' ? '🥪 Plats Principal' : categoryFilter === 'boisson' ? '🥤 Boissons Fraîches' : categoryFilter === 'dessert' ? '🍩 Desserts' : '✨ Tous les Produits'} ({filteredProducts.length})
+                {selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : '✨ Tous les Produits'} ({filteredProducts.length})
               </h2>
-              <div className="grid-container">
-                {filteredProducts.map((product, idx) => (
-                  <ProductCard
-                    key={`${product.id}_${idx}`}
-                    item={product}
-                    type="product"
-                    onAddToCart={handleAddToCart}
-                  />
-                ))}
-              </div>
+              {filteredProducts.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                  Aucun produit disponible dans cette catégorie pour le moment.
+                </div>
+              ) : (
+                <div className="grid-container">
+                  {filteredProducts.map((product, idx) => (
+                    <ProductCard
+                      key={`${product.id}_${idx}`}
+                      item={product}
+                      type="product"
+                      onAddToCart={handleAddToCart}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </main>
@@ -396,6 +480,14 @@ export default function App() {
           synthesisByTime={synthesisByTime}
           products={products}
           menus={menus}
+          categories={categories}
+          templates={templates}
+          onAddCategory={handleAddCategory}
+          onDeleteCategory={handleDeleteCategory}
+          onToggleCategory={handleToggleCategory}
+          onSaveTemplate={handleSaveTemplate}
+          onApplyTemplate={handleApplyTemplate}
+          onDeleteTemplate={handleDeleteTemplate}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
           onToggleStock={handleToggleStock}
@@ -453,6 +545,7 @@ export default function App() {
         onSave={handleSaveAdminProduct}
         editingItem={adminModalState.item}
         type={adminModalState.type}
+        categories={categories}
       />
     </div>
   );

@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles } from 'lucide-react';
 import ProductCard from './ProductCard';
+import AdminCatalogTools from './AdminCatalogTools';
 
 export default function KitchenDashboard({
   orders,
   synthesisByTime,
   products,
   menus,
+  categories,
+  templates,
+  onAddCategory,
+  onDeleteCategory,
+  onToggleCategory,
+  onSaveTemplate,
+  onApplyTemplate,
+  onDeleteTemplate,
   onUpdateOrderStatus,
   onOpenAddModal,
   onToggleStock,
@@ -297,6 +306,16 @@ export default function KitchenDashboard({
       {/* ---------------------------------------------------- */}
       {adminTab === 'vitrine' && (
         <>
+          <AdminCatalogTools
+            categories={categories}
+            templates={templates}
+            onAddCategory={onAddCategory}
+            onDeleteCategory={onDeleteCategory}
+            onToggleCategory={onToggleCategory}
+            onSaveTemplate={onSaveTemplate}
+            onApplyTemplate={onApplyTemplate}
+            onDeleteTemplate={onDeleteTemplate}
+          />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2>Gestion des Produits & Menus en Vitrine</h2>
             <div style={{ display: 'flex', gap: '0.6rem' }}>

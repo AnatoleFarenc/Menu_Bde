@@ -3,7 +3,7 @@ import { X, Save } from 'lucide-react';
 
 const ICONS = ['🥪', '🐟', '🥗', '🥤', '🦈', '💧', '⚡', '🍗', '🍩', '🥧', '🍎', '🍫', '🎣'];
 
-export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product' }) {
+export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [] }) {
   const [formData, setFormData] = useState({
     name: '',
     category: 'plat',
@@ -42,14 +42,14 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.price) {
       alert('Veuillez remplir au moins le nom et le prix.');
       return;
     }
-    onSave(formData, editingItem ? editingItem.id : null, type);
-    onClose();
+    const saved = await onSave(formData, editingItem ? editingItem.id : null, type);
+    if (saved) onClose();
   };
 
   return (
@@ -85,9 +85,9 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 value={formData.category}
                 onChange={e => setFormData({ ...formData, category: e.target.value })}
               >
-                <option value="plat">Plat (Sandwich, Panini, Salade...)</option>
-                <option value="boisson">Boisson</option>
-                <option value="dessert">Dessert</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>{category.icon} {category.name}</option>
+                ))}
               </select>
             </div>
           )}

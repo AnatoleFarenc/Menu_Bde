@@ -77,7 +77,59 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/products', (req, res) => {
   const products = db.getProducts();
   const menus = db.getMenus();
-  res.json({ products, menus });
+  res.json({ products, menus, categories: db.getCategories() });
+});
+
+app.get('/api/admin/templates', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  res.json({ templates: db.getTemplates() });
+});
+
+app.post('/api/admin/templates', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom du template est obligatoire' });
+  res.status(201).json({ template: db.addTemplate(req.body) });
+});
+
+app.post('/api/admin/templates/:id/apply', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  const template = db.applyTemplate(req.params.id);
+  if (!template) return res.status(404).json({ error: 'Template introuvable' });
+  res.json({ template, products: db.getProducts(), menus: db.getMenus(), categories: db.getCategories() });
+});
+
+app.delete('/api/admin/templates/:id', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  db.deleteTemplate(req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/admin/categories', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la catégorie est obligatoire' });
+  const category = db.addCategory(req.body);
+  if (!category) return res.status(409).json({ error: 'Cette catégorie existe déjà' });
+  res.status(201).json({ category, categories: db.getCategories() });
+});
+
+app.delete('/api/admin/categories/:id', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  if (!db.deleteCategory(req.params.id)) return res.status(400).json({ error: 'Cette catégorie par défaut ne peut pas être supprimée' });
+  res.json({ categories: db.getCategories() });
+});
+
+app.patch('/api/admin/categories/:id/visibility', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  const category = db.toggleCategoryVisibility(req.params.id);
+  if (!category) return res.status(404).json({ error: 'Catégorie introuvable' });
+  res.json({ category, categories: db.getCategories() });
 });
 
 // Admin product routes

@@ -15,6 +15,12 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // Initial Default Data for 42 BDE Sandwicherie
 const defaultData = {
+  categories: [
+    { id: 'plat', name: 'Plat', icon: '🥪', isVisible: true },
+    { id: 'boisson', name: 'Boisson', icon: '🥤', isVisible: true },
+    { id: 'dessert', name: 'Dessert', icon: '🍩', isVisible: true },
+    { id: 'supplement', name: 'Supplément', icon: '🧂', isVisible: true }
+  ],
   products: [
     { id: 'p1', name: 'Sandwich Jambon', category: 'plat', price: 3.5, description: 'Pain baguette, jambon blanc, salade, beurre.', badge: '', available: true, icon: '🥪' },
     { id: 'p2', name: 'Sandwich Rosette', category: 'plat', price: 3.5, description: 'Pain baguette, rosette, cornichons, beurre.', badge: '', available: true, icon: '🥪' },
@@ -57,6 +63,7 @@ const defaultData = {
     }
   ],
   orders: [],
+  templates: [],
   users: []
 };
 
@@ -75,6 +82,8 @@ class DB {
           data.products = defaultData.products;
           this.save(data);
         }
+        data.categories = (data.categories || defaultData.categories).map(category => ({ isVisible: true, ...category }));
+        data.templates = data.templates || [];
         return data;
       }
     } catch (e) {
@@ -86,6 +95,74 @@ class DB {
 
   save(data = this.data) {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  }
+
+  getCategories() {
+    return this.data.categories || [];
+  }
+
+  getPublicProducts() {
+    const visibleCategoryIds = new Set(this.getCategories().filter(category => category.isVisible !== false).map(category => category.id));
+    return this.data.products.filter(product => visibleCategoryIds.has(product.category));
+  }
+
+  addCategory(category) {
+    const id = category.id || category.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+    if (!id || this.data.categories.some(existing => existing.id === id)) return null;
+    const newCategory = { id, name: category.name.trim(), icon: category.icon || '📦', isVisible: true };
+    this.data.categories.push(newCategory);
+    this.save();
+    return newCategory;
+  }
+
+  deleteCategory(id) {
+    if (['plat', 'boisson', 'dessert', 'supplement'].includes(id)) return false;
+    this.data.categories = this.data.categories.filter(category => category.id !== id);
+    this.save();
+    return true;
+  }
+
+  toggleCategoryVisibility(id) {
+    const category = this.data.categories.find(item => item.id === id);
+    if (!category) return null;
+    category.isVisible = category.isVisible === false;
+    this.save();
+    return category;
+  }
+
+  getTemplates() {
+    return this.data.templates || [];
+  }
+
+  addTemplate(templateData) {
+    const copy = value => JSON.parse(JSON.stringify(value));
+    const newTemplate = {
+      id: 'template_' + Date.now(),
+      name: templateData.name.trim(),
+      description: templateData.description || '',
+      createdAt: new Date().toISOString(),
+      products: copy(this.data.products),
+      menus: copy(this.data.menus),
+      categories: copy(this.data.categories)
+    };
+    this.data.templates.unshift(newTemplate);
+    this.save();
+    return newTemplate;
+  }
+
+  applyTemplate(id) {
+    const template = this.data.templates.find(savedTemplate => savedTemplate.id === id);
+    if (!template) return null;
+    this.data.products = template.products;
+    this.data.menus = template.menus;
+    this.data.categories = template.categories;
+    this.save();
+    return template;
+  }
+
+  deleteTemplate(id) {
+    this.data.templates = this.data.templates.filter(template => template.id !== id);
+    this.save();
   }
 
   // PRODUCTS
