@@ -844,13 +844,40 @@ main h3 {
 
 /* Responsive adjust */
 @media (max-width: 768px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  * {
+    scrollbar-width: none;
+  }
+
+  .app-container,
+  main {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   .app-container {
     padding: 0 1rem 7rem;
   }
 
   .navbar {
-    padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
+    padding: 0.45rem 0.75rem;
+    margin-bottom: 0.75rem;
   }
 
   .navbar-inner,
@@ -868,29 +895,58 @@ main h3 {
 
   .navbar-inner {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.4rem;
   }
 
   .logo-group {
     width: 100%;
+    gap: 0.5rem;
+  }
+
+  .logo-badge {
+    font-size: 0.9rem;
+    padding: 0.25rem 0.45rem;
   }
 
   .nav-actions {
     width: 100%;
-    gap: 0.4rem;
-    overflow-x: auto;
-    padding-bottom: 0.15rem;
+    gap: 0.3rem;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-bottom: 0;
   }
 
   .nav-actions .tab-btn {
-    flex: 0 0 auto;
+    flex: none;
+    width: 100%;
+    min-width: 0;
     font-size: 0.78rem;
-    padding: 0.5rem 0.65rem;
+    padding: 0.38rem 0.45rem;
   }
 
   .user-badge {
-    flex: 0 0 auto;
-    margin-left: auto;
+    grid-column: span 2;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0.25rem 0.5rem 0.25rem 0.3rem;
+    gap: 0.4rem;
+  }
+
+  .avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  .role-pill {
+    font-size: 0.58rem;
+  }
+
+  .navbar .btn-secondary[style*="position: relative"] {
+    grid-column: span 1;
+    width: 100%;
+    padding: 0.38rem;
   }
 
   .hero-banner {
@@ -905,11 +961,20 @@ main h3 {
   .tabs-bar {
     margin-bottom: 1.25rem;
     gap: 0.4rem;
+    overflow: visible;
+    flex-wrap: wrap;
+    padding-bottom: 0;
+    scrollbar-width: none;
   }
 
   .tab-btn {
     font-size: 0.8rem;
     padding: 0.5rem 0.7rem;
+    flex: 1 1 calc(50% - 0.4rem);
+    min-width: 0;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
   }
 
   .menu-list {
@@ -920,6 +985,17 @@ main h3 {
     grid-template-columns: 1fr;
     gap: 0.6rem;
     padding: 1rem 0;
+  }
+
+  .card-title,
+  .card-desc,
+  .card-extra,
+  .card-title-row {
+    overflow-wrap: anywhere;
+  }
+
+  .card-title-row .card-badges {
+    max-width: 45%;
   }
 
   .menu-list .product-card > div:first-child {
@@ -1041,6 +1117,12 @@ main h3 {
     justify-content: flex-start;
     flex-wrap: wrap;
   }
+
+  .order-card > div:nth-child(1) > div,
+  .order-status-card > div:nth-child(1) > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (max-width: 460px) {
@@ -1050,6 +1132,14 @@ main h3 {
 
   .navbar .user-badge {
     max-width: 100%;
+  }
+
+  .nav-actions .tab-btn {
+    flex-basis: auto;
+  }
+
+  .tabs-bar .tab-btn {
+    flex-basis: 100%;
   }
 
   .user-badge .user-name {
