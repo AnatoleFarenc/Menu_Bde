@@ -16,5 +16,5 @@ RUN npm run build
 
 EXPOSE 5000 3000
 
-# Start Express server & Vite / Preview
-CMD ["npm", "run", "dev"]
+# Start the production Express server, which also serves the built frontend.
+CMD ["node", "server/index.js"]

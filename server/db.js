@@ -16,191 +16,24 @@ if (!fs.existsSync(DATA_DIR)) {
 // Initial Default Data for 42 BDE Sandwicherie
 const defaultData = {
   products: [
-    // PLATS
-    {
-      id: 'p1',
-      name: 'Sandwich Poulet Avocat (Premium)',
-      category: 'plat',
-      price: 3.80,
-      extraMenuPrice: 1.00,
-      description: 'Pain baguette croustillant, aiguillettes de poulet marinées, avocat frais, tomates & sauce ciboulette (+1€ en menu).',
-      badge: 'Premium (+1€)',
-      available: true,
-      icon: '🥪'
-    },
-    {
-      id: 'p2',
-      name: 'Panini 3 Fromages',
-      category: 'plat',
-      price: 3.50,
-      description: 'Mozzarella fondu, cheddar affiné & emmental français fondu chaud dans un pain panini grillé.',
-      badge: 'Chaud',
-      available: true,
-      icon: '🧀'
-    },
-    {
-      id: 'p3',
-      name: 'Sandwich Thon Mayonnaise',
-      category: 'plat',
-      price: 3.50,
-      description: 'Thon pêché durablement, oeuf dur, salade fraîche et sauce crémeuse mayonnaise citronnée.',
-      badge: '',
-      available: true,
-      icon: '🐟'
-    },
-    {
-      id: 'p4',
-      name: 'Sandwich Vege Falafel',
-      category: 'plat',
-      price: 3.60,
-      description: 'Falafels croustillants, houmous maison, concombre et sauce tahini au sésame.',
-      badge: 'Végétarien',
-      available: true,
-      icon: '🥗'
-    },
-    {
-      id: 'p5',
-      name: 'Panini Poulet Curry',
-      category: 'plat',
-      price: 3.80,
-      description: 'Poulet rôti doux au curry, emmental fondu et poivrons grillés.',
-      badge: 'Chaud',
-      available: false, // Exemple de rupture de stock initial
-      icon: '🔥'
-    },
-
-    // BOISSONS
-    {
-      id: 'b1',
-      name: 'Coca-Cola Zero 33cl',
-      category: 'boisson',
-      price: 1.20,
-      description: 'Cannette fraîche 33cl.',
-      available: true,
-      icon: '🥤'
-    },
-    {
-      id: 'b2',
-      name: 'Oasis Tropical 33cl',
-      category: 'boisson',
-      price: 1.20,
-      description: 'Boisson rafraîchissante aux fruits.',
-      available: true,
-      icon: '🧃'
-    },
-    {
-      id: 'b3',
-      name: 'Ice Tea Pêche 33cl',
-      category: 'boisson',
-      price: 1.20,
-      description: 'Thé glacé au goût de pêche.',
-      available: true,
-      icon: '🍑'
-    },
-    {
-      id: 'b4',
-      name: 'Eau Minérale Cristaline 50cl',
-      category: 'boisson',
-      price: 0.80,
-      description: 'Bouteille d\'eau plate 50cl.',
-      available: true,
-      icon: '💧'
-    },
-    {
-      id: 'b5',
-      name: 'Monster Energy 50cl',
-      category: 'boisson',
-      price: 2.00,
-      extraMenuPrice: 1.00,
-      description: 'Pour les rushes de fin de piscine & nuit de code. (+1€ en formule menu)',
-      badge: 'Booster (+1€)',
-      available: true,
-      icon: '⚡'
-    },
-    {
-      id: 'b6',
-      name: 'Red Bull Energy 25cl',
-      category: 'boisson',
-      price: 2.20,
-      extraMenuPrice: 1.00,
-      description: 'Canette Red Bull Energy 25cl glacée. (+1€ en formule menu)',
-      badge: 'Energy (+1€)',
-      available: true,
-      icon: '🐂'
-    },
-
-    // DESSERTS
-    {
-      id: 'd1',
-      name: 'Cookie Pépites de Chocolat',
-      category: 'dessert',
-      price: 1.50,
-      description: 'Fait maison, cœur moelleux et grosses pépites chocolat noir.',
-      badge: 'Maison',
-      available: true,
-      icon: '🍪'
-    },
-    {
-      id: 'd2',
-      name: 'Donut Glaçage Nutella',
-      category: 'dessert',
-      price: 1.60,
-      description: 'Donut moelleux généreusement fourré au chocolat noisette.',
-      available: true,
-      icon: '🍩'
-    },
-    {
-      id: 'd3',
-      name: 'Muffin Myrtilles',
-      category: 'dessert',
-      price: 1.50,
-      description: 'Muffin moelleux aux myrtilles sauvages.',
-      available: true,
-      icon: '🧁'
-    },
-    {
-      id: 'd4',
-      name: 'Pomme Bio',
-      category: 'dessert',
-      price: 0.80,
-      description: 'Pomme croquante locale.',
-      available: true,
-      icon: '🍎'
-    },
-
-    // SUPPLEMENTS
-    {
-      id: 's1',
-      name: 'Extra Bacon Croustillant',
-      category: 'supplement',
-      price: 0.80,
-      description: 'Tranches de bacon grillé.',
-      available: true,
-      icon: '🥓'
-    },
-    {
-      id: 's2',
-      name: 'Extra Cheddar Affiné',
-      category: 'supplement',
-      price: 0.60,
-      description: 'Tranche de cheddar supplémentaire.',
-      available: true,
-      icon: '🧀'
-    },
-    {
-      id: 's3',
-      name: 'Sauce Algérienne BDE',
-      category: 'supplement',
-      price: 0.30,
-      description: 'Pot de sauce algérienne relevée.',
-      available: true,
-      icon: '🌶️'
-    }
+    { id: 'p1', name: 'Sandwich Jambon', category: 'plat', price: 3.5, description: 'Pain baguette, jambon blanc, salade, beurre.', badge: '', available: true, icon: '🥪' },
+    { id: 'p2', name: 'Sandwich Rosette', category: 'plat', price: 3.5, description: 'Pain baguette, rosette, cornichons, beurre.', badge: '', available: true, icon: '🥪' },
+    { id: 'p3', name: 'Sandwich Poulet', category: 'plat', price: 4.5, extraMenuPrice: 1, description: 'Pain baguette, aiguillettes de poulet, tomates fraiches, oignons caramélisés, sauce pesto (+1€ en menu).', badge: 'Premium (+1€)', available: true, icon: '🍗' },
+    { id: 'p3_thon', name: 'Sandwich Thon Mayonnaise', category: 'plat', price: 4.5, extraMenuPrice: 1, description: 'Pain baguette, thon, échalotes, tomates fraîche, salade, mayonnaise.', badge: 'Premium (+1€)', available: true, icon: '🐟' },
+    { id: 'p4', name: 'Salade Composée', category: 'plat', price: 3.5, description: 'Salade, tomates fraiche, maïs, carotte, croutons, mozzarella et sauce vinaigrette.', badge: 'Végétarien', available: true, icon: '🥗' },
+    { id: 'b1', name: 'Coca-Cola 33cl', category: 'boisson', price: 1, description: 'Cannette fraîche 33cl.', available: true, icon: '🥤' },
+    { id: 'b3', name: 'Ice Tea Pêche 33cl', category: 'boisson', price: 1, description: 'Thé glacé au goût de pêche.', available: true, icon: '🍑' },
+    { id: 'b4', name: 'Eau Minérale Cristaline 50cl', category: 'boisson', price: 0.5, description: 'Bouteille d\'eau plate 50cl.', available: true, icon: '💧' },
+    { id: 'b5', name: 'RedBull 25cl', category: 'boisson', price: 2, extraMenuPrice: 1, description: 'Pour les rushes de fin de piscine & nuit de code. (+1€ en formule menu)', badge: 'Booster (+1€)', available: true, icon: '⚡' },
+    { id: 'd1', name: 'Donut au Sucre', category: 'dessert', price: 1.5, description: 'Donut moelleux, saupoudré de sucre boule de cristal.', badge: '', available: true, icon: '🍩' },
+    { id: 'd2', name: 'Brownie', category: 'dessert', price: 1.6, description: 'C\'est fort en chocolat.', available: true, icon: '🍫' },
+    { id: 'd3', name: 'Crumble ', category: 'dessert', price: 1.5, description: 'Delicieux crumble au fruit de saison.', badge: 'Fait maison', available: true, icon: '🥧' },
+    { id: 'd4', name: "Pom'Potes", category: 'dessert', price: 0.8, description: 'Ton meilleur pote à l\'exam final.', available: true, icon: '🍎' }
   ],
   menus: [
     {
       id: 'm1',
-      name: 'Formule Cadets (Plat + Boisson)',
+      name: 'Formule Plouf (Plat + Boisson + Chips)',
       price: 4.50,
       description: 'Le snack parfait entre deux évaluations. Choisissez 1 Plat + 1 Boisson au choix.',
       badge: 'Économique',
@@ -208,11 +41,11 @@ const defaultData = {
       allowedPlats: true,
       allowedBoissons: true,
       allowedDesserts: false,
-      icon: '🎯'
+      icon: '🎣'
     },
     {
       id: 'm2',
-      name: 'Formule BDE Complète (Plat + Boisson + Dessert)',
+      name: 'Formule Jaws (Plat + Boisson + Chips + Dessert)',
       price: 5.50,
       description: 'La formule incontournable du midi ! 1 Plat + 1 Boisson + 1 Dessert au choix.',
       badge: 'Le + Populaire',
@@ -220,7 +53,7 @@ const defaultData = {
       allowedPlats: true,
       allowedBoissons: true,
       allowedDesserts: true,
-      icon: '🏆'
+      icon: '🦈'
     }
   ],
   orders: [],
@@ -236,7 +69,13 @@ class DB {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const data = JSON.parse(raw);
+        const hasNewCatalog = data.products?.some(product => ['p5', 'b2', 's1'].includes(product.id));
+        if (hasNewCatalog) {
+          data.products = defaultData.products;
+          this.save(data);
+        }
+        return data;
       }
     } catch (e) {
       console.error('Error reading database file, resetting to default:', e);

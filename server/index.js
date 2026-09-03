@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { get42AuthUrl, handle42Callback } from './auth42.js';
 
@@ -8,6 +10,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicAppUrl = process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -41,10 +46,10 @@ app.get('/api/auth/42/callback', async (req, res) => {
     const token = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     sessions.set(token, user);
     // Redirect back to client app with token
-    res.redirect(`http://localhost:3000/?token=${token}`);
+    res.redirect(`${publicAppUrl}/?token=${token}`);
   } catch (error) {
     console.error('42 Auth error:', error.message);
-    res.redirect(`http://localhost:3000/?error=${encodeURIComponent(error.message)}`);
+    res.redirect(`${publicAppUrl}/?error=${encodeURIComponent(error.message)}`);
   }
 });
 
@@ -245,6 +250,15 @@ app.patch('/api/admin/orders/:id/status', (req, res) => {
   }
   res.json({ order: updatedOrder });
 });
+
+// In production, serve the built React application from the same origin as the API.
+if (process.env.NODE_ENV === 'production') {
+  const clientPath = path.join(__dirname, '..', 'dist');
+  app.use(express.static(clientPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientPath, 'index.html'));
+  });
+}
 
 
 app.listen(PORT, () => {

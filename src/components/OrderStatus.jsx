@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, CheckCircle2, AlertTriangle, ShoppingBag, Sparkles } from 'lucide-react';
 
 export default function OrderStatus({ orders }) {
+  const [statusFilter, setStatusFilter] = useState('active');
+
   if (!orders || orders.length === 0) {
     return (
       <div className="fade-in" style={{ textAlign: 'center', padding: '4rem 1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
@@ -13,6 +15,13 @@ export default function OrderStatus({ orders }) {
       </div>
     );
   }
+
+  const filteredOrders = orders.filter(order => {
+    if (statusFilter === 'active' && (order.status === 'completed' || order.status === 'cancelled')) {
+      return false;
+    }
+    return true;
+  });
 
   const renderSteps = (status) => {
     const steps = [
@@ -100,13 +109,36 @@ export default function OrderStatus({ orders }) {
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
-        <Clock size={24} color="var(--color-primary)" />
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Suivi de vos Commandes BDE</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Clock size={24} color="var(--color-primary)" />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Suivi de vos Commandes BDE</h2>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            className={`btn btn-secondary ${statusFilter === 'active' ? 'active' : ''}`}
+            style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+            onClick={() => setStatusFilter('active')}
+          >
+            Commandes actuelles
+          </button>
+          <button
+            className={`btn btn-secondary ${statusFilter === 'all' ? 'active' : ''}`}
+            style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+            onClick={() => setStatusFilter('all')}
+          >
+            Historique des commandes
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {orders.map(order => (
+      {filteredOrders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)' }}>
+          {statusFilter === 'active' ? 'Aucune commande actuelle.' : 'Aucun historique de commande.'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {filteredOrders.map(order => (
           <div
             key={order.id}
             style={{
@@ -146,7 +178,8 @@ export default function OrderStatus({ orders }) {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -228,6 +228,13 @@ a {
   transform: translateY(-1px);
 }
 
+.btn-secondary.active {
+  background: rgba(0, 186, 188, 0.16);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 15px rgba(0, 186, 188, 0.18);
+}
+
 .btn-admin {
   background: rgba(99, 102, 241, 0.15);
   color: #818CF8;

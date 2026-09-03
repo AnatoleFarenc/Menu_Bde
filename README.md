@@ -149,4 +149,10 @@ ADMIN_LOGINS=alix,admin,bde_admin,president_bde
 
 ## Docker
 
-Les fichiers `Dockerfile` et `docker-compose.yml` sont présents dans le projet, mais leur configuration de ports doit être alignée avec le fonctionnement actuel de l'application : le serveur Express utilise `5001` par défaut, tandis que Docker lui affecte actuellement `5000`. Pour le développement local sous Linux, la procédure Node.js ci-dessus est donc recommandée.
+Le projet peut être hébergé sur un PC du réseau local avec Docker :
+
+```bash
+docker compose up --build -d
+```
+
+L'application sera accessible depuis ce PC sur `http://localhost:5001` et depuis un autre appareil sur `http://ADRESSE_IP_DU_PC:5001`. Dans `.env`, utilisez cette même adresse pour `INTRA42_REDIRECT_URI`, et déclarez exactement cette URL comme Redirect URI dans l'application OAuth 42. Le fichier `server/data/db.json` est conservé par le volume Docker.

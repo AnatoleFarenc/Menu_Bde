@@ -61,7 +61,10 @@ export default function App() {
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
       fetchAdminOrders();
+      const refreshTimer = setInterval(fetchAdminOrders, 5000);
+      return () => clearInterval(refreshTimer);
     }
+    return undefined;
   }, [user, activeTab]);
 
   useEffect(() => {
