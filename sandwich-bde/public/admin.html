@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Sandwich BDE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <h1>Sandwich BDE — cuisine</h1>
+    <span class="tagline">Carte et commandes à préparer</span>
+  </div>
+  <div id="auth-area"></div>
+</header>
+
+<main id="app-main">
+  <div class="tabs">
+    <button class="tab-btn active" data-view="orders">Commandes</button>
+    <button class="tab-btn" data-view="products">Produits</button>
+    <button class="tab-btn" data-view="menus">Menus</button>
+  </div>
+  <div id="view-container"></div>
+</main>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>

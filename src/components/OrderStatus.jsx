@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Clock, CheckCircle2, AlertTriangle, ShoppingBag, Sparkles } from 'lucide-react';
+import ItemIcon from './ItemIcon';
 
 export default function OrderStatus({ orders }) {
   const [statusFilter, setStatusFilter] = useState('active');
@@ -59,7 +60,7 @@ export default function OrderStatus({ orders }) {
             left: '20px',
             right: '20px',
             height: '3px',
-            background: 'rgba(255, 255, 255, 0.1)',
+            background: 'rgba(93, 55, 27, 0.22)',
             zIndex: 1
           }}
         >
@@ -84,15 +85,15 @@ export default function OrderStatus({ orders }) {
                   width: '30px',
                   height: '30px',
                   borderRadius: '50%',
-                  background: isDone ? 'var(--color-primary)' : '#1E293B',
-                  color: isDone ? '#000' : 'var(--text-muted)',
+                  background: isDone ? 'var(--color-primary)' : '#b79a68',
+                  color: isDone ? '#2d1d11' : '#66543b',
                   fontWeight: 800,
                   fontSize: '0.85rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   boxShadow: isCurrent ? 'var(--shadow-glow)' : 'none',
-                  border: isCurrent ? '2px solid #FFF' : 'none'
+                  border: isCurrent ? '2px solid #9a551d' : 'none'
                 }}
               >
                 {isDone ? '✓' : idx + 1}
@@ -141,6 +142,7 @@ export default function OrderStatus({ orders }) {
         {filteredOrders.map(order => (
           <div
             key={order.id}
+            className="order-status-card"
             style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--border-color)',
@@ -154,7 +156,7 @@ export default function OrderStatus({ orders }) {
                   {order.orderNumber}
                 </span>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                  Créneau de retrait : <strong style={{ color: '#FFF' }}>{order.pickupTime}</strong>
+                  Créneau de retrait : <strong style={{ color: 'var(--text-main)' }}>{order.pickupTime}</strong>
                 </span>
               </div>
               <span style={{ fontSize: '1.2rem', fontWeight: 800 }}>{order.totalPrice.toFixed(2)} €</span>
@@ -170,7 +172,7 @@ export default function OrderStatus({ orders }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 {order.items.map((item, idx) => (
                   <div key={idx} style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{item.icon || '🥪'} x{item.quantity} {item.name}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><ItemIcon item={item} type={item.type} size={16} /> x{item.quantity} {item.name}</span>
                     <span style={{ color: 'var(--text-muted)' }}>{(item.price * item.quantity).toFixed(2)} €</span>
                   </div>
                 ))}

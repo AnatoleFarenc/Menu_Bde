@@ -3,15 +3,13 @@ import { Eye, EyeOff, Layers, Plus, Save, Trash2, WandSparkles } from 'lucide-re
 
 export default function AdminCatalogTools({ categories, templates, onAddCategory, onDeleteCategory, onToggleCategory, onSaveTemplate, onApplyTemplate, onDeleteTemplate }) {
   const [categoryName, setCategoryName] = useState('');
-  const [categoryIcon, setCategoryIcon] = useState('📦');
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
 
   const handleCategorySubmit = async event => {
     event.preventDefault();
-    if (await onAddCategory({ name: categoryName, icon: categoryIcon })) {
+    if (await onAddCategory({ name: categoryName })) {
       setCategoryName('');
-      setCategoryIcon('📦');
     }
   };
 
@@ -28,18 +26,17 @@ export default function AdminCatalogTools({ categories, templates, onAddCategory
       <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
         <Layers size={20} color="var(--color-primary)" /> Cartes et catégories
       </h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+      <div className="admin-tools-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
         <div className="synthesis-card">
           <h3 style={{ marginBottom: '0.75rem' }}>Ajouter une catégorie</h3>
           <form onSubmit={handleCategorySubmit} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input className="form-input" style={{ flex: 1, minWidth: '150px' }} placeholder="Nom (ex: Petit-déjeuner)" value={categoryName} onChange={event => setCategoryName(event.target.value)} required />
-            <input className="form-input" style={{ width: '70px' }} value={categoryIcon} onChange={event => setCategoryIcon(event.target.value)} maxLength={2} aria-label="Icône de la catégorie" />
             <button className="btn btn-primary" type="submit"><Plus size={16} /> Ajouter</button>
           </form>
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
             {categories.map(category => (
               <span key={category.id} className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', opacity: category.isVisible === false ? 0.55 : 1 }}>
-                {category.icon} {category.name}
+                {category.name}
                 <button type="button" onClick={() => onToggleCategory(category.id)} title={category.isVisible === false ? 'Afficher la catégorie' : 'Masquer la catégorie'} style={{ color: 'inherit', background: 'transparent', padding: 0 }}>
                   {category.isVisible === false ? <EyeOff size={12} /> : <Eye size={12} />}
                 </button>

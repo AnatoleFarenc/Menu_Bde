@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Trash2, Clock, Plus, Minus, CheckCircle, ShoppingCart } from 'lucide-react';
+import ItemIcon from './ItemIcon';
 
 const TIME_SLOTS = ['11h45', '12h00', '12h15', '12h30', '12h45', '13h00', '13h15', '13h30'];
 
@@ -46,8 +47,8 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
 
         <div className="drawer-body">
           {cart.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🥪</div>
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+              <ItemIcon item={{ category: 'plat' }} size={42} />
               <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.5rem' }}>Votre panier est vide</p>
               <p style={{ fontSize: '0.85rem' }}>Sélectionnez des produits ou un menu dans la vitrine pour précommander votre repas.</p>
             </div>
@@ -59,7 +60,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                   <div
                     key={idx}
                     style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
+                      background: 'rgba(93, 55, 27, 0.08)',
                       border: '1px solid var(--border-color)',
                       borderRadius: 'var(--radius-md)',
                       padding: '0.85rem',
@@ -70,7 +71,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1.4rem' }}>{item.icon || '🥪'}</span>
+                        <span className="cart-item-icon"><ItemIcon item={item} type={item.type} size={20} /></span>
                         <div>
                           <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{item.name}</h4>
                           <span style={{ fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 700 }}>
@@ -92,7 +93,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                     {item.choices && (
                       <div
                         style={{
-                          background: 'rgba(0, 186, 188, 0.08)',
+                          background: 'rgba(215, 154, 59, 0.1)',
                           borderLeft: '2px solid var(--color-primary)',
                           padding: '0.4rem 0.6rem',
                           borderRadius: '4px',
@@ -135,7 +136,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Clock size={16} color="var(--color-primary)" /> Heure de retrait au local BDE
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                <div className="pickup-time-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
                   {TIME_SLOTS.map(slot => (
                     <button
                       key={slot}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles } from 'lucide-react';
+import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles, Layers, MapPin, Utensils } from 'lucide-react';
 import ProductCard from './ProductCard';
 import AdminCatalogTools from './AdminCatalogTools';
+import ItemIcon from './ItemIcon';
 
 export default function KitchenDashboard({
   orders,
@@ -40,15 +41,15 @@ export default function KitchenDashboard({
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending':
-        return <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)' }}>En Attente</span>;
+        return <span className="badge status-badge status-pending">En Attente</span>;
       case 'preparing':
-        return <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818CF8', border: '1px solid rgba(99, 102, 241, 0.4)' }}>En Préparation</span>;
+        return <span className="badge status-badge status-preparing">En Préparation</span>;
       case 'ready':
-        return <span className="badge" style={{ background: 'rgba(0, 186, 188, 0.2)', color: 'var(--color-primary)', border: '1px solid var(--color-primary-glow)' }}>Prête à Retirer</span>;
+        return <span className="badge status-badge status-ready">Prête à Retirer</span>;
       case 'completed':
-        return <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.4)' }}>Récupérée</span>;
+        return <span className="badge status-badge status-completed">Récupérée</span>;
       case 'cancelled':
-        return <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.4)' }}>Annulée</span>;
+        return <span className="badge status-badge status-cancelled">Annulée</span>;
       default:
         return null;
     }
@@ -69,7 +70,7 @@ export default function KitchenDashboard({
         </button>
       )}
       {order.status === 'ready' && (
-        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem', color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.4)' }} onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
+        <button className="btn btn-secondary btn-complete" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
           Récupérée
         </button>
       )}
@@ -84,10 +85,10 @@ export default function KitchenDashboard({
   return (
     <div className="fade-in">
       {/* HEADER BANNER */}
-      <div className="hero-banner" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(15, 23, 42, 0.9))' }}>
+      <div className="hero-banner">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-            <ChefHat size={28} color="#818CF8" />
+            <ChefHat size={28} color="var(--color-primary)" />
             <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Espace Administration & Cuisine BDE</h1>
           </div>
           <p style={{ color: 'var(--text-muted)' }}>
@@ -131,7 +132,7 @@ export default function KitchenDashboard({
                 {slotsList.map(slot => (
                   <div key={slot} className="synthesis-card">
                     <div className="synthesis-title">
-                      🕒 Créneau {slot} ({synthesisByTime[slot].totalOrders} commande{synthesisByTime[slot].totalOrders > 1 ? 's' : ''})
+                      <Clock size={14} /> Créneau {slot} ({synthesisByTime[slot].totalOrders} commande{synthesisByTime[slot].totalOrders > 1 ? 's' : ''})
                     </div>
                     {Object.entries(synthesisByTime[slot].itemsCount).map(([itemName, qty]) => (
                       <div key={itemName} className="synthesis-item">
@@ -215,6 +216,7 @@ export default function KitchenDashboard({
               {filteredOrders.map(order => (
                 <div
                   key={order.id}
+                  className="order-card"
                   style={{
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
@@ -234,7 +236,7 @@ export default function KitchenDashboard({
                         👤 {order.userLogin} ({order.userDisplayName})
                       </span>
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                        🕒 Retrait prévu à {order.pickupTime}
+                        <MapPin size={14} /> Retrait prévu à {order.pickupTime}
                       </span>
                     </div>
 
@@ -247,7 +249,7 @@ export default function KitchenDashboard({
                       {order.items.map((item, idx) => (
                         <div key={idx} style={{ fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
-                            <span>{item.icon || '🥪'} <strong>x{item.quantity}</strong> {item.name}</span>
+                            <span><ItemIcon item={item} type={item.type} size={16} /> <strong>x{item.quantity}</strong> {item.name}</span>
                             {item.choices && (
                               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '1.5rem' }}>
                                 ↳ Plat: <strong>{item.choices.plat?.name}</strong> | Boisson: <strong>{item.choices.boisson?.name}</strong> {item.choices.dessert && `| Dessert: ${item.choices.dessert?.name}`}
@@ -261,7 +263,7 @@ export default function KitchenDashboard({
 
                     {order.note && (
                       <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#FBBF24', fontStyle: 'italic' }}>
-                        ⚠️ Instructions client : "{order.note}"
+                        <AlertCircle size={14} /> Instructions client : "{order.note}"
                       </div>
                     )}
                   </div>
@@ -283,7 +285,7 @@ export default function KitchenDashboard({
                         </button>
                       )}
                       {order.status === 'ready' && (
-                        <button className="btn btn-secondary" style={{ color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.4)' }} onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
+                        <button className="btn btn-secondary btn-complete" onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
                           <CheckCircle2 size={16} /> Marquer Distribuée / Récupérée
                         </button>
                       )}
@@ -316,7 +318,7 @@ export default function KitchenDashboard({
             onApplyTemplate={onApplyTemplate}
             onDeleteTemplate={onDeleteTemplate}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div className="admin-catalog-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2>Gestion des Produits & Menus en Vitrine</h2>
             <div style={{ display: 'flex', gap: '0.6rem' }}>
               <button className="btn btn-primary" onClick={() => onOpenAddModal('product')}>
@@ -331,7 +333,7 @@ export default function KitchenDashboard({
           {/* MENUS SECTION */}
           <div style={{ marginBottom: '2rem' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
-              🍱 Formules Menus ({menus.length})
+              <Layers size={16} /> Formules Menus ({menus.length})
             </h3>
             <div className="grid-container">
               {menus.map(menu => (
@@ -351,7 +353,7 @@ export default function KitchenDashboard({
           {/* PRODUCTS SECTION */}
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-main)' }}>
-              🥪 Produits à l'unité ({products.length})
+              <Utensils size={16} /> Produits à l'unité ({products.length})
             </h3>
             <div className="grid-container">
               {products.map(prod => (

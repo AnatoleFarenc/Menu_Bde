@@ -8,7 +8,8 @@ import AdminProductModal from './components/AdminProductModal';
 import KitchenDashboard from './components/KitchenDashboard';
 import OrderStatus from './components/OrderStatus';
 import AdminCatalogTools from './components/AdminCatalogTools';
-import { Sparkles, Utensils, Coffee, Cake, Plus, ShieldCheck, LogIn } from 'lucide-react';
+import ItemIcon from './components/ItemIcon';
+import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -394,29 +395,19 @@ export default function App() {
                 Commandez votre déjeuner en avance pour que l'équipe BDE le prépare sur mesure avant le rush du midi !
               </p>
             </div>
-            <div className="hero-stats">
-              <div className="stat-box">
-                <div className="stat-number">100%</div>
-                <div className="stat-label">Intra 42 Sync</div>
-              </div>
-              <div className="stat-box">
-                <div className="stat-number">⚡ Rapidité</div>
-                <div className="stat-label">Zéro Attente</div>
-              </div>
-            </div>
           </div>
 
           {/* CATEGORY TABS */}
           <div className="tabs-bar">
             <button aria-pressed={categoryFilter === 'all'} className={`tab-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>
-              ✨ Tous les Produits
+              <Sparkles size={16} /> Tous les Produits
             </button>
             <button aria-pressed={categoryFilter === 'menu'} className={`tab-btn ${categoryFilter === 'menu' ? 'active' : ''}`} onClick={() => setCategoryFilter('menu')}>
-              🍱 Formules Menus
+              <Layers size={16} /> Formules Menus
             </button>
             {categories.filter(category => category.isVisible !== false).map(category => (
               <button key={category.id} aria-pressed={categoryFilter === category.id} className={`tab-btn ${categoryFilter === category.id ? 'active' : ''}`} onClick={() => setCategoryFilter(category.id)}>
-                {category.icon} {category.name}
+                <ItemIcon item={category} size={16} /> {category.name}
               </button>
             ))}
           </div>
@@ -424,10 +415,10 @@ export default function App() {
           {/* MENUS SECTION (When All or Menu) */}
           {(categoryFilter === 'all' || categoryFilter === 'menu') && (
             <section style={{ marginBottom: '2.5rem' }}>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-primary)' }}>
-                🍱 Formules Repas BDE (Bons Plans)
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-primary)' }}>
+                <Layers size={20} /> Formules Repas BDE (Bons Plans)
               </h2>
-              <div className="grid-container">
+              <div className="menu-list menu-accordion-list">
                 {menus.map(menu => (
                   <ProductCard
                     key={menu.id}
@@ -445,14 +436,14 @@ export default function App() {
           {categoryFilter !== 'menu' && (
             <section>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem' }}>
-                {selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : '✨ Tous les Produits'} ({filteredProducts.length})
+                {selectedCategory ? <><ItemIcon item={selectedCategory} size={20} /> {selectedCategory.name}</> : <><Sparkles size={20} /> Tous les Produits</>} ({filteredProducts.length})
               </h2>
               {filteredProducts.length === 0 ? (
                 <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
                   Aucun produit disponible dans cette catégorie pour le moment.
                 </div>
               ) : (
-                <div className="grid-container">
+                <div className="menu-list">
                   {filteredProducts.map((product, idx) => (
                     <ProductCard
                       key={`${product.id}_${idx}`}

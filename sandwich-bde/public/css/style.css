@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  /* Ardoise de bistrot */
+  --board: #202b24;
+  --board-alt: #26332b;
+  --ink: #f1e9d8;       /* craie */
+  --muted: #93a89a;     /* sauge éteinte */
+  --mustard: #d79a3b;   /* accent principal, prix */
+  --burgundy: #9a3d3d;  /* accent secondaire, alertes/boutons forts */
+  --line: #435247;      /* filets / pointillés */
+  --paper: #efe3c6;     /* papier kraft du ticket */
+  --paper-ink: #241c12;
+
+  --display: "Fraunces", Georgia, serif;
+  --body: "Work Sans", system-ui, sans-serif;
+  --mono: "Space Mono", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--body);
+  background: var(--board);
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(255,255,255,0.03), transparent 45%),
+    radial-gradient(circle at 90% 30%, rgba(255,255,255,0.02), transparent 40%);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+header.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--board-alt);
+}
+
+header.topbar .brand { display: flex; flex-direction: column; gap: 2px; }
+header.topbar h1 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.7rem;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+header.topbar .brand .tagline {
+  font-family: var(--body);
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+header.topbar #auth-area { font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
+header.topbar #auth-area span { color: var(--muted); }
+
+main { max-width: 760px; margin: 0 auto; padding: 32px 24px 120px; }
+
+/* Onglets façon rubriques de carte, pas des pilules SaaS */
+.tabs {
+  display: flex;
+  gap: 22px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0 0 10px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn.active { color: var(--mustard); border-bottom-color: var(--mustard); }
+.tab-btn:hover:not(.active) { color: var(--ink); }
+
+/* Rubrique de menu */
+.menu-section-title {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--mustard);
+  margin: 0 0 14px;
+}
+
+.grid { display: flex; flex-direction: column; }
+
+.card {
+  border-bottom: 1px dashed var(--line);
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card:last-child { border-bottom: none; }
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.card h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin: 0;
+  white-space: nowrap;
+}
+.card .leader {
+  flex: 1;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-5px);
+  margin: 0 2px;
+}
+.card .price {
+  font-family: var(--mono);
+  color: var(--mustard);
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.card p.desc { color: var(--muted); font-size: 0.87rem; margin: 0; font-style: italic; max-width: 60ch; }
+.card .type-badge { display: none; } /* la rubrique fait déjà office de catégorie */
+
+.card .row-foot { margin-top: 4px; }
+.card .add-link {
+  background: none;
+  border: none;
+  color: var(--mustard);
+  font-family: var(--body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+.card .add-link:hover { text-decoration: underline; }
+.card .add-link::before { content: "+ "; }
+
+button, .btn {
+  background: var(--mustard);
+  color: #241c0c;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-family: var(--body);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button.danger { background: var(--burgundy); color: var(--ink); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select, textarea {
+  background: var(--board-alt);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 8px 10px;
+  border-radius: 3px;
+  font-size: 0.9rem;
+  font-family: var(--body);
+  width: 100%;
+}
+label { font-size: 0.78rem; color: var(--muted); display: block; margin-bottom: 4px; }
+.field { margin-bottom: 12px; }
+
+/* Le panier comme un ticket de commande posé sur l'ardoise */
+.cart {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 300px;
+  max-height: 62vh;
+  overflow-y: auto;
+  background: var(--paper);
+  color: var(--paper-ink);
+  border-radius: 2px;
+  padding: 18px 20px;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.45);
+  transform: rotate(-1.2deg);
+  font-family: var(--mono);
+}
+.cart h3 {
+  font-family: var(--display);
+  font-size: 1rem;
+  margin: 0 0 10px;
+  border-bottom: 1px dashed var(--paper-ink);
+  padding-bottom: 8px;
+}
+.cart label, .cart .field { font-family: var(--body); }
+.cart-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dotted rgba(36,28,18,0.3); font-size: 0.8rem; }
+.cart-total { display: flex; justify-content: space-between; font-weight: 700; margin-top: 10px; border-top: 1px dashed var(--paper-ink); padding-top: 8px; font-size: 0.9rem; }
+.cart input, .cart textarea { background: #fbf6e8; border-color: rgba(36,28,18,0.25); color: var(--paper-ink); }
+.cart button#checkout-btn { width: 100%; margin-top: 12px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-family: var(--body); }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-family: var(--body); }
+
+.status-pill { padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; }
+.status-pending { background: #3a3320; color: #e2c14d; }
+.status-confirmed { background: #1f3a2f; color: #7fbf9e; }
+.status-ready { background: #1f3352; color: #7fa8d9; }
+.status-cancelled { background: #3a1f1f; color: #d97a7a; }
+
+.empty { color: var(--muted); font-style: italic; padding: 24px 0; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(10,14,11,0.7);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.modal {
+  background: var(--board-alt); border: 1px solid var(--line); border-radius: 4px;
+  padding: 22px; width: 420px; max-width: 90vw; max-height: 85vh; overflow-y: auto;
+}
+.modal h2 { font-family: var(--display); margin-top: 0; font-size: 1.1rem; color: var(--mustard); }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+
+/* Admin : fiches de préparation, distinctes de la liste de carte publique */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+.admin-card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--board-alt);
+}
+.admin-card .type-badge {
+  align-self: flex-start;
+  font-size: 0.7rem;
+  background: var(--board);
+  border: 1px solid var(--line);
+  padding: 2px 8px;
+  border-radius: 3px;
+  color: var(--muted);
+}
+.admin-card h3 { font-family: var(--display); font-size: 1.02rem; margin: 0; }
+.admin-card p.desc { color: var(--muted); font-size: 0.85rem; margin: 0; font-style: italic; flex-grow: 1; }
+.admin-card .price { font-family: var(--mono); color: var(--mustard); font-weight: 700; }

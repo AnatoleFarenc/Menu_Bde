@@ -1,9 +1,24 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles } from 'lucide-react';
 
 export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart }) {
+  const [isHidden, setIsHidden] = useState(false);
+
+  useEffect(() => {
+    let previousScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      setIsHidden(currentScrollY > previousScrollY && currentScrollY > 80);
+      previousScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <header className="navbar">
+    <header className={`navbar ${isHidden ? 'navbar-hidden' : ''}`}>
       <div className="navbar-inner">
         <div className="logo-group">
           <div className="logo-badge">
@@ -35,7 +50,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
             <button
               className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
               onClick={() => setActiveTab('admin')}
-              style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: activeTab === 'admin' ? '#818CF8' : '#A5B4FC' }}
+              style={{ borderColor: 'rgba(154, 61, 61, 0.65)', color: activeTab === 'admin' ? '#e3a0a0' : '#c97b7b' }}
             >
               <ShieldCheck size={16} /> Espace Admin BDE
             </button>
@@ -53,7 +68,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
               </div>
               <button
                 className="btn btn-secondary"
-                style={{ padding: '0.35rem 0.6rem', borderRadius: '50%', marginLeft: '0.2rem' }}
+                style={{ padding: '0.35rem 0.6rem', borderRadius: 'var(--radius-sm)', marginLeft: '0.2rem' }}
                 onClick={onLogout}
                 title="Se déconnecter"
               >
