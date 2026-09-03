@@ -186,9 +186,9 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
               className="btn btn-primary"
               style={{ width: '100%', padding: '0.85rem', fontSize: '1rem' }}
               onClick={handlePlaceOrder}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !user}
             >
-              {isSubmitting ? 'Validation en cours...' : 'Envoyer la Précommande au BDE'}
+              {isSubmitting ? 'Validation en cours...' : user ? 'Envoyer la Précommande au BDE' : 'Connectez-vous avec 42 pour commander'}
             </button>
           </div>
         )}

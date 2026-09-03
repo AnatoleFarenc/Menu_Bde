@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShoppingBag, ShieldCheck, UserCheck, LogOut, Utensils, Clock, Sparkles } from 'lucide-react';
+import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles } from 'lucide-react';
 
-export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onDemoLogin, onLogout, onOpenCart }) {
+export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart }) {
   return (
     <header className="navbar">
       <div className="navbar-inner">
@@ -65,24 +65,6 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
               <button className="btn btn-primary" onClick={onLogin42}>
                 <Sparkles size={16} /> Connexion 42
               </button>
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
-                <button
-                  className="btn btn-secondary"
-                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem' }}
-                  onClick={() => onDemoLogin('student')}
-                  title="Se connecter en tant qu'étudiant"
-                >
-                  <UserCheck size={13} /> Démo Élève
-                </button>
-                <button
-                  className="btn btn-admin"
-                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem' }}
-                  onClick={() => onDemoLogin('admin')}
-                  title="Se connecter en tant qu'administrateur BDE"
-                >
-                  <ShieldCheck size={13} /> Démo BDE
-                </button>
-              </div>
             </div>
           )}
 

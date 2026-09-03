@@ -47,6 +47,31 @@ export default function KitchenDashboard({
 
   const slotsList = Object.keys(synthesisByTime || {}).sort();
 
+  const renderStatusActions = (order, compact = false) => (
+    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: compact ? 'flex-end' : 'initial' }}>
+      {order.status === 'pending' && (
+        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'preparing')}>
+          Préparer
+        </button>
+      )}
+      {order.status === 'preparing' && (
+        <button className="btn btn-primary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'ready')}>
+          Marquer prête
+        </button>
+      )}
+      {order.status === 'ready' && (
+        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem', color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.4)' }} onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
+          Récupérée
+        </button>
+      )}
+      {order.status !== 'completed' && order.status !== 'cancelled' && (
+        <button className="btn btn-danger" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'cancelled')}>
+          Annuler
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="fade-in">
       {/* HEADER BANNER */}
@@ -84,8 +109,8 @@ export default function KitchenDashboard({
         <>
           {/* SYNTHESIS OF ITEMS TO PREPARE */}
           <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Sparkles size={18} color="var(--color-primary)" /> Synthèse globale à préparer à l'avance
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Sparkles size={18} color="var(--color-primary)" /> Préparation et suivi des commandes
             </h2>
 
             {slotsList.length === 0 ? (
@@ -105,6 +130,25 @@ export default function KitchenDashboard({
                         <strong style={{ color: 'var(--color-primary)' }}>x{qty}</strong>
                       </div>
                     ))}
+                    <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '0.75rem', paddingTop: '0.75rem' }}>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 700 }}>
+                        Suivi des commandes
+                      </div>
+                      {orders
+                        .filter(order => order.pickupTime === slot && order.status !== 'completed' && order.status !== 'cancelled')
+                        .map(order => (
+                          <div key={order.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                              <strong style={{ color: 'var(--color-primary)' }}>{order.orderNumber}</strong>
+                              <span style={{ fontSize: '0.75rem' }}>{order.userLogin}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
+                              {getStatusBadge(order.status)}
+                              {renderStatusActions(order, true)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -152,8 +196,8 @@ export default function KitchenDashboard({
             </div>
           </div>
 
-          {/* ORDERS LIST */}
-          {filteredOrders.length === 0 ? (
+          {/* HISTORY DETAILS */}
+          {statusFilter === 'all' && (filteredOrders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)' }}>
               Aucune commande ne correspond aux filtres sélectionnés.
             </div>
@@ -226,6 +270,7 @@ export default function KitchenDashboard({
                       {order.status === 'preparing' && (
                         <button className="btn btn-primary" onClick={() => onUpdateOrderStatus(order.id, 'ready')}>
                           Marquer Prête au BDE 🔔
+                            Marquer Prête au bar à eau 🔔
                         </button>
                       )}
                       {order.status === 'ready' && (
@@ -243,7 +288,7 @@ export default function KitchenDashboard({
                 </div>
               ))}
             </div>
-          )}
+          ))}
         </>
       )}
 

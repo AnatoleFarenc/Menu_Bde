@@ -105,6 +105,39 @@ a {
   padding: 0 1.5rem 6rem 1.5rem;
 }
 
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.auth-panel {
+  max-width: 30rem;
+  width: 100%;
+  padding: 2.5rem;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow);
+}
+
+.auth-panel .logo-badge {
+  width: fit-content;
+  margin: 0 auto 1.5rem;
+}
+
+.auth-panel h1 {
+  margin-bottom: 0.75rem;
+}
+
+.auth-panel p {
+  margin-bottom: 1.5rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 /* Header Navbar */
 .navbar {
   position: sticky;

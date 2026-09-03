@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { db } from './db.js';
-import { get42AuthUrl, handle42Callback, createDemoUser } from './auth42.js';
+import { get42AuthUrl, handle42Callback } from './auth42.js';
 
 dotenv.config();
 
@@ -24,10 +24,14 @@ const getUserFromReq = (req) => {
 };
 
 // ----------------------------------------------------
-// AUTH ROUTES (42 OAuth2 & Demo Mode)
+// AUTH ROUTES (42 OAuth2)
 // ----------------------------------------------------
 app.get('/api/auth/42/url', (req, res) => {
-  res.json({ url: get42AuthUrl() });
+  try {
+    res.json({ url: get42AuthUrl() });
+  } catch (error) {
+    res.status(503).json({ error: error.message });
+  }
 });
 
 app.get('/api/auth/42/callback', async (req, res) => {
@@ -42,14 +46,6 @@ app.get('/api/auth/42/callback', async (req, res) => {
     console.error('42 Auth error:', error.message);
     res.redirect(`http://localhost:3000/?error=${encodeURIComponent(error.message)}`);
   }
-});
-
-app.post('/api/auth/demo', (req, res) => {
-  const { role } = req.body; // 'student' | 'admin'
-  const user = createDemoUser(role || 'student');
-  const token = 'demo_token_' + role + '_' + Date.now();
-  sessions.set(token, user);
-  res.json({ token, user });
 });
 
 app.get('/api/auth/me', (req, res) => {
@@ -164,14 +160,18 @@ app.post('/api/orders', (req, res) => {
   const user = getUserFromReq(req);
   const { items, pickupTime, note, totalPrice } = req.body;
 
+  if (!user) {
+    return res.status(401).json({ error: 'Connexion 42 requise pour commander' });
+  }
+
   if (!items || items.length === 0) {
     return res.status(400).json({ error: 'Panier vide' });
   }
 
   const newOrder = db.addOrder({
-    userId: user ? user.id : 'guest',
-    userLogin: user ? user.login : 'Anonyme 42',
-    userDisplayName: user ? user.displayName : 'Étudiant',
+    userId: user.id,
+    userLogin: user.login,
+    userDisplayName: user.displayName,
     items,
     pickupTime: pickupTime || '12h00',
     note: note || '',
@@ -203,7 +203,7 @@ app.get('/api/admin/orders', (req, res) => {
   // Compute kitchen synthesis per pickup time and product count
   const synthesisByTime = {};
   orders.forEach(order => {
-    if (order.status === 'cancelled') return;
+    if (order.status === 'cancelled' || order.status === 'completed') return;
     const slot = order.pickupTime || '12h00';
     if (!synthesisByTime[slot]) {
       synthesisByTime[slot] = { totalOrders: 0, itemsCount: {} };
@@ -235,6 +235,10 @@ app.patch('/api/admin/orders/:id/status', (req, res) => {
     return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   }
   const { status } = req.body;
+  const allowedStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Statut de commande invalide' });
+  }
   const updatedOrder = db.updateOrderStatus(req.params.id, status);
   if (!updatedOrder) {
     return res.status(404).json({ error: 'Commande introuvable' });

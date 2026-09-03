@@ -18,7 +18,7 @@ export default function OrderStatus({ orders }) {
     const steps = [
       { key: 'pending', label: 'Envoyée' },
       { key: 'preparing', label: 'En Préparation' },
-      { key: 'ready', label: 'Prête au BDE !' },
+      { key: 'ready', label: 'Prête au bar à eau !' },
       { key: 'completed', label: 'Récupérée' }
     ];
 

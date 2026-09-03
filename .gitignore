@@ -1,0 +1,18 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local data and runtime files
+server/data/db.json
+*.log
+logs/
+
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/

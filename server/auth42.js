@@ -1,20 +1,30 @@
 import axios from 'axios';
 
-const ADMIN_LOGINS = (process.env.ADMIN_LOGINS || 'alix,admin,bde_admin,president_bde,staff42').split(',').map(s => s.trim().toLowerCase());
+const getAdminLogins = () => (process.env.ADMIN_LOGINS || '')
+  .split(',')
+  .map(login => login.trim().toLowerCase())
+  .filter(Boolean);
 
 export const get42AuthUrl = () => {
-  const clientId = process.env.INTRA42_CLIENT_ID || 'DEMO_CLIENT_ID';
+  const clientId = process.env.INTRA42_CLIENT_ID;
+  if (!clientId) {
+    throw new Error('INTRA42_CLIENT_ID absent du fichier .env');
+  }
   const redirectUri = encodeURIComponent(process.env.INTRA42_REDIRECT_URI || 'http://localhost:3000/api/auth/42/callback');
   return `https://api.intra.42.fr/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=public`;
 };
 
 export const handle42Callback = async (code) => {
+  if (!code) {
+    throw new Error('Code OAuth 42 manquant');
+  }
+
   const clientId = process.env.INTRA42_CLIENT_ID;
   const clientSecret = process.env.INTRA42_CLIENT_SECRET;
   const redirectUri = process.env.INTRA42_REDIRECT_URI || 'http://localhost:3000/api/auth/42/callback';
 
   if (!clientId || !clientSecret) {
-    throw new Error('42 Intra OAuth keys not set in environment. Use Demo Mode or configure .env');
+    throw new Error('Identifiants OAuth 42 absents. Configurez INTRA42_CLIENT_ID et INTRA42_CLIENT_SECRET dans .env');
   }
 
   // 1. Exchange authorization code for access token
@@ -35,7 +45,7 @@ export const handle42Callback = async (code) => {
 
   const intraUser = userRes.data;
   const login = intraUser.login.toLowerCase();
-  const isAdmin = ADMIN_LOGINS.includes(login) || intraUser['staff?'] === true;
+  const isAdmin = getAdminLogins().includes(login);
 
   return {
     id: intraUser.id,
@@ -47,32 +57,5 @@ export const handle42Callback = async (code) => {
     poolYear: intraUser.pool_year || '2024',
     isAdmin: isAdmin,
     role: isAdmin ? 'bde_admin' : 'student'
-  };
-};
-
-export const createDemoUser = (type = 'student') => {
-  if (type === 'admin') {
-    return {
-      id: 42000,
-      login: 'alix_bde',
-      displayName: 'Alix (BDE Admin)',
-      email: 'bde@42.fr',
-      avatarUrl: 'https://cdn.intra.42.fr/users/medium_default.png',
-      campus: '42 Campus',
-      poolYear: '2024',
-      isAdmin: true,
-      role: 'bde_admin'
-    };
-  }
-  return {
-    id: 42101,
-    login: 'student42',
-    displayName: 'Étudiant 42',
-    email: 'student@student.42.fr',
-    avatarUrl: 'https://cdn.intra.42.fr/users/medium_default.png',
-    campus: '42 Campus',
-    poolYear: '2024',
-    isAdmin: false,
-    role: 'student'
   };
 };

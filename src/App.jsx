@@ -7,11 +7,12 @@ import CartDrawer from './components/CartDrawer';
 import AdminProductModal from './components/AdminProductModal';
 import KitchenDashboard from './components/KitchenDashboard';
 import OrderStatus from './components/OrderStatus';
-import { Sparkles, Utensils, Coffee, Cake, Plus, ShieldCheck } from 'lucide-react';
+import { Sparkles, Utensils, Coffee, Cake, Plus, ShieldCheck, LogIn } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState('vitrine'); // 'vitrine' | 'orders' | 'admin'
   const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -44,6 +45,8 @@ export default function App() {
       setAuthToken(tokenFromUrl);
       localStorage.setItem('bde_token', tokenFromUrl);
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (!authToken) {
+      setIsAuthChecking(false);
     }
   }, []);
 
@@ -61,14 +64,25 @@ export default function App() {
     }
   }, [user, activeTab]);
 
+  useEffect(() => {
+    if (!user || activeTab !== 'orders') return undefined;
+
+    fetchUserOrders();
+    const refreshTimer = setInterval(fetchUserOrders, 5000);
+    return () => clearInterval(refreshTimer);
+  }, [user, activeTab]);
+
   const fetchUser = async () => {
     try {
       const res = await axios.get('/api/auth/me', {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setUser(res.data.user);
+      setIsAuthChecking(false);
     } catch (e) {
       setUser(null);
+      setAuthToken('');
+      setIsAuthChecking(false);
       localStorage.removeItem('bde_token');
     }
   };
@@ -111,20 +125,8 @@ export default function App() {
     try {
       const res = await axios.get('/api/auth/42/url');
       window.location.href = res.data.url;
-    } catch (e) {
-      alert('Erreur lors de la redirection vers 42 Intra OAuth.');
-    }
-  };
-
-  const handleDemoLogin = async (role) => {
-    try {
-      const res = await axios.post('/api/auth/demo', { role });
-      setAuthToken(res.data.token);
-      localStorage.setItem('bde_token', res.data.token);
-      setUser(res.data.user);
-      fetchUserOrders();
-    } catch (e) {
-      alert('Erreur lors du mode démo.');
+    } catch (error) {
+      alert(error.response?.data?.error || 'Erreur lors de la redirection vers 42 Intra OAuth.');
     }
   };
 
@@ -136,6 +138,7 @@ export default function App() {
     } catch (e) {}
     setUser(null);
     setAuthToken('');
+    setIsAuthChecking(false);
     localStorage.removeItem('bde_token');
     setActiveTab('vitrine');
   };
@@ -263,6 +266,25 @@ export default function App() {
 
   const cartTotalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  if (isAuthChecking) {
+    return <main className="auth-page"><p>Vérification de votre compte 42...</p></main>;
+  }
+
+  if (!user) {
+    return (
+      <main className="auth-page fade-in">
+        <div className="auth-panel">
+          <div className="logo-badge"><span>42</span></div>
+          <h1>Bienvenue sur BDE Sandwicherie</h1>
+          <p>Connectez-vous avec votre compte 42 pour accéder à la vitrine, commander et suivre vos commandes.</p>
+          <button className="btn btn-primary" onClick={handleLogin42}>
+            <LogIn size={18} /> Se connecter avec 42
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* NAVBAR */}
@@ -272,7 +294,6 @@ export default function App() {
         setActiveTab={setActiveTab}
         cartCount={cartTotalCount}
         onLogin42={handleLogin42}
-        onDemoLogin={handleDemoLogin}
         onLogout={handleLogout}
         onOpenCart={() => setIsCartOpen(true)}
       />
