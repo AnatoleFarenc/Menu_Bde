@@ -31,21 +31,6 @@ docker compose up --build
 L'application sera accessible sur `http://localhost:3000`.
 
 
-## 🔑 Configuration OAuth2 API 42
-
-Pour utiliser votre propre application Intra 42 :
-1. Allez sur [https://profile.intra.42.fr/oauth/applications](https://profile.intra.42.fr/oauth/applications) et créez une nouvelle application.
-2. Définissez le **Redirect URI** : `http://localhost:3000/api/auth/42/callback`
-3. Créez un fichier `.env` à la racine et renseignez vos identifiants :
-
-```env
-PORT=5001
-INTRA42_CLIENT_ID=votre_uid_intra
-INTRA42_CLIENT_SECRET=votre_secret_intra
-INTRA42_REDIRECT_URI=http://localhost:3000/api/auth/42/callback
-ADMIN_LOGINS=login_bde_1,login_bde_2
-```
-
 # BDE Sandwich 42
 
 Application web de précommande pour la sandwicherie du BDE de l'École 42. Elle permet aux étudiants de consulter la vitrine, composer des menus, passer une commande et suivre son état. Les membres du BDE disposent d'un espace d'administration pour gérer les produits, les stocks et la préparation des commandes.
@@ -129,23 +114,95 @@ npm run build    # construit le frontend pour la production
 npm run preview  # prévisualise le build frontend
 ```
 
-## Configuration OAuth2 Intra 42 (optionnelle)
+## Configuration OAuth2 Intra 42
 
 Pour activer la connexion avec un compte 42 :
 
 1. Créer une application OAuth sur [profile.intra.42.fr/oauth/applications](https://profile.intra.42.fr/oauth/applications).
-2. Utiliser cette URL de redirection : `http://localhost:3000/api/auth/42/callback`.
-3. Créer un fichier `.env` à la racine du projet avec les variables suivantes :
+2. Pour un test uniquement sur le PC serveur, utiliser cette URL de redirection : `http://localhost:5001/api/auth/42/callback`.
+3. Pour un accès avec Cloudflare Tunnel, utiliser l'URL publique indiquée dans la section suivante.
+4. Créer un fichier `.env` à la racine du projet avec les variables suivantes :
 
 ```env
+NODE_ENV=production
 PORT=5001
+PUBLIC_APP_URL=http://localhost:5001
 INTRA42_CLIENT_ID=votre_uid_intra
 INTRA42_CLIENT_SECRET=votre_secret_intra
-INTRA42_REDIRECT_URI=http://localhost:3000/api/auth/42/callback
-ADMIN_LOGINS=alix,admin,bde_admin,president_bde
+INTRA42_REDIRECT_URI=http://localhost:5001/api/auth/42/callback
+ADMIN_LOGINS=login_bde_1,login_bde_2
 ```
 
 `ADMIN_LOGINS` contient, séparés par des virgules, les logins 42 autorisés à accéder à l'espace BDE. Seuls ces logins peuvent administrer les commandes, les produits et les menus.
+
+## Accès public avec Cloudflare Tunnel
+
+Cloudflare Tunnel permet de rendre le serveur du PC accessible avec une URL HTTPS temporaire, sans ouvrir de port sur la box et sans acheter de nom de domaine. L'URL `trycloudflare.com` change généralement lorsque le tunnel est relancé.
+
+### Installer cloudflared sous Debian WSL
+
+Télécharger le paquet `.deb` adapté à l'architecture de WSL depuis [la documentation Cloudflare](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/), puis l'installer :
+
+```bash
+cd /mnt/c/Users/VOTRE_NOM/Downloads
+sudo dpkg -i cloudflared-linux-amd64.deb
+sudo apt install -f
+cloudflared --version
+```
+
+### Lancer l'application et le tunnel
+
+Dans un premier terminal WSL, depuis le projet :
+
+```bash
+cd /home/anate/Documents/Menu_Bde
+npm install
+npm run build
+NODE_ENV=production npm run server
+```
+
+Dans un deuxième terminal WSL :
+
+```bash
+cloudflared tunnel --url http://localhost:5001
+```
+
+Cloudflare affiche une URL similaire à :
+
+```text
+https://exemple-aleatoire.trycloudflare.com
+```
+
+### Modifier les URL après le lancement du tunnel
+
+Remplacer `exemple-aleatoire.trycloudflare.com` par l'URL réellement affichée par Cloudflare dans les deux variables du fichier `.env` :
+
+```env
+PUBLIC_APP_URL=https://exemple-aleatoire.trycloudflare.com
+INTRA42_REDIRECT_URI=https://exemple-aleatoire.trycloudflare.com/api/auth/42/callback
+```
+
+Dans l'application OAuth 42, mettre exactement cette valeur comme **Redirect URI** :
+
+```text
+https://exemple-aleatoire.trycloudflare.com/api/auth/42/callback
+```
+
+Après chaque modification du fichier `.env`, arrêter puis relancer le serveur :
+
+```bash
+Ctrl+C
+NODE_ENV=production npm run server
+```
+
+Le site est ensuite accessible avec l'URL Cloudflare. Le terminal `cloudflared` doit rester ouvert pendant toute la durée d'utilisation du site.
+
+### Dépannage rapide
+
+- `client_id=undefined` : `INTRA42_CLIENT_ID` manque dans `.env` ou le serveur n'a pas été redémarré.
+- `redirect_uri mismatch` : le Redirect URI dans 42, `INTRA42_REDIRECT_URI` et l'URL Cloudflare ne sont pas strictement identiques.
+- erreur `EADDRINUSE` sur le port `5001` : un ancien serveur fonctionne déjà ; arrêtez-le avec `Ctrl+C` avant de relancer.
+- erreur `cloudflared: command not found` : le paquet `.deb` n'est pas installé ou le terminal WSL doit être rouvert.
 
 ## Docker
 
