@@ -44,9 +44,10 @@ const defaultData = {
       description: 'Le snack parfait entre deux évaluations. Choisissez 1 Plat + 1 Boisson au choix.',
       badge: 'Économique',
       available: true,
-      allowedPlats: true,
-      allowedBoissons: true,
-      allowedDesserts: false,
+      groups: [
+        { id: 'g_plat', name: 'Plat', productIds: [], category: 'plat' },
+        { id: 'g_boisson', name: 'Boisson', productIds: [], category: 'boisson' }
+      ],
       icon: '🎣'
     },
     {
@@ -56,9 +57,11 @@ const defaultData = {
       description: 'La formule incontournable du midi ! 1 Plat + 1 Boisson + 1 Dessert au choix.',
       badge: 'Le + Populaire',
       available: true,
-      allowedPlats: true,
-      allowedBoissons: true,
-      allowedDesserts: true,
+      groups: [
+        { id: 'g_plat', name: 'Plat', productIds: [], category: 'plat' },
+        { id: 'g_boisson', name: 'Boisson', productIds: [], category: 'boisson' },
+        { id: 'g_dessert', name: 'Dessert', productIds: [], category: 'dessert' }
+      ],
       icon: '🦈'
     }
   ],
@@ -66,6 +69,18 @@ const defaultData = {
   templates: [],
   users: []
 };
+
+function normalizeGroups(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(group => ({
+      id: (group && group.id) || 'g_' + Math.random().toString(36).slice(2, 9),
+      name: (group && group.name ? String(group.name) : '').trim(),
+      productIds: Array.isArray(group && group.productIds) ? group.productIds.filter(Boolean) : [],
+      ...(group && group.category ? { category: group.category } : {})
+    }))
+    .filter(group => group.name || group.productIds.length || group.category);
+}
 
 class DB {
   constructor() {
@@ -231,10 +246,8 @@ class DB {
       available: true,
       badge: '',
       icon: menu.icon || '🍱',
-      allowedPlats: true,
-      allowedBoissons: true,
-      allowedDesserts: menu.allowedDesserts !== false,
       ...menu,
+      groups: normalizeGroups(menu.groups),
       price: parseFloat(menu.price) || 0
     };
     this.data.menus.unshift(newMenu);
@@ -248,6 +261,9 @@ class DB {
       this.data.menus[idx] = { ...this.data.menus[idx], ...updates };
       if (updates.price !== undefined) {
         this.data.menus[idx].price = parseFloat(updates.price);
+      }
+      if (updates.groups !== undefined) {
+        this.data.menus[idx].groups = normalizeGroups(updates.groups);
       }
       this.save();
       return this.data.menus[idx];

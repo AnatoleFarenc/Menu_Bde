@@ -1,18 +1,94 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Plus, Trash2 } from 'lucide-react';
+import { getMenuGroups, makeGroupId } from '../lib/menuChoices';
 
 const ICONS = ['🥪', '🐟', '🥗', '🥤', '🦈', '💧', '⚡', '🍗', '🍩', '🥧', '🍎', '🍫', '🎣'];
 
-export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [] }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    category: 'plat',
-    price: '',
-    description: '',
-    badge: '',
-    icon: '🥪',
-    allowedDesserts: true
-  });
+// Reconstruit les groupes éditables d'une formule (avec migration des anciennes).
+function initGroups(editingItem, products) {
+  if (editingItem && Array.isArray(editingItem.groups) && editingItem.groups.length) {
+    return editingItem.groups.map(group => ({
+      id: group.id || makeGroupId(),
+      name: group.name || '',
+      productIds: Array.isArray(group.productIds) ? [...group.productIds] : []
+    }));
+  }
+
+  if (editingItem) {
+    return getMenuGroups(editingItem).map(group => ({
+      id: makeGroupId(),
+      name: group.name || '',
+      productIds: (group.productIds && group.productIds.length)
+        ? [...group.productIds]
+        : products.filter(product => product.category === group.category).map(product => product.id)
+    }));
+  }
+
+  // Nouvelle formule : on démarre avec un groupe vide.
+  return [{ id: makeGroupId(), name: '', productIds: [] }];
+}
+
+const emptyBaseForm = (type) => ({
+  name: '',
+  category: 'plat',
+  price: '',
+  extraMenuPrice: '',
+  description: '',
+  badge: '',
+  icon: type === 'menu' ? '🍱' : '🥪'
+});
+
+function GroupEditor({ group, index, products, onRename, onToggleProduct, onRemove, canRemove }) {
+  return (
+    <div className="formule-slot">
+      <div className="formule-group-head">
+        <input
+          type="text"
+          className="form-input"
+          placeholder={`Nom du groupe ${index + 1} (ex: Plat, Boisson, Dessert...)`}
+          value={group.name}
+          onChange={e => onRename(e.target.value)}
+        />
+        <button
+          type="button"
+          className="btn btn-danger"
+          onClick={onRemove}
+          disabled={!canRemove}
+          title="Supprimer ce groupe"
+          style={{ padding: '0.4rem 0.55rem' }}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <p className="formule-slot-hint">
+        Coche les produits proposés dans ce choix. Si rien n'est coché, tous les produits disponibles seront proposés.
+      </p>
+
+      {products.length === 0 ? (
+        <p className="formule-slot-hint">Aucun produit dans la vitrine pour le moment.</p>
+      ) : (
+        <div className="formule-item-list">
+          {products.map(product => {
+            const checked = group.productIds.includes(product.id);
+            return (
+              <label key={product.id} className={`formule-item ${checked ? 'is-checked' : ''}`}>
+                <input type="checkbox" checked={checked} onChange={() => onToggleProduct(product.id)} />
+                <span>{product.icon} {product.name}</span>
+                <span className="formule-item-cat">{product.category}</span>
+                {!product.available && <span className="formule-item-off">épuisé</span>}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [], products = [] }) {
+  const [formData, setFormData] = useState(emptyBaseForm(type));
+  const [groups, setGroups] = useState([]);
 
   useEffect(() => {
     if (editingItem) {
@@ -23,24 +99,41 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         extraMenuPrice: editingItem.extraMenuPrice || '',
         description: editingItem.description || '',
         badge: editingItem.badge || '',
-        icon: editingItem.icon || '🥪',
-        allowedDesserts: editingItem.allowedDesserts !== false
+        icon: editingItem.icon || (type === 'menu' ? '🍱' : '🥪')
       });
     } else {
-      setFormData({
-        name: '',
-        category: 'plat',
-        price: '',
-        extraMenuPrice: '',
-        description: '',
-        badge: '',
-        icon: type === 'menu' ? '🍱' : '🥪',
-        allowedDesserts: true
-      });
+      setFormData(emptyBaseForm(type));
     }
+    setGroups(type === 'menu' ? initGroups(editingItem, products) : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingItem, type, isOpen]);
 
   if (!isOpen) return null;
+
+  const renameGroup = (id, name) => {
+    setGroups(prev => prev.map(group => (group.id === id ? { ...group, name } : group)));
+  };
+
+  const toggleGroupProduct = (id, productId) => {
+    setGroups(prev => prev.map(group => {
+      if (group.id !== id) return group;
+      const next = new Set(group.productIds);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return { ...group, productIds: [...next] };
+    }));
+  };
+
+  const addGroup = () => {
+    setGroups(prev => [...prev, { id: makeGroupId(), name: '', productIds: [] }]);
+  };
+
+  const removeGroup = (id) => {
+    setGroups(prev => prev.filter(group => group.id !== id));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,7 +141,25 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
       alert('Veuillez remplir au moins le nom et le prix.');
       return;
     }
-    const saved = await onSave(formData, editingItem ? editingItem.id : null, type);
+
+    let payload = { ...formData };
+    if (type === 'menu') {
+      const cleanGroups = groups
+        .map(group => ({
+          id: group.id,
+          name: group.name.trim(),
+          productIds: group.productIds
+        }))
+        .filter(group => group.name || group.productIds.length);
+
+      if (cleanGroups.length === 0) {
+        alert('Ajoutez au moins un groupe de choix (avec un nom ou des produits cochés).');
+        return;
+      }
+      payload.groups = cleanGroups;
+    }
+
+    const saved = await onSave(payload, editingItem ? editingItem.id : null, type);
     if (saved) onClose();
   };
 
@@ -94,7 +205,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label className="form-label">Prix à l'unité (€)</label>
+              <label className="form-label">{type === 'menu' ? 'Prix de base de la formule (€)' : 'Prix à l\'unité (€)'}</label>
               <input
                 type="number"
                 step="0.10"
@@ -168,15 +279,25 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
           </div>
 
           {type === 'menu' && (
-            <div className="form-group" style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.85rem', borderRadius: 'var(--radius-md)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.allowedDesserts}
-                  onChange={e => setFormData({ ...formData, allowedDesserts: e.target.checked })}
-                />
-                Inclure un choix de Dessert dans cette formule
-              </label>
+            <div className="form-group">
+              <label className="form-label">Groupes de choix de la formule</label>
+              <div className="formule-config">
+                {groups.map((group, index) => (
+                  <GroupEditor
+                    key={group.id}
+                    group={group}
+                    index={index}
+                    products={products}
+                    canRemove={groups.length > 1}
+                    onRename={name => renameGroup(group.id, name)}
+                    onToggleProduct={productId => toggleGroupProduct(group.id, productId)}
+                    onRemove={() => removeGroup(group.id)}
+                  />
+                ))}
+                <button type="button" className="btn btn-secondary formule-add-group" onClick={addGroup}>
+                  <Plus size={16} /> Ajouter un groupe de choix
+                </button>
+              </div>
             </div>
           )}
 

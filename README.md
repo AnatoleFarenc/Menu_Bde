@@ -107,11 +107,12 @@ La commande `npm run dev` démarre le frontend et le backend en parallèle. Les 
 ### Commandes disponibles
 
 ```bash
-npm run dev      # démarre le frontend et l'API en mode développement
-npm run client   # démarre uniquement Vite
-npm run server   # démarre uniquement l'API Express
-npm run build    # construit le frontend pour la production
-npm run preview  # prévisualise le build frontend
+npm run dev           # démarre le frontend et l'API en mode développement
+npm run client        # démarre uniquement Vite
+npm run server        # démarre uniquement l'API Express
+npm run build         # construit le frontend pour la production
+npm run preview       # prévisualise le build frontend
+npm run start:public  # build + serveur + URL HTTPS stable (Tailscale Funnel)
 ```
 
 ## Configuration OAuth2 Intra 42
@@ -119,90 +120,126 @@ npm run preview  # prévisualise le build frontend
 Pour activer la connexion avec un compte 42 :
 
 1. Créer une application OAuth sur [profile.intra.42.fr/oauth/applications](https://profile.intra.42.fr/oauth/applications).
-2. Pour un test uniquement sur le PC serveur, utiliser cette URL de redirection : `http://localhost:5001/api/auth/42/callback`.
-3. Pour un accès avec Cloudflare Tunnel, utiliser l'URL publique indiquée dans la section suivante.
-4. Créer un fichier `.env` à la racine du projet avec les variables suivantes :
+2. Y déclarer **plusieurs Redirect URIs, une bonne fois pour toutes** (l'app 42 en accepte plusieurs) :
+   - `http://localhost:5001/api/auth/42/callback` (tests locaux) ;
+   - l'URL publique stable, ex. `https://bde-42.mon-tailnet.ts.net/api/auth/42/callback` (voir section suivante).
+3. Créer un fichier `.env` à la racine du projet :
 
 ```env
 NODE_ENV=production
 PORT=5001
+# Unique URL à renseigner. La Redirect URI OAuth en est déduite automatiquement
+# (<PUBLIC_APP_URL>/api/auth/42/callback).
 PUBLIC_APP_URL=http://localhost:5001
 INTRA42_CLIENT_ID=votre_uid_intra
 INTRA42_CLIENT_SECRET=votre_secret_intra
-INTRA42_REDIRECT_URI=http://localhost:5001/api/auth/42/callback
 ADMIN_LOGINS=login_bde_1,login_bde_2
 ```
 
 `ADMIN_LOGINS` contient, séparés par des virgules, les logins 42 autorisés à accéder à l'espace BDE. Seuls ces logins peuvent administrer les commandes, les produits et les menus.
 
-## Accès public avec Cloudflare Tunnel
+> `INTRA42_REDIRECT_URI` n'est plus nécessaire : elle est calculée depuis `PUBLIC_APP_URL`.
+> Ne la remets que si tu veux forcer une valeur différente. Au démarrage, le serveur
+> affiche l'URL publique et la Redirect URI effectivement utilisées.
 
-Cloudflare Tunnel permet de rendre le serveur du PC accessible avec une URL HTTPS temporaire, sans ouvrir de port sur la box et sans acheter de nom de domaine. L'URL `trycloudflare.com` change généralement lorsque le tunnel est relancé.
+## Accès public avec une URL stable (Tailscale Funnel)
 
-### Installer cloudflared sous Debian WSL
+[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) expose le serveur du PC derrière
+une **URL HTTPS fixe** du type `https://bde-42.mon-tailnet.ts.net`, gratuitement, sans
+acheter de nom de domaine, sans ouvrir de port sur la box, et **sans page d'avertissement**.
 
-Télécharger le paquet `.deb` adapté à l'architecture de WSL depuis [la documentation Cloudflare](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/), puis l'installer :
+L'URL ne change jamais tant que le nom de la machine (`--hostname`) et le tailnet restent
+identiques : `.env` et l'application OAuth 42 se configurent **une seule fois**.
 
-```bash
-cd /mnt/c/Users/VOTRE_NOM/Downloads
-sudo dpkg -i cloudflared-linux-amd64.deb
-sudo apt install -f
-cloudflared --version
-```
+### Installation (une seule fois)
 
-### Lancer l'application et le tunnel
+1. Créer un compte sur [tailscale.com](https://tailscale.com/) (connexion Google/GitHub possible).
+2. Installer Tailscale dans WSL :
 
-Dans un premier terminal WSL, depuis le projet :
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   ```
+
+3. Activer **HTTPS** et **Funnel** pour le tailnet dans la console d'administration :
+   - <https://login.tailscale.com/admin/dns> → activer *HTTPS Certificates* ;
+   - <https://login.tailscale.com/admin/settings/funnel> → autoriser Funnel.
+   (Au premier `tailscale funnel`, un lien d'activation est affiché si ce n'est pas fait.)
+
+### Lancement (à chaque fois)
 
 ```bash
 cd /home/anate/Documents/Menu_Bde
-npm install
-npm run build
-NODE_ENV=production npm run server
+npm install        # la première fois seulement
+npm run start:public
 ```
 
-Dans un deuxième terminal WSL :
+Le script `scripts/start-public.sh` :
 
-```bash
-cloudflared tunnel --url http://localhost:5001
-```
+1. démarre `tailscaled` en mode *userspace* (adapté à WSL2) si besoin ;
+2. connecte la machine au tailnet (lien d'authentification au tout premier lancement) ;
+3. affiche l'**URL publique stable** et la **Redirect URI** à déclarer ;
+4. construit le frontend (`npm run build`) ;
+5. ouvre le Funnel `443 → localhost:5001` ;
+6. démarre le serveur. `Ctrl+C` referme le Funnel et arrête tout.
 
-Cloudflare affiche une URL similaire à :
-
-```text
-https://exemple-aleatoire.trycloudflare.com
-```
-
-### Modifier les URL après le lancement du tunnel
-
-Remplacer `exemple-aleatoire.trycloudflare.com` par l'URL réellement affichée par Cloudflare dans les deux variables du fichier `.env` :
+Après le tout premier lancement, renseigner dans `.env` :
 
 ```env
-PUBLIC_APP_URL=https://exemple-aleatoire.trycloudflare.com
-INTRA42_REDIRECT_URI=https://exemple-aleatoire.trycloudflare.com/api/auth/42/callback
+PUBLIC_APP_URL=https://bde-42.mon-tailnet.ts.net
 ```
 
-Dans l'application OAuth 42, mettre exactement cette valeur comme **Redirect URI** :
+et ajouter `https://bde-42.mon-tailnet.ts.net/api/auth/42/callback` comme Redirect URI
+dans l'application OAuth 42. **Ces deux valeurs ne bougent plus ensuite.**
 
-```text
-https://exemple-aleatoire.trycloudflare.com/api/auth/42/callback
-```
+> Variables utiles : `TS_HOSTNAME` (nom de la machine, défaut `bde-42`) et `PORT` (défaut `5001`).
+> Exemple : `TS_HOSTNAME=bde npm run start:public`.
 
-Après chaque modification du fichier `.env`, arrêter puis relancer le serveur :
+### Ton propre nom de domaine (Cloudflare Tunnel)
 
-```bash
-Ctrl+C
-NODE_ENV=production npm run server
-```
+Le domaine utilisé est `bde42perpignan.fr` (chez IONOS), exposé sur
+`https://emporium.bde42perpignan.fr` via un tunnel Cloudflare nommé — gratuit, HTTPS
+automatique, aucun port à ouvrir sur la box.
 
-Le site est ensuite accessible avec l'URL Cloudflare. Le terminal `cloudflared` doit rester ouvert pendant toute la durée d'utilisation du site.
+**Configuration unique (une seule fois) :**
+
+1. Ajoute `bde42perpignan.fr` comme site sur [dash.cloudflare.com](https://dash.cloudflare.com)
+   (plan Free) : Cloudflare donne 2 nameservers à renseigner.
+2. Chez IONOS, dans la gestion du domaine, remplace les nameservers actuels par ceux de
+   Cloudflare. La propagation peut prendre de quelques minutes à 24-48h ; Cloudflare
+   envoie un mail quand le domaine est actif.
+3. Une fois le domaine actif sur Cloudflare :
+   ```bash
+   cloudflared tunnel login                                      # ouvre le navigateur, autorise le domaine
+   cloudflared tunnel create bde42-emporium                       # crée le tunnel + son fichier de credentials
+   cloudflared tunnel route dns bde42-emporium emporium.bde42perpignan.fr   # crée le DNS automatiquement
+   ```
+4. Lance tout avec :
+   ```bash
+   npm run start:domain
+   ```
+   Le script `scripts/start-domain.sh` génère `~/.cloudflared/config.yml` au premier
+   lancement, build le frontend, ouvre le tunnel puis démarre le serveur.
+5. À faire une fois affiché par le script :
+   - dans `.env` → `PUBLIC_APP_URL=https://emporium.bde42perpignan.fr` (supprime
+     `INTRA42_REDIRECT_URI` s'il était défini) ;
+   - dans l'app OAuth 42 → ajoute `https://emporium.bde42perpignan.fr/api/auth/42/callback`
+     comme Redirect URI (garde l'ancienne le temps de la transition).
+
+> Variables utiles : `TUNNEL_NAME` (défaut `bde42-emporium`), `HOSTNAME` (défaut
+> `emporium.bde42perpignan.fr`), `PORT` (défaut `5001`).
+
+Le code n'a pas à changer : seule `PUBLIC_APP_URL` est modifiée. Pour changer de
+sous-domaine plus tard, relance simplement `cloudflared tunnel route dns` avec le nouveau
+nom et adapte `HOSTNAME` + `.env`.
 
 ### Dépannage rapide
 
 - `client_id=undefined` : `INTRA42_CLIENT_ID` manque dans `.env` ou le serveur n'a pas été redémarré.
-- `redirect_uri mismatch` : le Redirect URI dans 42, `INTRA42_REDIRECT_URI` et l'URL Cloudflare ne sont pas strictement identiques.
-- erreur `EADDRINUSE` sur le port `5001` : un ancien serveur fonctionne déjà ; arrêtez-le avec `Ctrl+C` avant de relancer.
-- erreur `cloudflared: command not found` : le paquet `.deb` n'est pas installé ou le terminal WSL doit être rouvert.
+- `redirect_uri mismatch` : la Redirect URI déclarée dans l'app 42 et celle affichée au
+  démarrage du serveur ne sont pas **strictement** identiques (schéma, sous-domaine, `/api/...`).
+- `EADDRINUSE` sur le port `5001` : un ancien serveur tourne déjà ; `Ctrl+C` avant de relancer.
+- `tailscale: command not found` : réouvrir le terminal WSL après l'installation.
+- Funnel refusé : HTTPS/Funnel pas encore activés dans la console d'administration Tailscale.
 
 ## Docker
 

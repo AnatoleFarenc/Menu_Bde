@@ -12,7 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const publicAppUrl = process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`;
+const publicAppUrl = (process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).trim().replace(/\/+$/, '');
+const oauthRedirectUri = (process.env.INTRA42_REDIRECT_URI || `${publicAppUrl}/api/auth/42/callback`).trim();
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -270,7 +271,10 @@ app.get('/api/admin/orders', (req, res) => {
     order.items.forEach(item => {
       // Direct products or elements inside a menu formula
       if (item.type === 'menu' && item.choices) {
-        Object.values(item.choices).forEach(chosenProduct => {
+        const chosenProducts = Array.isArray(item.choices)
+          ? item.choices.map(entry => entry && entry.product)
+          : Object.values(item.choices);
+        chosenProducts.forEach(chosenProduct => {
           if (chosenProduct && chosenProduct.name) {
             const key = `${chosenProduct.name} (dans ${item.name})`;
             synthesisByTime[slot].itemsCount[key] = (synthesisByTime[slot].itemsCount[key] || 0) + item.quantity;
@@ -315,4 +319,7 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(PORT, () => {
   console.log(`🚀 Serveur BDE Sandwich 42 démarré sur http://localhost:${PORT}`);
+  console.log(`   URL publique        : ${publicAppUrl}`);
+  console.log(`   Redirect URI OAuth  : ${oauthRedirectUri}`);
+  console.log('   ↳ cette Redirect URI doit être déclarée à l\'identique dans ton application OAuth 42.');
 });

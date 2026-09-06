@@ -1,8 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles } from 'lucide-react';
 
+function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
+  return (
+    <nav className={className}>
+      <button
+        className={`tab-btn ${activeTab === 'vitrine' ? 'active' : ''}`}
+        onClick={() => setActiveTab('vitrine')}
+      >
+        <Utensils size={16} />
+        <span className="tab-text-long">Vitrine &amp; Menus</span>
+        <span className="tab-text-short">Vitrine</span>
+      </button>
+
+      <button
+        className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
+        onClick={() => setActiveTab('orders')}
+      >
+        <Clock size={16} />
+        <span className="tab-text-long">Mes Commandes</span>
+        <span className="tab-text-short">Commandes</span>
+      </button>
+
+      {isAdmin && (
+        <button
+          className={`tab-btn tab-btn-admin ${activeTab === 'admin' ? 'active' : ''}`}
+          onClick={() => setActiveTab('admin')}
+        >
+          <ShieldCheck size={16} />
+          <span className="tab-text-long">Espace Admin BDE</span>
+          <span className="tab-text-short">Admin</span>
+        </button>
+      )}
+    </nav>
+  );
+}
+
 export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart }) {
   const [isHidden, setIsHidden] = useState(false);
+  const isAdmin = !!(user && user.isAdmin);
 
   useEffect(() => {
     let previousScrollY = window.scrollY;
@@ -18,98 +54,64 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
   }, []);
 
   return (
-    <header className={`navbar ${isHidden ? 'navbar-hidden' : ''}`}>
-      <div className="navbar-inner">
-        <div className="logo-group">
-          <div className="logo-badge">
-            <span>42</span>
-          </div>
-          <div>
-            <div className="logo-title">BDE Sandwicherie</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Commandes & Vitrine Campus</div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <nav className="nav-actions">
-          <button
-            className={`tab-btn ${activeTab === 'vitrine' ? 'active' : ''}`}
-            onClick={() => setActiveTab('vitrine')}
-          >
-            <Utensils size={16} /> Vitrine & Menus
-          </button>
-
-          <button
-            className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
-          >
-            <Clock size={16} /> Mes Commandes
-          </button>
-
-          {user && user.isAdmin && (
-            <button
-              className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
-              onClick={() => setActiveTab('admin')}
-              style={{ borderColor: 'rgba(154, 61, 61, 0.65)', color: activeTab === 'admin' ? '#e3a0a0' : '#c97b7b' }}
-            >
-              <ShieldCheck size={16} /> Espace Admin BDE
-            </button>
-          )}
-
-          {/* User Profile / Login */}
-          {user ? (
-            <div className="user-badge">
-              <img src={user.avatarUrl} alt={user.login} className="avatar" />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span className="user-name">{user.displayName || user.login}</span>
-                <span className={`role-pill ${user.isAdmin ? 'role-admin' : 'role-student'}`}>
-                  {user.isAdmin ? 'BDE Admin' : 'Étudiant 42'}
-                </span>
-              </div>
-              <button
-                className="btn btn-secondary"
-                style={{ padding: '0.35rem 0.6rem', borderRadius: 'var(--radius-sm)', marginLeft: '0.2rem' }}
-                onClick={onLogout}
-                title="Se déconnecter"
-              >
-                <LogOut size={14} />
-              </button>
+    <>
+      <header className={`navbar ${isHidden ? 'navbar-hidden' : ''}`}>
+        <div className="navbar-inner">
+          <div className="logo-group">
+            <div className="logo-badge">
+              <span>42</span>
             </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="logo-labels">
+              <div className="logo-title">BDE Sandwicherie</div>
+            </div>
+          </div>
+
+          <NavTabs
+            className="nav-tabs"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isAdmin={isAdmin}
+          />
+
+          <div className="nav-user">
+            {user ? (
+              <div className="user-badge">
+                <img src={user.avatarUrl} alt={user.login} className="avatar" />
+                <div className="user-badge-info">
+                  <span className="user-name">{user.displayName || user.login}</span>
+                  <span className={`role-pill ${user.isAdmin ? 'role-admin' : 'role-student'}`}>
+                    {user.isAdmin ? 'BDE Admin' : 'Étudiant 42'}
+                  </span>
+                </div>
+                <button
+                  className="btn btn-secondary user-logout"
+                  onClick={onLogout}
+                  title="Se déconnecter"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
               <button className="btn btn-primary" onClick={onLogin42}>
                 <Sparkles size={16} /> Connexion 42
               </button>
-            </div>
-          )}
-
-          {/* Cart Icon */}
-          <button className="btn btn-secondary" onClick={onOpenCart} style={{ position: 'relative' }}>
-            <ShoppingBag size={18} />
-            {cartCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '-5px',
-                  right: '-5px',
-                  background: 'var(--color-primary)',
-                  color: '#000',
-                  fontWeight: 800,
-                  fontSize: '0.7rem',
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                {cartCount}
-              </span>
             )}
-          </button>
-        </nav>
-      </div>
-    </header>
+
+            <button className="btn btn-secondary cart-btn" onClick={onOpenCart}>
+              <ShoppingBag size={18} />
+              {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Barre de navigation basse — visible uniquement sur mobile */}
+      <NavTabs
+        className="nav-tabs nav-tabs-bottom"
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isAdmin={isAdmin}
+      />
+    </>
   );
 }

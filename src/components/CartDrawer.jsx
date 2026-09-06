@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Trash2, Clock, Plus, Minus, CheckCircle, ShoppingCart } from 'lucide-react';
+import { X, Trash2, Clock, Plus, Minus, CheckCircle, ShoppingCart, Info } from 'lucide-react';
 import ItemIcon from './ItemIcon';
+import { normalizeChoices } from '../lib/menuChoices';
 
 const TIME_SLOTS = ['11h45', '12h00', '12h15', '12h30', '12h45', '13h00', '13h15', '13h30'];
 
@@ -74,7 +75,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                         <span className="cart-item-icon"><ItemIcon item={item} type={item.type} size={20} /></span>
                         <div>
                           <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{item.name}</h4>
-                          <span style={{ fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 700 }}>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--color-primary-text)', fontWeight: 700 }}>
                             {item.price.toFixed(2)} €
                           </span>
                         </div>
@@ -90,7 +91,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                     </div>
 
                     {/* MENU CHOICES SUMMARY */}
-                    {item.choices && (
+                    {item.choices && normalizeChoices(item.choices).length > 0 && (
                       <div
                         style={{
                           background: 'rgba(215, 154, 59, 0.1)',
@@ -101,9 +102,9 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                           color: 'var(--text-muted)'
                         }}
                       >
-                        <div>• Plat : <strong>{item.choices.plat?.name}</strong></div>
-                        <div>• Boisson : <strong>{item.choices.boisson?.name}</strong></div>
-                        {item.choices.dessert && <div>• Dessert : <strong>{item.choices.dessert?.name}</strong></div>}
+                        {normalizeChoices(item.choices).map((choice, cIdx) => (
+                          <div key={cIdx}>• {choice.label} : <strong>{choice.product.name}</strong></div>
+                        ))}
                       </div>
                     )}
 
@@ -178,9 +179,27 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
           <div className="drawer-footer">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Total à payer :</span>
-              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-primary)' }}>
+              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-primary-text)' }}>
                 {totalPrice.toFixed(2)} €
               </span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                background: 'rgba(93, 55, 27, 0.08)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.6rem 0.75rem',
+                marginBottom: '0.85rem'
+              }}
+            >
+              <Info size={16} style={{ flexShrink: 0, marginTop: '0.1rem' }} color="var(--color-primary-text)" />
+              <span>Le paiement s'effectue directement au bar à eau, au moment du retrait de votre commande.</span>
             </div>
 
             <button

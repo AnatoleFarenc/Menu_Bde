@@ -390,9 +390,9 @@ export default function App() {
           {/* HERO BANNER */}
           <div className="hero-banner">
             <div className="hero-text">
-              <h1>Précommande de Sandwichs 42</h1>
+              <h1>Précommandes</h1>
               <p>
-                Commandez votre déjeuner en avance pour que l'équipe BDE le prépare sur mesure avant le rush du midi !
+                Commandez votre repas en avance pour que l'équipe du BDE le prépare et récuperez-le quand c'est prêt !
               </p>
             </div>
           </div>
@@ -415,7 +415,7 @@ export default function App() {
           {/* MENUS SECTION (When All or Menu) */}
           {(categoryFilter === 'all' || categoryFilter === 'menu') && (
             <section style={{ marginBottom: '2.5rem' }}>
-                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-primary)' }}>
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-primary-text)' }}>
                 <Layers size={20} /> Formules Repas BDE (Bons Plans)
               </h2>
               <div className="menu-list menu-accordion-list">
@@ -537,6 +537,7 @@ export default function App() {
         editingItem={adminModalState.item}
         type={adminModalState.type}
         categories={categories}
+        products={products}
       />
     </div>
   );

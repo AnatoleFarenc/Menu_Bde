@@ -98,7 +98,7 @@ export default function OrderStatus({ orders }) {
               >
                 {isDone ? '✓' : idx + 1}
               </div>
-              <span style={{ fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? 'var(--color-primary)' : 'var(--text-muted)' }}>
+              <span style={{ fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? 'var(--color-primary-text)' : 'var(--text-muted)' }}>
                 {step.label}
               </span>
             </div>
@@ -152,7 +152,7 @@ export default function OrderStatus({ orders }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div>
-                <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--color-primary)', marginRight: '0.75rem' }}>
+                <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--color-primary-text)', marginRight: '0.75rem' }}>
                   {order.orderNumber}
                 </span>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>

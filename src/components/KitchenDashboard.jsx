@@ -3,6 +3,7 @@ import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, 
 import ProductCard from './ProductCard';
 import AdminCatalogTools from './AdminCatalogTools';
 import ItemIcon from './ItemIcon';
+import { normalizeChoices } from '../lib/menuChoices';
 
 export default function KitchenDashboard({
   orders,
@@ -137,7 +138,7 @@ export default function KitchenDashboard({
                     {Object.entries(synthesisByTime[slot].itemsCount).map(([itemName, qty]) => (
                       <div key={itemName} className="synthesis-item">
                         <span>{itemName}</span>
-                        <strong style={{ color: 'var(--color-primary)' }}>x{qty}</strong>
+                        <strong style={{ color: 'var(--color-primary-text)' }}>x{qty}</strong>
                       </div>
                     ))}
                     <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '0.75rem', paddingTop: '0.75rem' }}>
@@ -149,7 +150,7 @@ export default function KitchenDashboard({
                         .map(order => (
                           <div key={order.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                              <strong style={{ color: 'var(--color-primary)' }}>{order.orderNumber}</strong>
+                              <strong style={{ color: 'var(--color-primary-text)' }}>{order.orderNumber}</strong>
                               <span style={{ fontSize: '0.75rem' }}>{order.userLogin}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
@@ -229,7 +230,7 @@ export default function KitchenDashboard({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-primary)' }}>
+                      <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-primary-text)' }}>
                         {order.orderNumber}
                       </span>
                       <span style={{ fontWeight: 700, fontSize: '1rem' }}>
@@ -250,9 +251,11 @@ export default function KitchenDashboard({
                         <div key={idx} style={{ fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
                             <span><ItemIcon item={item} type={item.type} size={16} /> <strong>x{item.quantity}</strong> {item.name}</span>
-                            {item.choices && (
+                            {item.choices && normalizeChoices(item.choices).length > 0 && (
                               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '1.5rem' }}>
-                                ↳ Plat: <strong>{item.choices.plat?.name}</strong> | Boisson: <strong>{item.choices.boisson?.name}</strong> {item.choices.dessert && `| Dessert: ${item.choices.dessert?.name}`}
+                                ↳ {normalizeChoices(item.choices)
+                                  .map(choice => `${choice.label}: ${choice.product.name}`)
+                                  .join(' | ')}
                               </div>
                             )}
                           </div>
@@ -262,7 +265,7 @@ export default function KitchenDashboard({
                     </div>
 
                     {order.note && (
-                      <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#FBBF24', fontStyle: 'italic' }}>
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--color-primary-text)', fontStyle: 'italic' }}>
                         <AlertCircle size={14} /> Instructions client : "{order.note}"
                       </div>
                     )}
@@ -332,7 +335,7 @@ export default function KitchenDashboard({
 
           {/* MENUS SECTION */}
           <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-primary-text)' }}>
               <Layers size={16} /> Formules Menus ({menus.length})
             </h3>
             <div className="grid-container">

@@ -14,5 +14,6 @@ services:
       - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost:5001}
       - INTRA42_CLIENT_ID=${INTRA42_CLIENT_ID}
       - INTRA42_CLIENT_SECRET=${INTRA42_CLIENT_SECRET}
-      - INTRA42_REDIRECT_URI=${INTRA42_REDIRECT_URI:-http://localhost:3000/api/auth/42/callback}
+      # Optionnel : déduit de PUBLIC_APP_URL si non défini.
+      - INTRA42_REDIRECT_URI=${INTRA42_REDIRECT_URI:-}
       - ADMIN_LOGINS=${ADMIN_LOGINS}

@@ -5,12 +5,23 @@ const getAdminLogins = () => (process.env.ADMIN_LOGINS || '')
   .map(login => login.trim().toLowerCase())
   .filter(Boolean);
 
+// L'URL de redirection OAuth est toujours « <URL publique>/api/auth/42/callback ».
+// On la déduit donc de PUBLIC_APP_URL : une seule variable à renseigner.
+// INTRA42_REDIRECT_URI reste accepté si tu veux forcer une valeur.
+const getRedirectUri = () => {
+  if (process.env.INTRA42_REDIRECT_URI) {
+    return process.env.INTRA42_REDIRECT_URI.trim();
+  }
+  const base = (process.env.PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 5001}`).trim().replace(/\/+$/, '');
+  return `${base}/api/auth/42/callback`;
+};
+
 export const get42AuthUrl = () => {
   const clientId = process.env.INTRA42_CLIENT_ID;
   if (!clientId) {
     throw new Error('INTRA42_CLIENT_ID absent du fichier .env');
   }
-  const redirectUri = encodeURIComponent(process.env.INTRA42_REDIRECT_URI || 'http://localhost:3000/api/auth/42/callback');
+  const redirectUri = encodeURIComponent(getRedirectUri());
   return `https://api.intra.42.fr/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=public`;
 };
 
@@ -21,7 +32,7 @@ export const handle42Callback = async (code) => {
 
   const clientId = process.env.INTRA42_CLIENT_ID;
   const clientSecret = process.env.INTRA42_CLIENT_SECRET;
-  const redirectUri = process.env.INTRA42_REDIRECT_URI || 'http://localhost:3000/api/auth/42/callback';
+  const redirectUri = getRedirectUri();
 
   if (!clientId || !clientSecret) {
     throw new Error('Identifiants OAuth 42 absents. Configurez INTRA42_CLIENT_ID et INTRA42_CLIENT_SECRET dans .env');
