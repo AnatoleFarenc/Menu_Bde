@@ -62,6 +62,27 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ user });
 });
 
+// Connexion simplifiée pour la borne (mode kiosque) : pas d'OAuth 42, juste un login déclaré
+// à la main pour pouvoir attribuer les commandes. Le compte n'a jamais les droits admin.
+app.post('/api/auth/kiosk-login', (req, res) => {
+  const login = (req.body.login || '').trim();
+  if (!login) {
+    return res.status(400).json({ error: 'Login requis' });
+  }
+  const token = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  const user = {
+    id: 'kiosk_' + login.toLowerCase(),
+    login: login.toLowerCase(),
+    displayName: login,
+    avatarUrl: '',
+    campus: 'Borne',
+    isAdmin: false,
+    role: 'kiosk_guest'
+  };
+  sessions.set(token, user);
+  res.json({ token, user });
+});
+
 app.post('/api/auth/logout', (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader) {

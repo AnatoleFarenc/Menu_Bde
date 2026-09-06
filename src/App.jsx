@@ -11,12 +11,20 @@ import AdminCatalogTools from './components/AdminCatalogTools';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
 
+// Mode borne (kiosk) : activation cachée via l'URL, propre à ce navigateur uniquement.
+// Pour activer sur une borne : ouvrir une fois l'URL avec ?kiosk=1 (puis ?kiosk=0 pour désactiver).
+const KIOSK_STORAGE_KEY = 'bde_kiosk_mode';
+const KIOSK_INACTIVITY_MINUTES = 3;
+const KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS = 6;
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState('vitrine'); // 'vitrine' | 'orders' | 'admin'
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
+  const [kioskLoginInput, setKioskLoginInput] = useState('');
 
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
@@ -53,6 +61,43 @@ export default function App() {
       setIsAuthChecking(false);
     }
   }, []);
+
+  // Activation cachée du mode borne : ?kiosk=1 (ou ?kiosk=0 pour désactiver), propre à ce navigateur.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const kioskParam = urlParams.get('kiosk');
+    if (kioskParam === '1') {
+      localStorage.setItem(KIOSK_STORAGE_KEY, '1');
+      setIsKioskMode(true);
+      urlParams.delete('kiosk');
+      window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
+    } else if (kioskParam === '0') {
+      localStorage.removeItem(KIOSK_STORAGE_KEY);
+      setIsKioskMode(false);
+      urlParams.delete('kiosk');
+      window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
+    }
+  }, []);
+
+  // Mode borne : déconnexion automatique après inactivité.
+  useEffect(() => {
+    if (!isKioskMode || !user) return undefined;
+    let timer;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        handleLogout();
+      }, KIOSK_INACTIVITY_MINUTES * 60 * 1000);
+    };
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
+    activityEvents.forEach(evt => window.addEventListener(evt, resetTimer));
+    resetTimer();
+    return () => {
+      clearTimeout(timer);
+      activityEvents.forEach(evt => window.removeEventListener(evt, resetTimer));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKioskMode, user]);
 
   useEffect(() => {
     fetchProducts();
@@ -161,6 +206,20 @@ export default function App() {
     setActiveTab('vitrine');
   };
 
+  // Connexion borne : pas d'OAuth 42, juste un login déclaré à la main pour attribuer la commande.
+  const handleKioskLogin = async (login) => {
+    const trimmed = (login || '').trim();
+    if (!trimmed) return;
+    try {
+      const res = await axios.post('/api/auth/kiosk-login', { login: trimmed });
+      localStorage.setItem('bde_token', res.data.token);
+      setAuthToken(res.data.token);
+      setKioskLoginInput('');
+    } catch (error) {
+      alert('Erreur lors de la connexion à la borne.');
+    }
+  };
+
   // Cart Handlers
   const handleAddToCart = (product) => {
     setCart(prev => {
@@ -218,6 +277,11 @@ export default function App() {
         fetchAdminOrders();
       }
       setActiveTab('orders');
+      if (isKioskMode) {
+        setTimeout(() => {
+          handleLogout();
+        }, KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS * 1000);
+      }
     } catch (e) {
       alert('Erreur lors de la validation de la commande.');
     }
@@ -345,8 +409,10 @@ export default function App() {
   // Filter products by category tab
   const visibleCategoryIds = new Set(categories.filter(category => category.isVisible !== false).map(category => category.id));
   const visibleProducts = products.filter(product => visibleCategoryIds.has(product.category));
+  // Sur "Tous les Produits", on regroupe par type (dans l'ordre des catégories) au lieu de l'ordre de création.
+  const categoryOrder = new Map(categories.map((category, idx) => [category.id, idx]));
   const filteredProducts = categoryFilter === 'all'
-    ? visibleProducts
+    ? [...visibleProducts].sort((a, b) => (categoryOrder.get(a.category) ?? 999) - (categoryOrder.get(b.category) ?? 999))
     : visibleProducts.filter(product => product.category === categoryFilter);
 
   const cartTotalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -357,6 +423,31 @@ export default function App() {
   }
 
   if (!user) {
+    if (isKioskMode) {
+      return (
+        <main className="auth-page fade-in">
+          <div className="auth-panel">
+            <div className="logo-badge"><span>42</span></div>
+            <h1>Borne de commande BDE</h1>
+            <p>Entre ton login 42 pour passer commande.</p>
+            <form onSubmit={e => { e.preventDefault(); handleKioskLogin(kioskLoginInput); }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: jdupont"
+                value={kioskLoginInput}
+                onChange={e => setKioskLoginInput(e.target.value)}
+                autoFocus
+                style={{ marginBottom: '1rem', textAlign: 'center' }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                <LogIn size={18} /> Continuer
+              </button>
+            </form>
+          </div>
+        </main>
+      );
+    }
     return (
       <main className="auth-page fade-in">
         <div className="auth-panel">

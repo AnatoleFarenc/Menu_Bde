@@ -32,9 +32,9 @@ function OptionSection({ step, title, options, selectedId, onSelect }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <ItemIcon item={option} size={18} />
               <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{option.name}</span>
-              {option.extraMenuPrice > 0 && (
+              {!!option.extraMenuPrice && (
                 <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: 'var(--color-primary-text)', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
-                  +{option.extraMenuPrice.toFixed(2)} €
+                  {option.extraMenuPrice > 0 ? '+' : ''}{option.extraMenuPrice.toFixed(2)} €
                 </span>
               )}
             </div>
@@ -91,9 +91,9 @@ export default function MenuBuilderModal({ menu, products, onClose, onAddMenuToC
         <div className="menu-price-summary" style={{ background: 'rgba(93, 55, 27, 0.08)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Prix de base du menu : {menu.price.toFixed(2)} €</span>
-            {totalExtra > 0 && (
+            {!!totalExtra && (
               <div style={{ fontSize: '0.85rem', color: 'var(--color-primary-text)', fontWeight: 600 }}>
-                + Suppléments options : +{totalExtra.toFixed(2)} €
+                {totalExtra > 0 ? 'Suppléments options : +' : 'Réduction options : '}{totalExtra.toFixed(2)} €
               </div>
             )}
           </div>

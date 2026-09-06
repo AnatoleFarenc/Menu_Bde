@@ -1,0 +1,23 @@
+{
+  "name": "BDE 42 Perpignan - Sandwicherie",
+  "short_name": "BDE 42",
+  "description": "Précommande de sandwichs et formules repas du BDE 42 Perpignan.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#4c3120",
+  "theme_color": "#4c3120",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

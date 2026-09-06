@@ -76,11 +76,17 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
           <div className="nav-user">
             {user ? (
               <div className="user-badge">
-                <img src={user.avatarUrl} alt={user.login} className="avatar" />
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.login} className="avatar" />
+                ) : (
+                  <div className="avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-primary-glow)', fontWeight: 700 }}>
+                    {(user.displayName || user.login || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="user-badge-info">
                   <span className="user-name">{user.displayName || user.login}</span>
                   <span className={`role-pill ${user.isAdmin ? 'role-admin' : 'role-student'}`}>
-                    {user.isAdmin ? 'BDE Admin' : 'Étudiant 42'}
+                    {user.isAdmin ? 'BDE Admin' : user.role === 'kiosk_guest' ? 'Commande borne' : 'Étudiant 42'}
                   </span>
                 </div>
                 <button

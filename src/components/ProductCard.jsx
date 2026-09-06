@@ -16,8 +16,8 @@ export default function ProductCard({ item, type = 'product', onAddToCart, onOpe
         <div className="card-title-row">
           <h3 className="card-title">{item.name}</h3>
           <div className="card-badges">
-            {item.badge && <span className="badge badge-best">* {item.badge}</span>}
-            {!isAvailable && <span className="badge badge-stock-out">* Rupture de stock</span>}
+            {item.badge && <span className="badge badge-best">{item.badge}</span>}
+            {!isAvailable && <span className="badge badge-stock-out">Rupture de stock</span>}
           </div>
         </div>
         {type === 'menu' ? (

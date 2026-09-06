@@ -220,13 +220,12 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
 
             {type === 'product' ? (
               <div className="form-group">
-                <label className="form-label">Supplément Formule Menu (€)</label>
+                <label className="form-label">Supplément / Réduction en Formule (€)</label>
                 <input
                   type="number"
                   step="0.50"
-                  min="0"
                   className="form-input"
-                  placeholder="Ex: 1.00 (Pour RedBull, Sandwich Premium...)"
+                  placeholder="Ex: 1.00 (supplément) ou -1.00 (réduction)"
                   value={formData.extraMenuPrice || ''}
                   onChange={e => setFormData({ ...formData, extraMenuPrice: e.target.value })}
                 />
@@ -244,6 +243,19 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
               </div>
             )}
           </div>
+
+          {type === 'product' && (
+            <div className="form-group">
+              <label className="form-label">Badge (Optionnel)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: Premium (+1€), Bestseller, Végétarien..."
+                value={formData.badge}
+                onChange={e => setFormData({ ...formData, badge: e.target.value })}
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Icône / Emoji</label>
