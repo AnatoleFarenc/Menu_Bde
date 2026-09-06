@@ -3,7 +3,12 @@ import { X, Trash2, Clock, Plus, Minus, CheckCircle, ShoppingCart, Info } from '
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
 
-const TIME_SLOTS = ['11h45', '12h00', '12h15', '12h30', '12h45', '13h00', '13h15', '13h30'];
+const TIME_SLOTS = [];
+for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 30) {
+  const h = Math.floor(minutes / 60);
+  const m = String(minutes % 60).padStart(2, '0');
+  TIME_SLOTS.push(`${h}h${m}`);
+}
 
 export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, removeItem, clearCart, onSubmitOrder, user }) {
   const [pickupTime, setPickupTime] = useState('12h00');
