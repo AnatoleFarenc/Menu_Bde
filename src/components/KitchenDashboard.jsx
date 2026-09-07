@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
-import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles, Layers, MapPin, Utensils } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles, Layers, MapPin, Utensils, Trash2, Edit3, Undo2, Gift, BarChart3, Star, MessageSquare, Download } from 'lucide-react';
 import ProductCard from './ProductCard';
 import AdminCatalogTools from './AdminCatalogTools';
+import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
+
+const PREVIOUS_STATUS = {
+  preparing: 'pending',
+  ready: 'preparing',
+  completed: 'ready',
+  cancelled: 'pending'
+};
+
+const FREE_ORDER_TIME_SLOTS = [];
+for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 15) {
+  const h = Math.floor(minutes / 60);
+  const m = String(minutes % 60).padStart(2, '0');
+  FREE_ORDER_TIME_SLOTS.push(`${h}h${m}`);
+}
 
 export default function KitchenDashboard({
   orders,
@@ -19,18 +34,66 @@ export default function KitchenDashboard({
   onApplyTemplate,
   onDeleteTemplate,
   onUpdateOrderStatus,
+  onClearOrderHistory,
+  onUpdateOrder,
+  onCreateFreeOrder,
+  onDeleteOrder,
   onOpenAddModal,
   onToggleStock,
   onEditItem,
-  onDeleteItem
+  onDeleteItem,
+  dailyReport,
+  onFetchDailyReport,
+  reviews,
+  onFetchReviews,
+  onDeleteReview
 }) {
-  const [adminTab, setAdminTab] = useState('kitchen'); // 'kitchen' | 'vitrine'
+  const [adminTab, setAdminTab] = useState('kitchen'); // 'kitchen' | 'vitrine' | 'bilan' | 'avis'
   const [selectedSlot, setSelectedSlot] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'all'
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [isFreeFormOpen, setIsFreeFormOpen] = useState(false);
+  const [freeForm, setFreeForm] = useState({ productId: '', quantity: 1, beneficiary: '', pickupTime: '12h00' });
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [reportFrom, setReportFrom] = useState(todayStr);
+  const [reportTo, setReportTo] = useState(todayStr);
 
-  // Filter orders by slot & status
+  useEffect(() => {
+    if (adminTab === 'bilan') onFetchDailyReport(reportFrom, reportTo);
+  }, [adminTab, reportFrom, reportTo]);
+
+  const handleExportReport = () => {
+    if (!dailyReport) return;
+    const rows = [
+      ['Produit', 'Quantité vendue', 'Prix unitaire (€)', 'Total (€)'],
+      ...dailyReport.products.map(p => [p.name, p.quantity, p.unitPrice.toFixed(2), p.totalPrice.toFixed(2)]),
+      [],
+      ['Commandes récupérées', dailyReport.totalOrders],
+      ['Chiffre d\'affaires (€)', dailyReport.totalRevenue.toFixed(2)]
+    ];
+    const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bilan_${dailyReport.from}_${dailyReport.to}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => {
+    if (adminTab === 'avis') onFetchReviews();
+  }, [adminTab]);
+
+  // Filter orders by slot & status — l'historique ne montre que les commandes récupérées
+  // (ni les commandes en cours, ni les commandes annulées).
   const filteredOrders = orders.filter(order => {
     if (statusFilter === 'active' && (order.status === 'completed' || order.status === 'cancelled')) {
+      return false;
+    }
+    if (statusFilter === 'all' && order.status !== 'completed') {
       return false;
     }
     if (selectedSlot !== 'ALL' && order.pickupTime !== selectedSlot) {
@@ -58,30 +121,17 @@ export default function KitchenDashboard({
 
   const slotsList = Object.keys(synthesisByTime || {}).sort();
 
-  const renderStatusActions = (order, compact = false) => (
-    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: compact ? 'flex-end' : 'initial' }}>
-      {order.status === 'pending' && (
-        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'preparing')}>
-          Préparer
-        </button>
-      )}
-      {order.status === 'preparing' && (
-        <button className="btn btn-primary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'ready')}>
-          Marquer prête
-        </button>
-      )}
-      {order.status === 'ready' && (
-        <button className="btn btn-secondary btn-complete" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
-          Récupérée
-        </button>
-      )}
-      {order.status !== 'completed' && order.status !== 'cancelled' && (
-        <button className="btn btn-danger" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => onUpdateOrderStatus(order.id, 'cancelled')}>
-          Annuler
-        </button>
-      )}
-    </div>
-  );
+  const availableProducts = products.filter(product => product.available);
+
+  const handleFreeOrderSubmit = async (e) => {
+    e.preventDefault();
+    if (!freeForm.productId) return;
+    const saved = await onCreateFreeOrder(freeForm);
+    if (saved) {
+      setFreeForm({ productId: '', quantity: 1, beneficiary: '', pickupTime: '12h00' });
+      setIsFreeFormOpen(false);
+    }
+  };
 
   return (
     <div className="fade-in">
@@ -109,6 +159,18 @@ export default function KitchenDashboard({
             onClick={() => setAdminTab('vitrine')}
           >
             <Package size={16} /> Gestion Vitrine & Stocks
+          </button>
+          <button
+            className={`btn ${adminTab === 'bilan' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setAdminTab('bilan')}
+          >
+            <BarChart3 size={16} /> Bilan du jour
+          </button>
+          <button
+            className={`btn ${adminTab === 'avis' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setAdminTab('avis')}
+          >
+            <Star size={16} /> Avis Clients
           </button>
         </div>
       </div>
@@ -141,28 +203,89 @@ export default function KitchenDashboard({
                         <strong style={{ color: 'var(--color-primary-text)' }}>x{qty}</strong>
                       </div>
                     ))}
-                    <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '0.75rem', paddingTop: '0.75rem' }}>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 700 }}>
-                        Suivi des commandes
-                      </div>
-                      {orders
-                        .filter(order => order.pickupTime === slot && order.status !== 'completed' && order.status !== 'cancelled')
-                        .map(order => (
-                          <div key={order.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                              <strong style={{ color: 'var(--color-primary-text)' }}>{order.orderNumber}</strong>
-                              <span style={{ fontSize: '0.75rem' }}>{order.userLogin}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
-                              {getStatusBadge(order.status)}
-                              {renderStatusActions(order, true)}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* FREE / DONATED PRODUCT */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsFreeFormOpen(value => !value)}
+            >
+              <Gift size={16} /> Offrir un produit (prix à titre gratuit)
+            </button>
+
+            {isFreeFormOpen && (
+              <form
+                onSubmit={handleFreeOrderSubmit}
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.6rem',
+                  alignItems: 'flex-end',
+                  marginTop: '0.75rem',
+                  padding: '0.85rem',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+              >
+                <div className="form-group" style={{ marginBottom: 0, minWidth: '200px' }}>
+                  <label className="form-label">Produit</label>
+                  <select
+                    className="form-select"
+                    value={freeForm.productId}
+                    onChange={e => setFreeForm({ ...freeForm, productId: e.target.value })}
+                    required
+                  >
+                    <option value="">Choisir un produit...</option>
+                    {availableProducts.map(product => (
+                      <option key={product.id} value={product.id}>{product.icon} {product.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, width: '90px' }}>
+                  <label className="form-label">Qté</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-input"
+                    value={freeForm.quantity}
+                    onChange={e => setFreeForm({ ...freeForm, quantity: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, minWidth: '160px' }}>
+                  <label className="form-label">Bénéficiaire (optionnel)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: staff BDE"
+                    value={freeForm.beneficiary}
+                    onChange={e => setFreeForm({ ...freeForm, beneficiary: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, minWidth: '110px' }}>
+                  <label className="form-label">Retrait</label>
+                  <select
+                    className="form-select"
+                    value={freeForm.pickupTime}
+                    onChange={e => setFreeForm({ ...freeForm, pickupTime: e.target.value })}
+                  >
+                    {FREE_ORDER_TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+                  </select>
+                </div>
+
+                <button type="submit" className="btn btn-primary">
+                  <Gift size={16} /> Offrir
+                </button>
+              </form>
             )}
           </div>
 
@@ -204,16 +327,29 @@ export default function KitchenDashboard({
               >
                 Historique Complet
               </button>
+              {statusFilter === 'all' && (
+                <button
+                  className="btn btn-danger"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                  onClick={onClearOrderHistory}
+                >
+                  <Trash2 size={14} /> Vider l'historique
+                </button>
+              )}
             </div>
           </div>
 
-          {/* HISTORY DETAILS */}
-          {statusFilter === 'all' && (filteredOrders.length === 0 ? (
+          {/* ORDER LIST (une fiche distincte par commande) */}
+          {filteredOrders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)' }}>
               Aucune commande ne correspond aux filtres sélectionnés.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem', fontSize: '0.95rem', fontWeight: 700 }}>
+                Total {statusFilter === 'all' ? 'historique' : 'en cours'} : {filteredOrders.reduce((sum, order) => sum + (order.totalPrice || 0), 0).toFixed(2)} €
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {filteredOrders.map(order => (
                 <div
                   key={order.id}
@@ -236,12 +372,27 @@ export default function KitchenDashboard({
                       <span style={{ fontWeight: 700, fontSize: '1rem' }}>
                         👤 {order.userLogin} ({order.userDisplayName})
                       </span>
+                      {order.isFree && (
+                        <span className="badge status-badge" style={{ color: 'var(--color-success)' }}>
+                          <Gift size={13} /> Offert
+                        </span>
+                      )}
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
                         <MapPin size={14} /> Retrait prévu à {order.pickupTime}
                       </span>
+                      {order.createdAt && (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <Clock size={13} /> {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
                     </div>
 
-                    <div>{getStatusBadge(order.status)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {getStatusBadge(order.status)}
+                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => setEditingOrder(order)} title="Modifier la commande">
+                        <Edit3 size={14} /> Éditer
+                      </button>
+                    </div>
                   </div>
 
                   {/* ORDER ITEMS DETAIL */}
@@ -275,34 +426,60 @@ export default function KitchenDashboard({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.4rem' }}>
                     <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>Total : {order.totalPrice.toFixed(2)} €</span>
 
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      {order.status === 'pending' && (
-                        <button className="btn btn-secondary" onClick={() => onUpdateOrderStatus(order.id, 'preparing')}>
-                          Passer en Préparation 🍳
-                        </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {order.isFree ? (
+                        <>
+                          {order.status !== 'completed' && (
+                            <button className="btn btn-primary" onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
+                              <CheckCircle2 size={16} /> Valider
+                            </button>
+                          )}
+                          <button className="btn btn-danger" onClick={() => onDeleteOrder(order.id)}>
+                            <Trash2 size={14} /> Supprimer
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {PREVIOUS_STATUS[order.status] && (
+                            <button className="btn btn-secondary" onClick={() => onUpdateOrderStatus(order.id, PREVIOUS_STATUS[order.status])} title="Revenir à l'étape précédente">
+                              <Undo2 size={14} /> Précédent
+                            </button>
+                          )}
+                          {order.status === 'pending' && (
+                            <button className="btn btn-secondary" onClick={() => onUpdateOrderStatus(order.id, 'preparing')}>
+                              Passer en Préparation 🍳
+                            </button>
+                          )}
+                          {order.status === 'preparing' && (
+                            <button className="btn btn-primary" onClick={() => onUpdateOrderStatus(order.id, 'ready')}>
+                              Marquer Prête au BDE 🔔
+                                Marquer Prête au bar à eau 🔔
+                            </button>
+                          )}
+                          {order.status === 'ready' && (
+                            <button className="btn btn-secondary btn-complete" onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
+                              <CheckCircle2 size={16} /> Marquer Distribuée / Récupérée
+                            </button>
+                          )}
+                          {order.status !== 'completed' && order.status !== 'cancelled' && (
+                            <button className="btn btn-danger" onClick={() => onUpdateOrderStatus(order.id, 'cancelled')}>
+                              Annuler
+                            </button>
+                          )}
+                        </>
                       )}
-                      {order.status === 'preparing' && (
-                        <button className="btn btn-primary" onClick={() => onUpdateOrderStatus(order.id, 'ready')}>
-                          Marquer Prête au BDE 🔔
-                            Marquer Prête au bar à eau 🔔
-                        </button>
-                      )}
-                      {order.status === 'ready' && (
-                        <button className="btn btn-secondary btn-complete" onClick={() => onUpdateOrderStatus(order.id, 'completed')}>
-                          <CheckCircle2 size={16} /> Marquer Distribuée / Récupérée
-                        </button>
-                      )}
-                      {order.status !== 'completed' && order.status !== 'cancelled' && (
-                        <button className="btn btn-danger" onClick={() => onUpdateOrderStatus(order.id, 'cancelled')}>
-                          Annuler
+                      {statusFilter === 'all' && !order.isFree && (
+                        <button className="btn btn-danger" onClick={() => onDeleteOrder(order.id)} title="Supprimer définitivement cette commande de l'historique">
+                          <Trash2 size={14} /> Supprimer
                         </button>
                       )}
                     </div>
                   </div>
                 </div>
               ))}
-            </div>
-          ))}
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -373,6 +550,150 @@ export default function KitchenDashboard({
             </div>
           </div>
         </>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB 3: DAILY REPORT (BILAN)                          */}
+      {/* ---------------------------------------------------- */}
+      {adminTab === 'bilan' && (
+        <div className="fade-in">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <BarChart3 size={18} color="var(--color-primary)" /> Bilan
+            </h2>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Du
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto' }}
+                value={reportFrom}
+                max={reportTo}
+                onChange={e => setReportFrom(e.target.value)}
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Au
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto' }}
+                value={reportTo}
+                min={reportFrom}
+                onChange={e => setReportTo(e.target.value)}
+              />
+            </label>
+            {dailyReport && dailyReport.products.length > 0 && (
+              <button type="button" className="btn btn-secondary" onClick={handleExportReport}>
+                <Download size={14} /> Exporter en CSV
+              </button>
+            )}
+          </div>
+
+          {!dailyReport ? (
+            <div style={{ padding: '1.5rem', color: 'var(--text-muted)' }}>Chargement...</div>
+          ) : dailyReport.products.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)' }}>
+              Aucune commande récupérée sur cette période.
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Commandes récupérées</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{dailyReport.totalOrders}</div>
+                </div>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Chiffre d'affaires</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-primary-text)' }}>{dailyReport.totalRevenue.toFixed(2)} €</div>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
+                      <th style={{ padding: '0.5rem' }}>Produit</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Quantité vendue</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Prix unitaire</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailyReport.products.map(product => (
+                      <tr key={product.name} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '0.5rem' }}>{product.name}</td>
+                        <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>x{product.quantity}</td>
+                        <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-muted)' }}>{product.unitPrice.toFixed(2)} €</td>
+                        <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>{product.totalPrice.toFixed(2)} €</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB 4: CUSTOMER REVIEWS                              */}
+      {/* ---------------------------------------------------- */}
+      {adminTab === 'avis' && (
+        <div className="fade-in">
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Star size={18} color="var(--color-primary)" /> Avis Clients ({reviews.length})
+          </h2>
+
+          {reviews.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)' }}>
+              Aucun avis pour le moment.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {reviews.map(entry => (
+                <div
+                  key={entry.orderId}
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1rem' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <strong>{entry.userDisplayName || entry.userLogin}</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{entry.orderNumber}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div style={{ display: 'flex', gap: '0.1rem' }}>
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <Star key={n} size={15} fill={n <= entry.review.rating ? 'var(--color-primary-text)' : 'none'} color="var(--color-primary-text)" />
+                        ))}
+                      </div>
+                      <button className="btn btn-danger" style={{ padding: '0.3rem 0.5rem' }} onClick={() => onDeleteReview(entry.orderId)} title="Supprimer cet avis">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  {entry.review.comment && (
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '0.3rem' }}>
+                      <MessageSquare size={13} /> "{entry.review.comment}"
+                    </p>
+                  )}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {new Date(entry.review.createdAt).toLocaleString('fr-FR')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {editingOrder && (
+        <AdminOrderEditModal
+          order={editingOrder}
+          products={products}
+          onClose={() => setEditingOrder(null)}
+          onSave={onUpdateOrder}
+        />
       )}
     </div>
   );

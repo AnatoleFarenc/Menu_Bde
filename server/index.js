@@ -260,6 +260,34 @@ app.post('/api/orders', (req, res) => {
   res.status(201).json({ order: newOrder });
 });
 
+// Commande créée par un admin pour un produit offert (prix à 0, hors panier étudiant).
+app.post('/api/admin/orders/free', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const { productId, quantity, beneficiary, pickupTime, note } = req.body;
+  const product = db.getProductById(productId);
+  if (!product) {
+    return res.status(404).json({ error: 'Produit introuvable' });
+  }
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  const label = (beneficiary || '').trim() || 'Don BDE';
+
+  const newOrder = db.addOrder({
+    userId: 'free_' + Date.now(),
+    userLogin: label,
+    userDisplayName: label,
+    items: [{ ...product, quantity: qty, type: 'product' }],
+    pickupTime: pickupTime || '12h00',
+    note: note || '',
+    totalPrice: 0,
+    isFree: true
+  });
+
+  res.status(201).json({ order: newOrder });
+});
+
 // Get user orders
 app.get('/api/orders', (req, res) => {
   const user = getUserFromReq(req);
@@ -269,6 +297,23 @@ app.get('/api/orders', (req, res) => {
   }
   const userOrders = allOrders.filter(o => o.userId === user.id || o.userLogin === user.login);
   res.json({ orders: userOrders });
+});
+
+// L'étudiant laisse (ou modifie) un avis sur une de ses commandes récupérées.
+app.post('/api/orders/:id/review', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Connexion 42 requise' });
+  }
+  const rating = parseInt(req.body.rating, 10);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'La note doit être comprise entre 1 et 5' });
+  }
+  const result = db.setOrderReview(req.params.id, user.id, { rating, comment: req.body.comment });
+  if (result.error === 'not_found') return res.status(404).json({ error: 'Commande introuvable' });
+  if (result.error === 'forbidden') return res.status(403).json({ error: 'Cette commande ne t\'appartient pas' });
+  if (result.error === 'not_completed') return res.status(400).json({ error: 'L\'avis n\'est possible que sur une commande récupérée' });
+  res.json({ order: result.order });
 });
 
 // Get all orders for Admin / Kitchen Board with synthesis computation
@@ -311,6 +356,20 @@ app.get('/api/admin/orders', (req, res) => {
   res.json({ orders, synthesisByTime });
 });
 
+app.patch('/api/admin/orders/:id', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const { items, pickupTime, note, totalPrice } = req.body;
+  if (items && items.length === 0) {
+    return res.status(400).json({ error: 'Une commande doit contenir au moins un article' });
+  }
+  const updated = db.updateOrder(req.params.id, { items, pickupTime, note, totalPrice });
+  if (!updated) return res.status(404).json({ error: 'Commande introuvable' });
+  res.json({ order: updated });
+});
+
 app.patch('/api/admin/orders/:id/status', (req, res) => {
   const user = getUserFromReq(req);
   if (!user || !user.isAdmin) {
@@ -326,6 +385,94 @@ app.patch('/api/admin/orders/:id/status', (req, res) => {
     return res.status(404).json({ error: 'Commande introuvable' });
   }
   res.json({ order: updatedOrder });
+});
+
+app.delete('/api/admin/orders', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  db.clearOrders();
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/orders/:id', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const deleted = db.deleteOrder(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Commande introuvable' });
+  res.json({ success: true });
+});
+
+// Tous les avis clients laissés sur des commandes, du plus récent au plus ancien.
+app.get('/api/admin/reviews', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const reviews = db.getOrders()
+    .filter(order => order.review)
+    .map(order => ({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      userLogin: order.userLogin,
+      userDisplayName: order.userDisplayName,
+      review: order.review
+    }))
+    .sort((a, b) => new Date(b.review.createdAt) - new Date(a.review.createdAt));
+  res.json({ reviews });
+});
+
+app.delete('/api/admin/reviews/:orderId', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const deleted = db.deleteReview(req.params.orderId);
+  if (!deleted) return res.status(404).json({ error: 'Avis introuvable' });
+  res.json({ success: true });
+});
+
+// Bilan des ventes sur une période (?from=YYYY-MM-DD&to=YYYY-MM-DD, par défaut aujourd'hui
+// pour les deux). Ne compte que les commandes récupérées (completed) ; les dons (isFree)
+// comptent en quantité mais pas en chiffre d'affaires.
+app.get('/api/admin/report', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const from = (req.query.from || req.query.date || today).slice(0, 10);
+  const to = (req.query.to || from).slice(0, 10);
+  const periodOrders = db.getOrders().filter(order => {
+    if (order.status !== 'completed') return false;
+    const day = (order.createdAt || '').slice(0, 10);
+    return day >= from && day <= to;
+  });
+
+  const productsMap = new Map();
+  let totalRevenue = 0;
+
+  periodOrders.forEach(order => {
+    totalRevenue += order.isFree ? 0 : (order.totalPrice || 0);
+    order.items.forEach(item => {
+      const unitPrice = order.isFree ? 0 : (item.price || 0);
+      const existing = productsMap.get(item.name) || { name: item.name, quantity: 0, unitPrice, totalPrice: 0 };
+      existing.quantity += item.quantity;
+      existing.totalPrice += unitPrice * item.quantity;
+      productsMap.set(item.name, existing);
+    });
+  });
+
+  res.json({
+    from,
+    to,
+    totalOrders: periodOrders.length,
+    totalRevenue,
+    products: Array.from(productsMap.values()).sort((a, b) => b.quantity - a.quantity)
+  });
 });
 
 // In production, serve the built React application from the same origin as the API.

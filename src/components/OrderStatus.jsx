@@ -1,8 +1,72 @@
 import React, { useState } from 'react';
-import { Clock, CheckCircle2, AlertTriangle, ShoppingBag, Sparkles } from 'lucide-react';
+import { Clock, CheckCircle2, AlertTriangle, ShoppingBag, Sparkles, Star, MessageSquare } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 
-export default function OrderStatus({ orders }) {
+function OrderReview({ order, onSubmitReview }) {
+  const [rating, setRating] = useState(order.review?.rating || 0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [comment, setComment] = useState(order.review?.comment || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (order.review) {
+    return (
+      <div style={{ marginTop: '1rem', padding: '0.85rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: order.review.comment ? '0.4rem' : 0 }}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <Star key={n} size={16} fill={n <= order.review.rating ? 'var(--color-primary-text)' : 'none'} color="var(--color-primary-text)" />
+          ))}
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Merci pour ton avis !</span>
+        </div>
+        {order.review.comment && <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>"{order.review.comment}"</p>}
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (rating < 1) return;
+    setIsSubmitting(true);
+    await onSubmitReview(order.id, rating, comment);
+    setIsSubmitting(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginTop: '1rem', padding: '0.85rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
+        <MessageSquare size={16} color="var(--color-primary-text)" />
+        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Laisser un avis sur cette commande</span>
+      </div>
+      <div style={{ display: 'flex', gap: '0.2rem', marginBottom: '0.5rem' }}>
+        {[1, 2, 3, 4, 5].map(n => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setRating(n)}
+            onMouseEnter={() => setHoverRating(n)}
+            onMouseLeave={() => setHoverRating(0)}
+            style={{ background: 'none', border: 'none', padding: '0.1rem', cursor: 'pointer' }}
+            aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
+          >
+            <Star size={22} fill={n <= (hoverRating || rating) ? 'var(--color-primary-text)' : 'none'} color="var(--color-primary-text)" />
+          </button>
+        ))}
+      </div>
+      <textarea
+        className="form-textarea"
+        rows={2}
+        placeholder="Un commentaire (optionnel)..."
+        value={comment}
+        onChange={e => setComment(e.target.value)}
+        style={{ marginBottom: '0.5rem' }}
+      />
+      <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }} disabled={rating < 1 || isSubmitting}>
+        {isSubmitting ? 'Envoi...' : 'Envoyer mon avis'}
+      </button>
+    </form>
+  );
+}
+
+export default function OrderStatus({ orders, onSubmitReview }) {
   const [statusFilter, setStatusFilter] = useState('active');
 
   if (!orders || orders.length === 0) {
@@ -178,6 +242,10 @@ export default function OrderStatus({ orders }) {
                 ))}
               </div>
             </div>
+
+            {order.status === 'completed' && (
+              <OrderReview order={order} onSubmitReview={onSubmitReview} />
+            )}
           </div>
         ))}
         </div>

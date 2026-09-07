@@ -36,6 +36,8 @@ export default function App() {
   // Admin Kitchen state
   const [adminOrders, setAdminOrders] = useState([]);
   const [synthesisByTime, setSynthesisByTime] = useState({});
+  const [dailyReport, setDailyReport] = useState(null);
+  const [reviews, setReviews] = useState([]);
 
   // Modals & Drawers state
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -171,6 +173,50 @@ export default function App() {
       setSynthesisByTime(res.data.synthesisByTime || {});
     } catch (e) {
       console.error('Error fetching admin orders:', e);
+    }
+  };
+
+  const fetchDailyReport = async (from, to) => {
+    try {
+      const res = await axios.get('/api/admin/report', {
+        params: { from, to: to || from },
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      setDailyReport(res.data);
+    } catch (e) {
+      console.error('Error fetching daily report:', e);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const res = await axios.get('/api/admin/reviews', { headers: { Authorization: `Bearer ${authToken}` } });
+      setReviews(res.data.reviews || []);
+    } catch (e) {
+      console.error('Error fetching reviews:', e);
+    }
+  };
+
+  const handleDeleteReview = async (orderId) => {
+    if (!confirm('Supprimer définitivement cet avis ?')) return;
+    try {
+      await axios.delete(`/api/admin/reviews/${orderId}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchReviews();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
+    }
+  };
+
+  const handleSubmitReview = async (orderId, rating, comment) => {
+    try {
+      await axios.post(`/api/orders/${orderId}/review`, { rating, comment }, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchUserOrders();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
     }
   };
 
@@ -406,6 +452,56 @@ export default function App() {
     }
   };
 
+  const handleClearOrderHistory = async () => {
+    if (!confirm('Supprimer définitivement tout l\'historique des commandes ? Cette action est irréversible.')) return;
+    try {
+      await axios.delete('/api/admin/orders', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchAdminOrders();
+    } catch (e) {
+      alert('Erreur lors de la suppression de l\'historique.');
+    }
+  };
+
+  const handleUpdateOrder = async (orderId, updates) => {
+    try {
+      await axios.patch(`/api/admin/orders/${orderId}`, updates, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchAdminOrders();
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la modification de la commande.');
+      return false;
+    }
+  };
+
+  const handleCreateFreeOrder = async (payload) => {
+    try {
+      await axios.post('/api/admin/orders/free', payload, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchAdminOrders();
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la création du don.');
+      return false;
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (!confirm('Supprimer définitivement cette commande ?')) return;
+    try {
+      await axios.delete(`/api/admin/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchAdminOrders();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
+    }
+  };
+
   // Filter products by category tab
   const visibleCategoryIds = new Set(categories.filter(category => category.isVisible !== false).map(category => category.id));
   const visibleProducts = products.filter(product => visibleCategoryIds.has(product.category));
@@ -552,7 +648,7 @@ export default function App() {
 
       {/* TAB 2: MY ORDERS */}
       {activeTab === 'orders' && (
-        <OrderStatus orders={userOrders} />
+        <OrderStatus orders={userOrders} onSubmitReview={handleSubmitReview} />
       )}
 
       {/* TAB 3: ADMIN BDE DASHBOARD */}
@@ -571,6 +667,15 @@ export default function App() {
           onApplyTemplate={handleApplyTemplate}
           onDeleteTemplate={handleDeleteTemplate}
           onUpdateOrderStatus={handleUpdateOrderStatus}
+          onClearOrderHistory={handleClearOrderHistory}
+          onUpdateOrder={handleUpdateOrder}
+          onCreateFreeOrder={handleCreateFreeOrder}
+          dailyReport={dailyReport}
+          onFetchDailyReport={fetchDailyReport}
+          reviews={reviews}
+          onFetchReviews={fetchReviews}
+          onDeleteReview={handleDeleteReview}
+          onDeleteOrder={handleDeleteOrder}
           onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
           onToggleStock={handleToggleStock}
           onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}

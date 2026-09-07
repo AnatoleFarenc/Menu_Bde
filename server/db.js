@@ -291,6 +291,18 @@ class DB {
     return this.data.orders || [];
   }
 
+  clearOrders() {
+    this.data.orders = [];
+    this.save();
+  }
+
+  deleteOrder(id) {
+    const before = this.data.orders.length;
+    this.data.orders = this.data.orders.filter(o => o.id !== id);
+    this.save();
+    return this.data.orders.length < before;
+  }
+
   addOrder(orderData) {
     const orderNumber = Math.floor(1000 + Math.random() * 9000);
     const newOrder = {
@@ -313,6 +325,39 @@ class DB {
       return order;
     }
     return null;
+  }
+
+  updateOrder(id, updates) {
+    const order = this.data.orders.find(o => o.id === id);
+    if (!order) return null;
+    if (updates.items !== undefined) order.items = updates.items;
+    if (updates.pickupTime !== undefined) order.pickupTime = updates.pickupTime;
+    if (updates.note !== undefined) order.note = updates.note;
+    if (updates.totalPrice !== undefined) order.totalPrice = parseFloat(updates.totalPrice) || 0;
+    this.save();
+    return order;
+  }
+
+  setOrderReview(id, userId, review) {
+    const order = this.data.orders.find(o => o.id === id);
+    if (!order) return { error: 'not_found' };
+    if (order.userId !== userId) return { error: 'forbidden' };
+    if (order.status !== 'completed') return { error: 'not_completed' };
+    order.review = {
+      rating: review.rating,
+      comment: review.comment || '',
+      createdAt: new Date().toISOString()
+    };
+    this.save();
+    return { order };
+  }
+
+  deleteReview(orderId) {
+    const order = this.data.orders.find(o => o.id === orderId);
+    if (!order || !order.review) return false;
+    delete order.review;
+    this.save();
+    return true;
   }
 }
 

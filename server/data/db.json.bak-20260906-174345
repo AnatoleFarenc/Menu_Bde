@@ -1,0 +1,1517 @@
+{
+  "products": [
+    {
+      "id": "p_1788705757306",
+      "available": true,
+      "badge": "",
+      "icon": "🍩",
+      "extraMenuPrice": "",
+      "name": "Donuts framboise",
+      "category": "dessert",
+      "price": 1.2,
+      "description": "Toujours pas."
+    },
+    {
+      "id": "p_1788705726643",
+      "available": true,
+      "badge": "",
+      "icon": "🍩",
+      "extraMenuPrice": "",
+      "name": "Donuts Chocolat",
+      "category": "dessert",
+      "price": 1.2,
+      "description": "Pas de donuts sucrée au sucre désoler. "
+    },
+    {
+      "id": "p1",
+      "name": "Sandwich Jambon",
+      "category": "plat",
+      "price": 3.5,
+      "description": "Pain baguette, jambon blanc, salade, beurre.",
+      "badge": "",
+      "available": true,
+      "icon": "🥪"
+    },
+    {
+      "id": "p2",
+      "name": "Sandwich Rosette",
+      "category": "plat",
+      "price": 3.5,
+      "description": "Pain baguette, rosette, cornichons, beurre.",
+      "badge": "",
+      "available": true,
+      "icon": "🥪"
+    },
+    {
+      "id": "p3",
+      "name": "Sandwich Poulet",
+      "category": "plat",
+      "price": 4.5,
+      "extraMenuPrice": 1,
+      "description": "Pain baguette, aiguillettes de poulet, tomates fraiches, oignons caramélisés, sauce pesto (+1€ en menu).",
+      "badge": "",
+      "available": true,
+      "icon": "🍗"
+    },
+    {
+      "id": "p3_thon",
+      "name": "Sandwich Thon Mayonnaise",
+      "category": "plat",
+      "price": 4.5,
+      "extraMenuPrice": 1,
+      "description": "Pain baguette, thon, échalotes, tomates fraîche, salade, mayonnaise.",
+      "badge": "",
+      "available": true,
+      "icon": "🐟"
+    },
+    {
+      "id": "p4",
+      "name": "Salade Composée",
+      "category": "plat",
+      "price": 3.5,
+      "description": "Pate, Salade, tomates fraiche, maïs, carotte, mozzarella et sauce vinaigrette.",
+      "badge": "Végétarien",
+      "available": true,
+      "icon": "🥗",
+      "extraMenuPrice": 0
+    },
+    {
+      "id": "b1",
+      "name": "Coca-Cola 33cl",
+      "category": "boisson",
+      "price": 1,
+      "description": "Coca bien frais chacal.",
+      "available": true,
+      "icon": "🥤",
+      "extraMenuPrice": 0,
+      "badge": ""
+    },
+    {
+      "id": "b3",
+      "name": "Ice Tea Pêche 33cl",
+      "category": "boisson",
+      "price": 1,
+      "description": "Thé glacé au goût de pêche.",
+      "available": true,
+      "icon": "🍑"
+    },
+    {
+      "id": "b4",
+      "name": "Eau Minérale Cristaline 50cl",
+      "category": "boisson",
+      "price": 0.5,
+      "description": "HHHAAAAA c’a déshydrate bieng.",
+      "available": true,
+      "icon": "💧",
+      "extraMenuPrice": 0,
+      "badge": ""
+    },
+    {
+      "id": "b5",
+      "name": "Red Bull 25cl",
+      "category": "boisson",
+      "price": 2,
+      "extraMenuPrice": 1,
+      "description": "Pour les rushes de fin de piscine & nuit de code. (+1€ en formule menu)",
+      "badge": "",
+      "available": true,
+      "icon": "⚡"
+    },
+    {
+      "id": "d2",
+      "name": "Brownie",
+      "category": "dessert",
+      "price": 1.6,
+      "description": "Et on ne parle pas de fan de My Little Pony ici...",
+      "available": false,
+      "icon": "🍫",
+      "extraMenuPrice": 0,
+      "badge": ""
+    },
+    {
+      "id": "d3",
+      "name": "Crumble ",
+      "category": "dessert",
+      "price": 1.5,
+      "description": "Délicieux crumble aux fruits de saison.",
+      "badge": "Fait maison",
+      "available": false,
+      "icon": "🥧",
+      "extraMenuPrice": 0
+    },
+    {
+      "id": "d4",
+      "name": "Pom'Potes",
+      "category": "dessert",
+      "price": 0.8,
+      "description": "Ton meilleur pote à l'exam final.",
+      "available": true,
+      "icon": "🍎"
+    }
+  ],
+  "menus": [
+    {
+      "id": "m1",
+      "name": "Formule Plouf (Plat + Boisson + Chips)",
+      "price": 4.5,
+      "description": "Le snack parfait entre deux évaluations. Choisissez 1 Plat + 1 Boisson au choix.",
+      "badge": "Économique",
+      "available": true,
+      "allowedPlats": true,
+      "allowedBoissons": true,
+      "allowedDesserts": false,
+      "icon": "🎣",
+      "category": "plat",
+      "extraMenuPrice": "",
+      "groups": [
+        {
+          "id": "g_bh0wie9",
+          "name": "Plat",
+          "productIds": [
+            "p1",
+            "p2",
+            "p3",
+            "p3_thon",
+            "p4"
+          ]
+        },
+        {
+          "id": "g_b7hd5eo",
+          "name": "Boisson",
+          "productIds": [
+            "b1",
+            "b3",
+            "b4",
+            "b5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "m2",
+      "name": "Formule Jaws (Plat + Boisson + Chips + Dessert)",
+      "price": 5.5,
+      "description": "La formule incontournable du midi ! 1 Plat + 1 Boisson + 1 Dessert au choix.",
+      "badge": "Le + Populaire",
+      "available": true,
+      "allowedPlats": true,
+      "allowedBoissons": true,
+      "allowedDesserts": true,
+      "icon": "🦈",
+      "category": "plat",
+      "extraMenuPrice": "",
+      "groups": [
+        {
+          "id": "g_dkztpvr",
+          "name": "Plat",
+          "productIds": [
+            "p1",
+            "p2",
+            "p3",
+            "p3_thon",
+            "p4"
+          ]
+        },
+        {
+          "id": "g_uo4mm2x",
+          "name": "Boisson",
+          "productIds": [
+            "b1",
+            "b3",
+            "b4",
+            "b5"
+          ]
+        },
+        {
+          "id": "g_opso6el",
+          "name": "Dessert",
+          "productIds": [
+            "d2",
+            "d3",
+            "d4",
+            "p_1788705122000",
+            "p_1788705097780"
+          ]
+        }
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "id": "ord_1788706239521",
+      "orderNumber": "42-1170",
+      "status": "pending",
+      "createdAt": "2026-09-06T14:50:39.521Z",
+      "userId": "kiosk_test",
+      "userLogin": "test",
+      "userDisplayName": "Test",
+      "items": [
+        {
+          "id": "m1_1788706237596",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b3",
+                "name": "Ice Tea Pêche 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Thé glacé au goût de pêche.",
+                "available": true,
+                "icon": "🍑"
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788705644034",
+      "orderNumber": "42-7710",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T14:40:44.034Z",
+      "userId": "kiosk_test",
+      "userLogin": "test",
+      "userDisplayName": "Test",
+      "items": [
+        {
+          "id": "m1_1788705616439",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        },
+        {
+          "id": "p_1788705122000",
+          "available": true,
+          "badge": "",
+          "icon": "🍩",
+          "extraMenuPrice": "",
+          "name": "Donuts framboise",
+          "category": "plat",
+          "price": 1.2,
+          "description": "Toujours pas.",
+          "quantity": 1,
+          "type": "product"
+        }
+      ],
+      "pickupTime": "18h00",
+      "note": "Ceci est un test",
+      "totalPrice": 5.7
+    },
+    {
+      "id": "ord_1788704806916",
+      "orderNumber": "42-5062",
+      "status": "completed",
+      "createdAt": "2026-09-06T14:26:46.917Z",
+      "userId": "kiosk_anfarenc",
+      "userLogin": "anfarenc",
+      "userDisplayName": "anfarenc",
+      "items": [
+        {
+          "id": "m1_1788704805152",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788704380478",
+      "orderNumber": "42-7095",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T14:19:40.478Z",
+      "userId": 231466,
+      "userLogin": "anfarenc",
+      "userDisplayName": "Anatole Farenc",
+      "items": [
+        {
+          "id": "m1_1788704376422",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788704107099",
+      "orderNumber": "42-3912",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T14:15:07.099Z",
+      "userId": 231466,
+      "userLogin": "anfarenc",
+      "userDisplayName": "Anatole Farenc",
+      "items": [
+        {
+          "id": "m1_1788704105130",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788703139904",
+      "orderNumber": "42-2940",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T13:58:59.904Z",
+      "userId": 230054,
+      "userLogin": "shapetit",
+      "userDisplayName": "Shawn Petitjean",
+      "items": [
+        {
+          "id": "m1_1788703140447",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788703126256",
+      "orderNumber": "42-6180",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T13:58:46.256Z",
+      "userId": 231466,
+      "userLogin": "anfarenc",
+      "userDisplayName": "Anatole Farenc",
+      "items": [
+        {
+          "id": "m1_1788703127741",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788701797145",
+      "orderNumber": "42-1167",
+      "status": "completed",
+      "createdAt": "2026-09-06T13:36:37.145Z",
+      "userId": 230054,
+      "userLogin": "shapetit",
+      "userDisplayName": "Shawn Petitjean",
+      "items": [
+        {
+          "id": "m1_1788701778655",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b3",
+                "name": "Ice Tea Pêche 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Thé glacé au goût de pêche.",
+                "available": true,
+                "icon": "🍑"
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "plus vite esclave",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788693741089",
+      "orderNumber": "42-4100",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T11:22:21.089Z",
+      "userId": 230028,
+      "userLogin": "nocurely",
+      "userDisplayName": "Noam Curély",
+      "items": [
+        {
+          "id": "m1_1788693742309",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788693724399",
+      "orderNumber": "42-2034",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T11:22:04.399Z",
+      "userId": 230028,
+      "userLogin": "nocurely",
+      "userDisplayName": "Noam Curély",
+      "items": [
+        {
+          "id": "m1_1788693725209",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788693694789",
+      "orderNumber": "42-8696",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T11:21:34.790Z",
+      "userId": 230028,
+      "userLogin": "nocurely",
+      "userDisplayName": "Noam Curély",
+      "items": [
+        {
+          "id": "m1_1788693693275",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788693676056",
+      "orderNumber": "42-2395",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T11:21:16.056Z",
+      "userId": 230028,
+      "userLogin": "nocurely",
+      "userDisplayName": "Noam Curély",
+      "items": [
+        {
+          "id": "m1_1788693677408",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788691606275",
+      "orderNumber": "42-6174",
+      "status": "completed",
+      "createdAt": "2026-09-06T10:46:46.275Z",
+      "userId": 231600,
+      "userLogin": "tmoga",
+      "userDisplayName": "Théaud Moga",
+      "items": [
+        {
+          "id": "m1_1788691601381",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p2",
+                "name": "Sandwich Rosette",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, rosette, cornichons, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b4",
+                "name": "Eau Minérale Cristaline 50cl",
+                "category": "boisson",
+                "price": 0.5,
+                "description": "Bouteille d'eau plate 50cl.",
+                "available": true,
+                "icon": "💧"
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h15",
+      "note": "dfwegrbh",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788691278807",
+      "orderNumber": "42-4895",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T10:41:18.807Z",
+      "userId": 230028,
+      "userLogin": "nocurely",
+      "userDisplayName": "Noam Curély",
+      "items": [
+        {
+          "id": "m1_1788691279893",
+          "menuId": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "icon": "🎣",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Plat",
+              "product": {
+                "id": "p1",
+                "name": "Sandwich Jambon",
+                "category": "plat",
+                "price": 3.5,
+                "description": "Pain baguette, jambon blanc, salade, beurre.",
+                "badge": "",
+                "available": true,
+                "icon": "🥪"
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "b1",
+                "name": "Coca-Cola 33cl",
+                "category": "boisson",
+                "price": 1,
+                "description": "Coca bien frais chacal.",
+                "available": true,
+                "icon": "🥤",
+                "extraMenuPrice": 0,
+                "badge": ""
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 4.5
+    },
+    {
+      "id": "ord_1788691108491",
+      "orderNumber": "42-6732",
+      "status": "cancelled",
+      "createdAt": "2026-09-06T10:38:28.491Z",
+      "userId": 231476,
+      "userLogin": "fpereau",
+      "userDisplayName": "Florian Pereau",
+      "items": [
+        {
+          "id": "d1",
+          "name": "Donut au Sucre",
+          "category": "dessert",
+          "price": 1.5,
+          "description": "Donut moelleux, saupoudré de sucre boule de cristal.",
+          "badge": "",
+          "available": true,
+          "icon": "🍩",
+          "quantity": 1,
+          "type": "product"
+        },
+        {
+          "id": "p1",
+          "name": "Sandwich Jambon",
+          "category": "plat",
+          "price": 3.5,
+          "description": "Pain baguette, jambon blanc, salade, beurre.",
+          "badge": "",
+          "available": true,
+          "icon": "🥪",
+          "quantity": 16007,
+          "type": "product"
+        }
+      ],
+      "pickupTime": "13h30",
+      "note": "je suis allergique au jambon",
+      "totalPrice": 56026
+    },
+    {
+      "id": "ord_1788690711336",
+      "orderNumber": "42-4335",
+      "status": "completed",
+      "createdAt": "2026-09-06T10:31:51.336Z",
+      "userId": 230028,
+      "userLogin": "nocurely",
+      "userDisplayName": "Noam Curély",
+      "items": [
+        {
+          "id": "m_1788452191667_1788690693231",
+          "menuId": "m_1788452191667",
+          "name": "Petit-Dej",
+          "price": 2,
+          "icon": "🥪",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Viennoiserie 1",
+              "product": {
+                "id": "p_1788451581637",
+                "available": true,
+                "badge": "",
+                "icon": "🥪",
+                "extraMenuPrice": "",
+                "name": "pain au chocolat",
+                "category": "vienoiserie",
+                "price": 0.8,
+                "description": "Error 404: Chocolatine not found",
+                "allowedDesserts": true
+              }
+            },
+            {
+              "label": "Viennoiserie 2",
+              "product": {
+                "id": "p_1788451581637",
+                "available": true,
+                "badge": "",
+                "icon": "🥪",
+                "extraMenuPrice": "",
+                "name": "pain au chocolat",
+                "category": "vienoiserie",
+                "price": 0.8,
+                "description": "Error 404: Chocolatine not found",
+                "allowedDesserts": true
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "p_1788451695388",
+                "available": true,
+                "badge": "",
+                "icon": "🥪",
+                "extraMenuPrice": 0,
+                "name": "café",
+                "category": "boisson",
+                "price": 0.5,
+                "description": "assurer sans cafard",
+                "allowedDesserts": true
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 2
+    },
+    {
+      "id": "ord_1788690698465",
+      "orderNumber": "42-3179",
+      "status": "completed",
+      "createdAt": "2026-09-06T10:31:38.465Z",
+      "userId": 230049,
+      "userLogin": "dgarrido",
+      "userDisplayName": "David Garrido",
+      "items": [
+        {
+          "id": "m_1788452191667_1788690696851",
+          "menuId": "m_1788452191667",
+          "name": "Petit-Dej",
+          "price": 2,
+          "icon": "🥪",
+          "type": "menu",
+          "choices": [
+            {
+              "label": "Viennoiserie 1",
+              "product": {
+                "id": "p_1788451530826",
+                "available": true,
+                "badge": "",
+                "icon": "🥪",
+                "extraMenuPrice": "",
+                "name": "croissant",
+                "category": "vienoiserie",
+                "price": 0.8,
+                "description": "bas c'est un croissant quoi",
+                "allowedDesserts": true
+              }
+            },
+            {
+              "label": "Viennoiserie 2",
+              "product": {
+                "id": "p_1788451581637",
+                "available": true,
+                "badge": "",
+                "icon": "🥪",
+                "extraMenuPrice": "",
+                "name": "pain au chocolat",
+                "category": "vienoiserie",
+                "price": 0.8,
+                "description": "Error 404: Chocolatine not found",
+                "allowedDesserts": true
+              }
+            },
+            {
+              "label": "Boisson",
+              "product": {
+                "id": "p_1788451759975",
+                "available": true,
+                "badge": "",
+                "icon": "🥪",
+                "extraMenuPrice": "",
+                "name": "thé",
+                "category": "boisson",
+                "price": 0.5,
+                "description": "Suplement eau chaude",
+                "allowedDesserts": true
+              }
+            }
+          ],
+          "quantity": 1
+        }
+      ],
+      "pickupTime": "12h00",
+      "note": "",
+      "totalPrice": 2
+    }
+  ],
+  "users": [],
+  "categories": [
+    {
+      "isVisible": true,
+      "id": "plat",
+      "name": "Plat",
+      "icon": "🥪"
+    },
+    {
+      "isVisible": true,
+      "id": "boisson",
+      "name": "Boisson",
+      "icon": "🥤"
+    },
+    {
+      "isVisible": true,
+      "id": "dessert",
+      "name": "Dessert",
+      "icon": "🍩"
+    },
+    {
+      "isVisible": false,
+      "id": "supplement",
+      "name": "Supplément",
+      "icon": "🧂"
+    },
+    {
+      "isVisible": false,
+      "id": "petit-dejeuner",
+      "name": "petit-dejeuner",
+      "icon": "📦"
+    }
+  ],
+  "templates": [
+    {
+      "id": "template_1788690836228",
+      "name": "Petit-Dej",
+      "description": "carte du petit dej",
+      "createdAt": "2026-09-06T10:33:56.228Z",
+      "products": [
+        {
+          "id": "p_1788451759975",
+          "available": true,
+          "badge": "",
+          "icon": "🥪",
+          "extraMenuPrice": 0,
+          "name": "Thé",
+          "category": "boisson",
+          "price": 0.5,
+          "description": "Supplément eau chaude",
+          "allowedDesserts": true
+        },
+        {
+          "id": "p_1788451695388",
+          "available": true,
+          "badge": "",
+          "icon": "🥪",
+          "extraMenuPrice": 0,
+          "name": "Café",
+          "category": "boisson",
+          "price": 0.5,
+          "description": "Garanti sans cafard ! ;)",
+          "allowedDesserts": true
+        },
+        {
+          "id": "p_1788451581637",
+          "available": true,
+          "badge": "",
+          "icon": "🥪",
+          "extraMenuPrice": 0,
+          "name": "Pain au chocolat",
+          "category": "vienoiserie",
+          "price": 0.8,
+          "description": "Error 404: Chocolatine not found (le reste du BDE condamne cette phrase) ",
+          "allowedDesserts": true
+        },
+        {
+          "id": "p_1788451530826",
+          "available": true,
+          "badge": "",
+          "icon": "🥪",
+          "extraMenuPrice": 0,
+          "name": "Croissant",
+          "category": "vienoiserie",
+          "price": 0.8,
+          "description": "C'est un croissant quoi",
+          "allowedDesserts": true
+        }
+      ],
+      "menus": [
+        {
+          "id": "m_1788452191667",
+          "available": true,
+          "badge": "",
+          "icon": "🥪",
+          "allowedPlats": true,
+          "allowedBoissons": true,
+          "allowedDesserts": false,
+          "name": "Petit-Dej",
+          "category": "plat",
+          "price": 2,
+          "extraMenuPrice": "",
+          "description": "",
+          "groups": [
+            {
+              "id": "g_nfz88wk",
+              "name": "Viennoiserie 1",
+              "productIds": [
+                "p_1788451581637",
+                "p_1788451530826"
+              ]
+            },
+            {
+              "id": "g_bayfnaw",
+              "name": "Viennoiserie 2",
+              "productIds": [
+                "p_1788451581637",
+                "p_1788451530826"
+              ]
+            },
+            {
+              "id": "g_my1l17s",
+              "name": "Boisson",
+              "productIds": [
+                "p_1788451759975",
+                "p_1788451695388"
+              ]
+            }
+          ]
+        }
+      ],
+      "categories": [
+        {
+          "isVisible": true,
+          "id": "plat",
+          "name": "Plat",
+          "icon": "🥪"
+        },
+        {
+          "isVisible": true,
+          "id": "boisson",
+          "name": "Boisson",
+          "icon": "🥤"
+        },
+        {
+          "isVisible": true,
+          "id": "dessert",
+          "name": "Dessert",
+          "icon": "🍩"
+        },
+        {
+          "isVisible": true,
+          "id": "supplement",
+          "name": "Supplément",
+          "icon": "🧂"
+        },
+        {
+          "isVisible": true,
+          "id": "vienoiserie",
+          "name": "vienoiserie",
+          "icon": "📦"
+        }
+      ]
+    },
+    {
+      "id": "template_1788432629815",
+      "name": "Piscine septembre 2026",
+      "description": "sandwich",
+      "createdAt": "2026-09-03T10:50:29.815Z",
+      "products": [
+        {
+          "id": "p1",
+          "name": "Sandwich Jambon",
+          "category": "plat",
+          "price": 3.5,
+          "description": "Pain baguette, jambon blanc, salade, beurre.",
+          "badge": "",
+          "available": true,
+          "icon": "🥪"
+        },
+        {
+          "id": "p2",
+          "name": "Sandwich Rosette",
+          "category": "plat",
+          "price": 3.5,
+          "description": "Pain baguette, rosette, cornichons, beurre.",
+          "badge": "",
+          "available": true,
+          "icon": "🥪"
+        },
+        {
+          "id": "p3",
+          "name": "Sandwich Poulet",
+          "category": "plat",
+          "price": 4.5,
+          "extraMenuPrice": 1,
+          "description": "Pain baguette, aiguillettes de poulet, tomates fraiches, oignons caramélisés, sauce pesto (+1€ en menu).",
+          "badge": "",
+          "available": true,
+          "icon": "🍗"
+        },
+        {
+          "id": "p3_thon",
+          "name": "Sandwich Thon Mayonnaise",
+          "category": "plat",
+          "price": 4.5,
+          "extraMenuPrice": 1,
+          "description": "Pain baguette, thon, échalotes, tomates fraîche, salade, mayonnaise.",
+          "badge": "",
+          "available": true,
+          "icon": "🐟"
+        },
+        {
+          "id": "p4",
+          "name": "Salade Composée",
+          "category": "plat",
+          "price": 3.5,
+          "description": "Pate, Salade, tomates fraiche, maïs, carotte, mozzarella et sauce vinaigrette.",
+          "badge": "Végétarien",
+          "available": true,
+          "icon": "🥗",
+          "extraMenuPrice": 0
+        },
+        {
+          "id": "b1",
+          "name": "Coca-Cola 33cl",
+          "category": "boisson",
+          "price": 1,
+          "description": "Coca bien frais chacal.",
+          "available": true,
+          "icon": "🥤",
+          "extraMenuPrice": 0,
+          "badge": ""
+        },
+        {
+          "id": "b3",
+          "name": "Ice Tea Pêche 33cl",
+          "category": "boisson",
+          "price": 1,
+          "description": "Thé glacé au goût de pêche.",
+          "available": true,
+          "icon": "🍑"
+        },
+        {
+          "id": "b4",
+          "name": "Eau Minérale Cristaline 50cl",
+          "category": "boisson",
+          "price": 0.5,
+          "description": "Bouteille d'eau plate 50cl.",
+          "available": true,
+          "icon": "💧"
+        },
+        {
+          "id": "b5",
+          "name": "Red Bull 25cl",
+          "category": "boisson",
+          "price": 2,
+          "extraMenuPrice": 1,
+          "description": "Pour les rushes de fin de piscine & nuit de code. (+1€ en formule menu)",
+          "badge": "",
+          "available": true,
+          "icon": "⚡"
+        },
+        {
+          "id": "d1",
+          "name": "Donut chocolat ou framboise",
+          "category": "dessert",
+          "price": 1.5,
+          "description": "pas de donuts sucrés au sucre...",
+          "badge": "",
+          "available": true,
+          "icon": "🍩",
+          "extraMenuPrice": 0
+        },
+        {
+          "id": "d2",
+          "name": "Brownie",
+          "category": "dessert",
+          "price": 1.6,
+          "description": "Et on ne parle pas de fan de My Little Pony ici...",
+          "available": false,
+          "icon": "🍫",
+          "extraMenuPrice": 0,
+          "badge": ""
+        },
+        {
+          "id": "d3",
+          "name": "Crumble ",
+          "category": "dessert",
+          "price": 1.5,
+          "description": "Délicieux crumble aux fruits de saison.",
+          "badge": "Fait maison",
+          "available": false,
+          "icon": "🥧",
+          "extraMenuPrice": 0
+        },
+        {
+          "id": "d4",
+          "name": "Pom'Potes",
+          "category": "dessert",
+          "price": 0.8,
+          "description": "Ton meilleur pote à l'exam final.",
+          "available": true,
+          "icon": "🍎"
+        }
+      ],
+      "menus": [
+        {
+          "id": "m1",
+          "name": "Formule Plouf (Plat + Boisson + Chips)",
+          "price": 4.5,
+          "description": "Le snack parfait entre deux évaluations. Choisissez 1 Plat + 1 Boisson au choix.",
+          "badge": "Économique",
+          "available": true,
+          "allowedPlats": true,
+          "allowedBoissons": true,
+          "allowedDesserts": false,
+          "icon": "🎣"
+        },
+        {
+          "id": "m2",
+          "name": "Formule Jaws (Plat + Boisson + Chips + Dessert)",
+          "price": 5.5,
+          "description": "La formule incontournable du midi ! 1 Plat + 1 Boisson + 1 Dessert au choix.",
+          "badge": "Le + Populaire",
+          "available": true,
+          "allowedPlats": true,
+          "allowedBoissons": true,
+          "allowedDesserts": true,
+          "icon": "🦈"
+        }
+      ],
+      "categories": [
+        {
+          "id": "plat",
+          "name": "Plat",
+          "icon": "🥪"
+        },
+        {
+          "id": "boisson",
+          "name": "Boisson",
+          "icon": "🥤"
+        },
+        {
+          "id": "dessert",
+          "name": "Dessert",
+          "icon": "🍩"
+        },
+        {
+          "id": "supplement",
+          "name": "Supplément",
+          "icon": "🧂",
+          "isVisible": false
+        },
+        {
+          "id": "petit-dejeuner",
+          "name": "petit-dejeuner",
+          "icon": "📦",
+          "isVisible": false
+        }
+      ]
+    }
+  ]
+}
