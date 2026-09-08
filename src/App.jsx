@@ -319,6 +319,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchUserOrders();
+      fetchProducts();
       if (user && user.isAdmin) {
         fetchAdminOrders();
       }
@@ -447,6 +448,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
+      fetchProducts();
     } catch (e) {
       alert('Erreur lors de la mise à jour du statut.');
     }
@@ -483,6 +485,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
+      fetchProducts();
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la création du don.');
@@ -497,8 +500,20 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
+      fetchProducts();
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
+    }
+  };
+
+  const handleTogglePaid = async (orderId, isPaid) => {
+    try {
+      await axios.patch(`/api/admin/orders/${orderId}/paid`, { isPaid }, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      fetchAdminOrders();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
     }
   };
 
@@ -676,6 +691,7 @@ export default function App() {
           onFetchReviews={fetchReviews}
           onDeleteReview={handleDeleteReview}
           onDeleteOrder={handleDeleteOrder}
+          onTogglePaid={handleTogglePaid}
           onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
           onToggleStock={handleToggleStock}
           onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}

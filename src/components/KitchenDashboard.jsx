@@ -9,7 +9,7 @@ import { normalizeChoices } from '../lib/menuChoices';
 const PREVIOUS_STATUS = {
   preparing: 'pending',
   ready: 'preparing',
-  completed: 'ready',
+  completed: 'preparing',
   cancelled: 'pending'
 };
 
@@ -38,6 +38,7 @@ export default function KitchenDashboard({
   onUpdateOrder,
   onCreateFreeOrder,
   onDeleteOrder,
+  onTogglePaid,
   onOpenAddModal,
   onToggleStock,
   onEditItem,
@@ -65,11 +66,16 @@ export default function KitchenDashboard({
   const handleExportReport = () => {
     if (!dailyReport) return;
     const rows = [
-      ['Produit', 'Quantité vendue', 'Prix unitaire (€)', 'Total (€)'],
+      ['Ventes (par ligne de commande)'],
+      ['Produit / Formule', 'Quantité vendue', 'Prix unitaire (€)', 'Total (€)'],
       ...dailyReport.products.map(p => [p.name, p.quantity, p.unitPrice.toFixed(2), p.totalPrice.toFixed(2)]),
       [],
       ['Commandes récupérées', dailyReport.totalOrders],
-      ['Chiffre d\'affaires (€)', dailyReport.totalRevenue.toFixed(2)]
+      ['Chiffre d\'affaires (€)', dailyReport.totalRevenue.toFixed(2)],
+      [],
+      ['Produits réellement pris (formules décomposées)'],
+      ['Produit', 'Quantité prise'],
+      ...dailyReport.productUsage.map(p => [p.name, p.quantity])
     ];
     const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -389,6 +395,16 @@ export default function KitchenDashboard({
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {getStatusBadge(order.status)}
+                      {!order.isFree && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', cursor: 'pointer', color: order.isPaid ? 'var(--color-success)' : 'var(--color-accent)' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!order.isPaid}
+                            onChange={e => onTogglePaid(order.id, e.target.checked)}
+                          />
+                          Réglée
+                        </label>
+                      )}
                       <button className="btn btn-secondary" style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem' }} onClick={() => setEditingOrder(order)} title="Modifier la commande">
                         <Edit3 size={14} /> Éditer
                       </button>
@@ -609,11 +625,12 @@ export default function KitchenDashboard({
                 </div>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.6rem' }}>Ventes (par ligne de commande)</h3>
+              <div style={{ overflowX: 'auto', marginBottom: '2rem' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
-                      <th style={{ padding: '0.5rem' }}>Produit</th>
+                      <th style={{ padding: '0.5rem' }}>Produit / Formule</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>Quantité vendue</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>Prix unitaire</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total</th>
@@ -626,6 +643,29 @@ export default function KitchenDashboard({
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>x{product.quantity}</td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-muted)' }}>{product.unitPrice.toFixed(2)} €</td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>{product.totalPrice.toFixed(2)} €</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.25rem' }}>Produits réellement pris (formules décomposées)</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
+                Combien de fois chaque produit a été pris au total, seul ou choisi dans une formule — utile pour le stock/la prépa. Pas de prix ici : celui d'une formule ne se répartit pas entre ses composants.
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
+                      <th style={{ padding: '0.5rem' }}>Produit</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Quantité prise</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailyReport.productUsage.map(product => (
+                      <tr key={product.name} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '0.5rem' }}>{product.name}</td>
+                        <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>x{product.quantity}</td>
                       </tr>
                     ))}
                   </tbody>

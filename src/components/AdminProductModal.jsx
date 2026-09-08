@@ -33,6 +33,7 @@ const emptyBaseForm = (type) => ({
   category: 'plat',
   price: '',
   extraMenuPrice: '',
+  stock: '',
   description: '',
   badge: '',
   icon: type === 'menu' ? '🍱' : '🥪'
@@ -97,6 +98,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         category: editingItem.category || 'plat',
         price: editingItem.price || '',
         extraMenuPrice: editingItem.extraMenuPrice || '',
+        stock: editingItem.stock === null || editingItem.stock === undefined ? '' : editingItem.stock,
         description: editingItem.description || '',
         badge: editingItem.badge || '',
         icon: editingItem.icon || (type === 'menu' ? '🍱' : '🥪')
@@ -254,6 +256,24 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 value={formData.badge}
                 onChange={e => setFormData({ ...formData, badge: e.target.value })}
               />
+            </div>
+          )}
+
+          {type === 'product' && (
+            <div className="form-group">
+              <label className="form-label">Stock (Optionnel)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                className="form-input"
+                placeholder="Laisser vide = pas de suivi de stock (toujours disponible)"
+                value={formData.stock}
+                onChange={e => setFormData({ ...formData, stock: e.target.value })}
+              />
+              <p className="formule-slot-hint">
+                Si renseigné, le stock diminue à chaque commande et le produit passe automatiquement en rupture à 0.
+              </p>
             </div>
           )}
 

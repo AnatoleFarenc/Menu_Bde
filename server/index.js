@@ -387,6 +387,16 @@ app.patch('/api/admin/orders/:id/status', (req, res) => {
   res.json({ order: updatedOrder });
 });
 
+app.patch('/api/admin/orders/:id/paid', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  }
+  const updatedOrder = db.setOrderPaid(req.params.id, !!req.body.isPaid);
+  if (!updatedOrder) return res.status(404).json({ error: 'Commande introuvable' });
+  res.json({ order: updatedOrder });
+});
+
 app.delete('/api/admin/orders', (req, res) => {
   const user = getUserFromReq(req);
   if (!user || !user.isAdmin) {
@@ -455,6 +465,16 @@ app.get('/api/admin/report', (req, res) => {
   const productsMap = new Map();
   let totalRevenue = 0;
 
+  // Décompte "consommation réelle" : décompose aussi les produits choisis dans les formules,
+  // pour savoir combien de fois chaque produit a été pris au total (seul ou via un menu).
+  // Uniquement en quantité, pas de prix ici (celui d'une formule n'est pas divisible entre
+  // ses composants).
+  const usageMap = new Map();
+  const addUsage = (name, qty) => {
+    if (!name) return;
+    usageMap.set(name, (usageMap.get(name) || 0) + qty);
+  };
+
   periodOrders.forEach(order => {
     totalRevenue += order.isFree ? 0 : (order.totalPrice || 0);
     order.items.forEach(item => {
@@ -463,6 +483,17 @@ app.get('/api/admin/report', (req, res) => {
       existing.quantity += item.quantity;
       existing.totalPrice += unitPrice * item.quantity;
       productsMap.set(item.name, existing);
+
+      if (item.type === 'menu' && item.choices) {
+        const chosenProducts = Array.isArray(item.choices)
+          ? item.choices.map(entry => entry && entry.product)
+          : Object.values(item.choices);
+        chosenProducts.forEach(chosenProduct => {
+          if (chosenProduct && chosenProduct.name) addUsage(chosenProduct.name, item.quantity);
+        });
+      } else if (item.name) {
+        addUsage(item.name, item.quantity);
+      }
     });
   });
 
@@ -471,7 +502,10 @@ app.get('/api/admin/report', (req, res) => {
     to,
     totalOrders: periodOrders.length,
     totalRevenue,
-    products: Array.from(productsMap.values()).sort((a, b) => b.quantity - a.quantity)
+    products: Array.from(productsMap.values()).sort((a, b) => b.quantity - a.quantity),
+    productUsage: Array.from(usageMap.entries())
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity)
   });
 });
 

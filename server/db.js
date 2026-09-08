@@ -195,10 +195,14 @@ class DB {
       available: true,
       badge: '',
       icon: product.icon || '🥪',
-      extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
       ...product,
       price: parseFloat(product.price) || 0,
+      extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
+      stock: (product.stock === '' || product.stock === undefined || product.stock === null) ? null : parseInt(product.stock, 10),
     };
+    if (newProduct.stock !== null) {
+      newProduct.available = newProduct.stock > 0;
+    }
     this.data.products.unshift(newProduct);
     this.save();
     return newProduct;
@@ -213,6 +217,13 @@ class DB {
       }
       if (updates.extraMenuPrice !== undefined) {
         this.data.products[idx].extraMenuPrice = parseFloat(updates.extraMenuPrice) || 0;
+      }
+      if (updates.stock !== undefined) {
+        const stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
+        this.data.products[idx].stock = stock;
+        if (stock !== null) {
+          this.data.products[idx].available = stock > 0;
+        }
       }
       this.save();
       return this.data.products[idx];
@@ -297,10 +308,39 @@ class DB {
   }
 
   deleteOrder(id) {
-    const before = this.data.orders.length;
+    const order = this.data.orders.find(o => o.id === id);
+    if (!order) return false;
+    if (order.status !== 'cancelled') {
+      this._adjustStock(order.items || [], 1);
+    }
     this.data.orders = this.data.orders.filter(o => o.id !== id);
     this.save();
-    return this.data.orders.length < before;
+    return true;
+  }
+
+  // Décrémente (delta -1) ou restitue (delta +1) le stock des produits d'une commande,
+  // en décomposant les formules dans leurs produits choisis. Ne touche que les produits
+  // pour lesquels un stock est suivi (stock !== null) ; passe automatiquement en rupture
+  // quand le stock atteint 0.
+  _adjustStock(items, delta) {
+    const applyToProduct = (productId, qty) => {
+      const product = this.data.products.find(p => p.id === productId);
+      if (!product || product.stock === null || product.stock === undefined) return;
+      product.stock = Math.max(0, product.stock + delta * qty);
+      product.available = product.stock > 0;
+    };
+    (items || []).forEach(item => {
+      if (item.type === 'menu' && item.choices) {
+        const chosenProducts = Array.isArray(item.choices)
+          ? item.choices.map(entry => entry && entry.product)
+          : Object.values(item.choices);
+        chosenProducts.forEach(chosenProduct => {
+          if (chosenProduct && chosenProduct.id) applyToProduct(chosenProduct.id, item.quantity);
+        });
+      } else if (item.id) {
+        applyToProduct(item.id, item.quantity);
+      }
+    });
   }
 
   addOrder(orderData) {
@@ -309,10 +349,12 @@ class DB {
       id: 'ord_' + Date.now(),
       orderNumber: `42-${orderNumber}`,
       status: 'pending', // 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+      isPaid: false,
       createdAt: new Date().toISOString(),
       ...orderData
     };
-    this.data.orders.unshift(newOrder);
+    this.data.orders.push(newOrder);
+    this._adjustStock(newOrder.items || [], -1);
     this.save();
     return newOrder;
   }
@@ -320,11 +362,22 @@ class DB {
   updateOrderStatus(id, status) {
     const order = this.data.orders.find(o => o.id === id);
     if (order) {
+      if (status === 'cancelled' && order.status !== 'cancelled') {
+        this._adjustStock(order.items || [], 1);
+      }
       order.status = status;
       this.save();
       return order;
     }
     return null;
+  }
+
+  setOrderPaid(id, isPaid) {
+    const order = this.data.orders.find(o => o.id === id);
+    if (!order) return null;
+    order.isPaid = !!isPaid;
+    this.save();
+    return order;
   }
 
   updateOrder(id, updates) {
