@@ -153,7 +153,7 @@ export default function KitchenDashboard({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
+        <div className="admin-tabs-scroll">
           <button
             className={`btn ${adminTab === 'kitchen' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setAdminTab('kitchen')}

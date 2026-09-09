@@ -440,6 +440,20 @@ main h3 {
   border-bottom: 2px solid var(--color-primary);
 }
 
+.admin-tabs-scroll {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
+}
+
+.admin-tabs-scroll .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .hero-text h1 {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.6rem);
