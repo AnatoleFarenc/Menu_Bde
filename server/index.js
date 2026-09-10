@@ -479,11 +479,22 @@ app.get('/api/admin/report', (req, res) => {
 
   const productsMap = new Map();
   let totalRevenue = 0;
+  let totalCost = 0;
+
+  // Coût d'achat d'une ligne : pour un produit c'est son costPrice ; pour une formule c'est
+  // la somme des costPrice des produits choisis dedans. costPrice absent/null => 0 (inconnu).
+  const itemUnitCost = (item) => {
+    if (item.type === 'menu' && item.choices) {
+      const chosen = Array.isArray(item.choices)
+        ? item.choices.map(entry => entry && entry.product)
+        : Object.values(item.choices);
+      return chosen.reduce((sum, p) => sum + (p && p.costPrice ? p.costPrice : 0), 0);
+    }
+    return item.costPrice || 0;
+  };
 
   // Décompte "consommation réelle" : décompose aussi les produits choisis dans les formules,
   // pour savoir combien de fois chaque produit a été pris au total (seul ou via un menu).
-  // Uniquement en quantité, pas de prix ici (celui d'une formule n'est pas divisible entre
-  // ses composants).
   const usageMap = new Map();
   const addUsage = (name, qty) => {
     if (!name) return;
@@ -494,9 +505,12 @@ app.get('/api/admin/report', (req, res) => {
     totalRevenue += order.isFree ? 0 : (order.totalPrice || 0);
     order.items.forEach(item => {
       const unitPrice = order.isFree ? 0 : (item.price || 0);
-      const existing = productsMap.get(item.name) || { name: item.name, quantity: 0, unitPrice, totalPrice: 0 };
+      const unitCost = itemUnitCost(item);
+      totalCost += unitCost * item.quantity;
+      const existing = productsMap.get(item.name) || { name: item.name, quantity: 0, unitPrice, unitCost, totalPrice: 0, totalCost: 0 };
       existing.quantity += item.quantity;
       existing.totalPrice += unitPrice * item.quantity;
+      existing.totalCost += unitCost * item.quantity;
       productsMap.set(item.name, existing);
 
       if (item.type === 'menu' && item.choices) {
@@ -512,12 +526,18 @@ app.get('/api/admin/report', (req, res) => {
     });
   });
 
+  const products = Array.from(productsMap.values())
+    .map(p => ({ ...p, margin: p.totalPrice - p.totalCost }))
+    .sort((a, b) => b.quantity - a.quantity);
+
   res.json({
     from,
     to,
     totalOrders: periodOrders.length,
     totalRevenue,
-    products: Array.from(productsMap.values()).sort((a, b) => b.quantity - a.quantity),
+    totalCost,
+    totalProfit: totalRevenue - totalCost,
+    products,
     productUsage: Array.from(usageMap.entries())
       .map(([name, quantity]) => ({ name, quantity }))
       .sort((a, b) => b.quantity - a.quantity)

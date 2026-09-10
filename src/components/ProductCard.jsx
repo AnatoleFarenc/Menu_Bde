@@ -49,6 +49,11 @@ export default function ProductCard({ item, type = 'product', onAddToCart, onOpe
             Stock : {item.stock}
           </span>
         )}
+        {isAdminView && (item.costPrice !== null && item.costPrice !== undefined) && (
+          <span className="card-extra" style={{ color: 'var(--text-muted)' }}>
+            Achat : {item.costPrice.toFixed(2)} € · Marge : {(item.price - item.costPrice).toFixed(2)} €
+          </span>
+        )}
 
         {/* ADMIN CONTROLS */}
         {isAdminView ? (

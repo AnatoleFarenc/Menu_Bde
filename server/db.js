@@ -198,6 +198,7 @@ class DB {
       ...product,
       price: parseFloat(product.price) || 0,
       extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
+      costPrice: (product.costPrice === '' || product.costPrice === undefined || product.costPrice === null) ? null : parseFloat(product.costPrice),
       stock: (product.stock === '' || product.stock === undefined || product.stock === null) ? null : parseInt(product.stock, 10),
     };
     if (newProduct.stock !== null) {
@@ -217,6 +218,9 @@ class DB {
       }
       if (updates.extraMenuPrice !== undefined) {
         this.data.products[idx].extraMenuPrice = parseFloat(updates.extraMenuPrice) || 0;
+      }
+      if (updates.costPrice !== undefined) {
+        this.data.products[idx].costPrice = (updates.costPrice === '' || updates.costPrice === null) ? null : parseFloat(updates.costPrice);
       }
       if (updates.stock !== undefined) {
         const stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);

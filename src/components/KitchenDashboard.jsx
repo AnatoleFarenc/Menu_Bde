@@ -67,11 +67,13 @@ export default function KitchenDashboard({
     if (!dailyReport) return;
     const rows = [
       ['Ventes (par ligne de commande)'],
-      ['Produit / Formule', 'Quantité vendue', 'Prix unitaire (€)', 'Total (€)'],
-      ...dailyReport.products.map(p => [p.name, p.quantity, p.unitPrice.toFixed(2), p.totalPrice.toFixed(2)]),
+      ['Produit / Formule', 'Quantité vendue', 'Prix unitaire (€)', 'Total vendu (€)', 'Coût total (€)', 'Marge (€)'],
+      ...dailyReport.products.map(p => [p.name, p.quantity, p.unitPrice.toFixed(2), p.totalPrice.toFixed(2), (p.totalCost || 0).toFixed(2), (p.margin || 0).toFixed(2)]),
       [],
       ['Commandes récupérées', dailyReport.totalOrders],
       ['Chiffre d\'affaires (€)', dailyReport.totalRevenue.toFixed(2)],
+      ['Coût d\'achat (€)', (dailyReport.totalCost || 0).toFixed(2)],
+      ['Bénéfice (€)', (dailyReport.totalProfit || 0).toFixed(2)],
       [],
       ['Produits réellement pris (formules décomposées)'],
       ['Produit', 'Quantité prise'],
@@ -623,7 +625,20 @@ export default function KitchenDashboard({
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Chiffre d'affaires</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-primary-text)' }}>{dailyReport.totalRevenue.toFixed(2)} €</div>
                 </div>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Coût d'achat</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{(dailyReport.totalCost || 0).toFixed(2)} €</div>
+                </div>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Bénéfice</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: (dailyReport.totalProfit || 0) >= 0 ? 'var(--color-success)' : 'var(--color-accent)' }}>
+                    {(dailyReport.totalProfit || 0).toFixed(2)} €
+                  </div>
+                </div>
               </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                Le coût et le bénéfice ne comptent que les produits pour lesquels un prix d'achat a été renseigné.
+              </p>
 
               <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.6rem' }}>Ventes (par ligne de commande)</h3>
               <div style={{ overflowX: 'auto', marginBottom: '2rem' }}>
@@ -633,7 +648,9 @@ export default function KitchenDashboard({
                       <th style={{ padding: '0.5rem' }}>Produit / Formule</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>Quantité vendue</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>Prix unitaire</th>
-                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total vendu</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Coût total</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Marge</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -643,6 +660,8 @@ export default function KitchenDashboard({
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>x{product.quantity}</td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-muted)' }}>{product.unitPrice.toFixed(2)} €</td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>{product.totalPrice.toFixed(2)} €</td>
+                        <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-muted)' }}>{(product.totalCost || 0).toFixed(2)} €</td>
+                        <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700, color: (product.margin || 0) >= 0 ? 'var(--color-success)' : 'var(--color-accent)' }}>{(product.margin || 0).toFixed(2)} €</td>
                       </tr>
                     ))}
                   </tbody>

@@ -33,6 +33,7 @@ const emptyBaseForm = (type) => ({
   category: 'plat',
   price: '',
   extraMenuPrice: '',
+  costPrice: '',
   stock: '',
   description: '',
   badge: '',
@@ -98,6 +99,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         category: editingItem.category || 'plat',
         price: editingItem.price || '',
         extraMenuPrice: editingItem.extraMenuPrice || '',
+        costPrice: editingItem.costPrice === null || editingItem.costPrice === undefined ? '' : editingItem.costPrice,
         stock: editingItem.stock === null || editingItem.stock === undefined ? '' : editingItem.stock,
         description: editingItem.description || '',
         badge: editingItem.badge || '',
@@ -256,6 +258,24 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 value={formData.badge}
                 onChange={e => setFormData({ ...formData, badge: e.target.value })}
               />
+            </div>
+          )}
+
+          {type === 'product' && (
+            <div className="form-group">
+              <label className="form-label">Prix d'achat (Optionnel)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="form-input"
+                placeholder="Ex: 0.90 — sert au calcul du bénéfice dans le bilan"
+                value={formData.costPrice}
+                onChange={e => setFormData({ ...formData, costPrice: e.target.value })}
+              />
+              <p className="formule-slot-hint">
+                Ce que ce produit coûte au BDE à l'achat. Utilisé pour calculer la marge et le bénéfice dans le bilan.
+              </p>
             </div>
           )}
 
