@@ -1,0 +1,39 @@
+[Unit]
+Description=BDE Menu Node server (STAGING)
+After=network.target
+
+[Service]
+Type=simple
+User=bde-app
+Group=bde-app
+WorkingDirectory=/opt/Menu_Bde-staging
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+
+# --- Durcissement ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/Menu_Bde-staging/server/data
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
