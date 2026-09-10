@@ -18,6 +18,15 @@ const oauthRedirectUri = (process.env.INTRA42_REDIRECT_URI || `${publicAppUrl}/a
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
+// Mode staging : si STAGING_MODE=true, seuls les logins 42 listés dans STAGING_ALLOWED_LOGINS
+// peuvent se connecter. Sur la prod la variable est absente → aucun effet.
+const stagingMode = process.env.STAGING_MODE === 'true';
+const stagingAllowedLogins = (process.env.STAGING_ALLOWED_LOGINS || '')
+  .split(',')
+  .map(login => login.trim().toLowerCase())
+  .filter(Boolean);
+const isStagingAllowed = (login) => !stagingMode || stagingAllowedLogins.includes((login || '').toLowerCase());
+
 // In-memory sessions map (token -> user profile)
 const sessions = new Map();
 
@@ -44,6 +53,9 @@ app.get('/api/auth/42/callback', async (req, res) => {
   const { code } = req.query;
   try {
     const user = await handle42Callback(code);
+    if (!isStagingAllowed(user.login)) {
+      return res.redirect(`${publicAppUrl}/?error=${encodeURIComponent('Accès réservé aux testeurs sur cet environnement de développement.')}`);
+    }
     const token = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     sessions.set(token, user);
     // Redirect back to client app with token
@@ -65,6 +77,9 @@ app.get('/api/auth/me', (req, res) => {
 // Connexion simplifiée pour la borne (mode kiosque) : pas d'OAuth 42, juste un login déclaré
 // à la main pour pouvoir attribuer les commandes. Le compte n'a jamais les droits admin.
 app.post('/api/auth/kiosk-login', (req, res) => {
+  if (stagingMode) {
+    return res.status(403).json({ error: 'Le mode borne est désactivé sur l\'environnement de test.' });
+  }
   const login = (req.body.login || '').trim();
   if (!login) {
     return res.status(400).json({ error: 'Login requis' });

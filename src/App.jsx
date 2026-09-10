@@ -25,6 +25,7 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
   const [kioskLoginInput, setKioskLoginInput] = useState('');
+  const [authError, setAuthError] = useState('');
 
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
@@ -55,9 +56,14 @@ export default function App() {
     // Check URL params for OAuth redirect token
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('token');
+    const errorFromUrl = urlParams.get('error');
     if (tokenFromUrl) {
       setAuthToken(tokenFromUrl);
       localStorage.setItem('bde_token', tokenFromUrl);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (errorFromUrl) {
+      setAuthError(errorFromUrl);
+      setIsAuthChecking(false);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (!authToken) {
       setIsAuthChecking(false);
@@ -565,6 +571,9 @@ export default function App() {
           <div className="logo-badge"><span>42</span></div>
           <h1>Bienvenue sur BDE Sandwicherie</h1>
           <p>Connectez-vous avec votre compte 42 pour accéder à la vitrine, commander et suivre vos commandes.</p>
+          {authError && (
+            <p style={{ color: 'var(--color-accent)', fontWeight: 600, marginBottom: '1rem' }}>{authError}</p>
+          )}
           <button className="btn btn-primary" onClick={handleLogin42}>
             <LogIn size={18} /> Se connecter avec 42
           </button>
