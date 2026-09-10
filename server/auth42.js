@@ -16,13 +16,19 @@ const getRedirectUri = () => {
   return `${base}/api/auth/42/callback`;
 };
 
-export const get42AuthUrl = () => {
+export const get42AuthUrl = (state) => {
   const clientId = process.env.INTRA42_CLIENT_ID;
   if (!clientId) {
     throw new Error('INTRA42_CLIENT_ID absent du fichier .env');
   }
-  const redirectUri = encodeURIComponent(getRedirectUri());
-  return `https://api.intra.42.fr/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=public`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: getRedirectUri(),
+    response_type: 'code',
+    scope: 'public',
+  });
+  if (state) params.set('state', state);
+  return `https://api.intra.42.fr/oauth/authorize?${params.toString()}`;
 };
 
 export const handle42Callback = async (code) => {

@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
@@ -15,8 +18,45 @@ const __dirname = path.dirname(__filename);
 const publicAppUrl = (process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).trim().replace(/\/+$/, '');
 const oauthRedirectUri = (process.env.INTRA42_REDIRECT_URI || `${publicAppUrl}/api/auth/42/callback`).trim();
 
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+// Derrière le reverse proxy Caddy : nécessaire pour que le rate-limit voie la vraie IP client.
+app.set('trust proxy', 1);
+
+// En-têtes de sécurité (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy…).
+// CSP taillée sur mesure pour l'app : bundle servi en propre, polices Google, avatars 42.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https://cdn.intra.42.fr', 'https://profile.intra.42.fr'],
+      connectSrc: ["'self'"],
+      formAction: ["'self'", 'https://api.intra.42.fr'],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS restreint aux origines connues (domaine public + localhost pour le dev).
+const allowedOrigins = new Set([
+  publicAppUrl,
+  'http://localhost:3000',
+  'http://localhost:5001',
+  'http://localhost:5002',
+]);
+app.use(cors({
+  origin: (origin, cb) => cb(null, !origin || allowedOrigins.has(origin)),
+  credentials: true,
+}));
+app.use(express.json({ limit: '1mb' }));
+
+// Rate limiting : global large, strict sur l'authentification.
+app.use('/api/', rateLimit({ windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 
 // Mode staging : si STAGING_MODE=true, seuls les logins 42 listés dans STAGING_ALLOWED_LOGINS
 // peuvent se connecter. Sur la prod la variable est absente → aucun effet.
@@ -27,38 +67,97 @@ const stagingAllowedLogins = (process.env.STAGING_ALLOWED_LOGINS || '')
   .filter(Boolean);
 const isStagingAllowed = (login) => !stagingMode || stagingAllowedLogins.includes((login || '').toLowerCase());
 
-// In-memory sessions map (token -> user profile)
-const sessions = new Map();
+// ----------------------------------------------------
+// SESSIONS  (jeton opaque aléatoire, expiration glissante)
+// ----------------------------------------------------
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
+const sessions = new Map(); // token -> { user, expiresAt }
 
-// Helper to get user from Auth header or token
-const getUserFromReq = (req) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return null;
-  const token = authHeader.replace('Bearer ', '');
-  return sessions.get(token) || null;
+const createSession = (user) => {
+  const token = crypto.randomBytes(32).toString('base64url');
+  sessions.set(token, { user, expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
 };
+
+const getUserFromReq = (req) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token) return null;
+  const entry = sessions.get(token);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+  entry.expiresAt = Date.now() + SESSION_TTL_MS; // expiration glissante
+  return entry.user;
+};
+
+// Purge périodique des sessions expirées.
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of sessions) {
+    if (entry.expiresAt < now) sessions.delete(token);
+  }
+}, 30 * 60 * 1000).unref();
+
+// Middlewares d'autorisation
+const requireAuth = (req, res, next) => {
+  const user = getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: 'Non authentifié' });
+  req.user = user;
+  next();
+};
+const requireAdmin = (req, res, next) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
+  req.user = user;
+  next();
+};
+
+// État anti-CSRF pour le flux OAuth 42 (state param), jetons à usage unique & courte durée.
+const oauthStates = new Map(); // state -> expiresAt
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const issueOauthState = () => {
+  const state = crypto.randomBytes(16).toString('base64url');
+  oauthStates.set(state, Date.now() + OAUTH_STATE_TTL_MS);
+  return state;
+};
+const consumeOauthState = (state) => {
+  const expiresAt = oauthStates.get(state);
+  if (!expiresAt) return false;
+  oauthStates.delete(state);
+  return expiresAt >= Date.now();
+};
+setInterval(() => {
+  const now = Date.now();
+  for (const [state, exp] of oauthStates) {
+    if (exp < now) oauthStates.delete(state);
+  }
+}, 5 * 60 * 1000).unref();
 
 // ----------------------------------------------------
 // AUTH ROUTES (42 OAuth2)
 // ----------------------------------------------------
-app.get('/api/auth/42/url', (req, res) => {
+app.get('/api/auth/42/url', authLimiter, (req, res) => {
   try {
-    res.json({ url: get42AuthUrl() });
+    res.json({ url: get42AuthUrl(issueOauthState()) });
   } catch (error) {
     res.status(503).json({ error: error.message });
   }
 });
 
-app.get('/api/auth/42/callback', async (req, res) => {
-  const { code } = req.query;
+app.get('/api/auth/42/callback', authLimiter, async (req, res) => {
+  const { code, state } = req.query;
   try {
+    if (!consumeOauthState(state)) {
+      return res.redirect(`${publicAppUrl}/?error=${encodeURIComponent('Requête OAuth invalide ou expirée, réessaie.')}`);
+    }
     const user = await handle42Callback(code);
     if (!isStagingAllowed(user.login)) {
       return res.redirect(`${publicAppUrl}/?error=${encodeURIComponent('Accès réservé aux testeurs sur cet environnement de développement.')}`);
     }
-    const token = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    sessions.set(token, user);
-    // Redirect back to client app with token
+    const token = createSession(user);
     res.redirect(`${publicAppUrl}/?token=${token}`);
   } catch (error) {
     console.error('42 Auth error:', error.message);
@@ -66,47 +165,43 @@ app.get('/api/auth/42/callback', async (req, res) => {
   }
 });
 
-app.get('/api/auth/me', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
-  res.json({ user });
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.user });
 });
 
 // Connexion simplifiée pour la borne (mode kiosque) : pas d'OAuth 42, juste un login déclaré
 // à la main pour pouvoir attribuer les commandes. Le compte n'a jamais les droits admin.
-app.post('/api/auth/kiosk-login', (req, res) => {
+app.post('/api/auth/kiosk-login', authLimiter, (req, res) => {
   if (stagingMode) {
     return res.status(403).json({ error: 'Le mode borne est désactivé sur l\'environnement de test.' });
   }
-  const login = (req.body.login || '').trim();
-  if (!login) {
-    return res.status(400).json({ error: 'Login requis' });
+  const login = (req.body.login || '').trim().toLowerCase();
+  if (!/^[a-z0-9_-]{1,30}$/.test(login)) {
+    return res.status(400).json({ error: 'Login invalide' });
   }
-  const token = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   const user = {
-    id: 'kiosk_' + login.toLowerCase(),
-    login: login.toLowerCase(),
+    id: 'kiosk_' + login,
+    login,
     displayName: login,
     avatarUrl: '',
     campus: 'Borne',
     isAdmin: false,
     role: 'kiosk_guest'
   };
-  sessions.set(token, user);
+  const token = createSession(user);
   res.json({ token, user });
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    const token = authHeader.replace('Bearer ', '');
-    sessions.delete(token);
-  }
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (token) sessions.delete(token);
   res.json({ success: true });
 });
 
+
+// Toutes les routes /api/admin/* exigent un compte administrateur — vérifié une seule fois ici.
+app.use('/api/admin', requireAdmin);
 
 // ----------------------------------------------------
 // PRODUCT & MENU ROUTES (Vitrine)
@@ -118,36 +213,26 @@ app.get('/api/products', (req, res) => {
 });
 
 app.get('/api/admin/templates', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   res.json({ templates: db.getTemplates() });
 });
 
 app.post('/api/admin/templates', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom du template est obligatoire' });
   res.status(201).json({ template: db.addTemplate(req.body) });
 });
 
 app.post('/api/admin/templates/:id/apply', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   const template = db.applyTemplate(req.params.id);
   if (!template) return res.status(404).json({ error: 'Template introuvable' });
   res.json({ template, products: db.getProducts(), menus: db.getMenus(), categories: db.getCategories() });
 });
 
 app.delete('/api/admin/templates/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   db.deleteTemplate(req.params.id);
   res.json({ success: true });
 });
 
 app.post('/api/admin/categories', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la catégorie est obligatoire' });
   const category = db.addCategory(req.body);
   if (!category) return res.status(409).json({ error: 'Cette catégorie existe déjà' });
@@ -155,15 +240,11 @@ app.post('/api/admin/categories', (req, res) => {
 });
 
 app.delete('/api/admin/categories/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   if (!db.deleteCategory(req.params.id)) return res.status(400).json({ error: 'Cette catégorie par défaut ne peut pas être supprimée' });
   res.json({ categories: db.getCategories() });
 });
 
 app.patch('/api/admin/categories/:id/visibility', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
   const category = db.toggleCategoryVisibility(req.params.id);
   if (!category) return res.status(404).json({ error: 'Catégorie introuvable' });
   res.json({ category, categories: db.getCategories() });
@@ -171,38 +252,22 @@ app.patch('/api/admin/categories/:id/visibility', (req, res) => {
 
 // Admin product routes
 app.post('/api/admin/products', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const newProduct = db.addProduct(req.body);
   res.status(201).json({ product: newProduct });
 });
 
 app.put('/api/admin/products/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const updated = db.updateProduct(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Produit non trouvé' });
   res.json({ product: updated });
 });
 
 app.delete('/api/admin/products/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   db.deleteProduct(req.params.id);
   res.json({ success: true });
 });
 
 app.patch('/api/admin/products/:id/toggle-stock', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const updated = db.toggleProductStock(req.params.id);
   if (!updated) return res.status(404).json({ error: 'Produit non trouvé' });
   res.json({ product: updated });
@@ -210,38 +275,22 @@ app.patch('/api/admin/products/:id/toggle-stock', (req, res) => {
 
 // Admin menu routes
 app.post('/api/admin/menus', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const newMenu = db.addMenu(req.body);
   res.status(201).json({ menu: newMenu });
 });
 
 app.put('/api/admin/menus/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const updated = db.updateMenu(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Menu non trouvé' });
   res.json({ menu: updated });
 });
 
 app.delete('/api/admin/menus/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   db.deleteMenu(req.params.id);
   res.json({ success: true });
 });
 
 app.patch('/api/admin/menus/:id/toggle-stock', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const updated = db.toggleMenuStock(req.params.id);
   if (!updated) return res.status(404).json({ error: 'Menu non trouvé' });
   res.json({ menu: updated });
@@ -277,10 +326,6 @@ app.post('/api/orders', (req, res) => {
 
 // Commande créée par un admin pour un produit offert (prix à 0, hors panier étudiant).
 app.post('/api/admin/orders/free', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const { productId, quantity, beneficiary, pickupTime, note } = req.body;
   const product = db.getProductById(productId);
   if (!product) {
@@ -333,10 +378,6 @@ app.post('/api/orders/:id/review', (req, res) => {
 
 // Get all orders for Admin / Kitchen Board with synthesis computation
 app.get('/api/admin/orders', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const orders = db.getOrders();
 
   // Compute kitchen synthesis per pickup time and product count
@@ -372,10 +413,6 @@ app.get('/api/admin/orders', (req, res) => {
 });
 
 app.patch('/api/admin/orders/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const { items, pickupTime, note, totalPrice } = req.body;
   if (items && items.length === 0) {
     return res.status(400).json({ error: 'Une commande doit contenir au moins un article' });
@@ -386,10 +423,6 @@ app.patch('/api/admin/orders/:id', (req, res) => {
 });
 
 app.patch('/api/admin/orders/:id/status', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const { status } = req.body;
   const allowedStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
   if (!allowedStatuses.includes(status)) {
@@ -403,29 +436,17 @@ app.patch('/api/admin/orders/:id/status', (req, res) => {
 });
 
 app.patch('/api/admin/orders/:id/paid', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const updatedOrder = db.setOrderPaid(req.params.id, !!req.body.isPaid);
   if (!updatedOrder) return res.status(404).json({ error: 'Commande introuvable' });
   res.json({ order: updatedOrder });
 });
 
 app.delete('/api/admin/orders', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   db.clearOrders();
   res.json({ success: true });
 });
 
 app.delete('/api/admin/orders/:id', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const deleted = db.deleteOrder(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Commande introuvable' });
   res.json({ success: true });
@@ -433,10 +454,6 @@ app.delete('/api/admin/orders/:id', (req, res) => {
 
 // Tous les avis clients laissés sur des commandes, du plus récent au plus ancien.
 app.get('/api/admin/reviews', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const reviews = db.getOrders()
     .filter(order => order.review)
     .map(order => ({
@@ -451,10 +468,6 @@ app.get('/api/admin/reviews', (req, res) => {
 });
 
 app.delete('/api/admin/reviews/:orderId', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const deleted = db.deleteReview(req.params.orderId);
   if (!deleted) return res.status(404).json({ error: 'Avis introuvable' });
   res.json({ success: true });
@@ -464,10 +477,6 @@ app.delete('/api/admin/reviews/:orderId', (req, res) => {
 // pour les deux). Ne compte que les commandes récupérées (completed) ; les dons (isFree)
 // comptent en quantité mais pas en chiffre d'affaires.
 app.get('/api/admin/report', (req, res) => {
-  const user = getUserFromReq(req);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs BDE' });
-  }
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || req.query.date || today).slice(0, 10);
   const to = (req.query.to || from).slice(0, 10);
