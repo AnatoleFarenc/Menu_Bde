@@ -1,0 +1,12 @@
+# Clés SSH autorisées à se connecter au VPS (utilisateur debian).
+#
+# Ce fichier est la SOURCE DE VÉRITÉ. Pour donner ou retirer un accès :
+#   1. Ajoute/supprime une ligne ici (une clé publique par ligne, avec un commentaire
+#      identifiant la personne + la machine à la fin : "prenom@machine")
+#   2. Commit + push sur main
+#   3. Sur le VPS : cd /opt/Menu_Bde && git pull && infra/sync-authorized-keys.sh
+#
+# Les lignes vides et celles commençant par # sont ignorées.
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHXMY6+OJJPXNbenERkq/rmu2RCtXrwv+fsLxbYy7EnE claude-deploy@bde-menu
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH8oZTVZ+5c21D3eU/3VfXjiCrZS1iT6OhOiM0TXcTdN anate@pcAnate
