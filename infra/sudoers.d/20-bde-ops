@@ -1,0 +1,21 @@
+# Droits du groupe bde-ops : accès "développeur" limité, pas de root.
+#
+#  - peut agir librement en tant que bde-app-staging (git/npm/build du STAGING
+#    uniquement — ce compte n'a aucun accès aux fichiers de la prod)
+#  - peut redémarrer / consulter le statut / les logs du STAGING
+#  - accès LECTURE SEULE au statut et aux logs de la PROD (pas de redémarrage,
+#    pas de modification)
+#  - aucun autre droit sudo (pas d'apt, pas d'édition de fichiers systeme, pas
+#    de useradd, pas d'accès à /opt/Menu_Bde en tant que bde-app)
+
+%bde-ops ALL=(bde-app-staging) NOPASSWD: ALL
+
+%bde-ops ALL=(root) NOPASSWD: \
+  /usr/bin/systemctl restart bde-menu-staging, \
+  /usr/bin/systemctl status bde-menu-staging, \
+  /usr/bin/systemctl is-active bde-menu-staging, \
+  /usr/bin/systemctl status bde-menu, \
+  /usr/bin/systemctl is-active bde-menu, \
+  /usr/bin/journalctl -u bde-menu-staging, \
+  /usr/bin/journalctl -u bde-menu, \
+  /usr/bin/journalctl -u caddy
