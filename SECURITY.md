@@ -44,10 +44,53 @@ Navigateur ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──HTTP loc
 - Ports ouverts : **22→2231** (SSH), **80** et **443** (Caddy) uniquement.
 - Les ports applicatifs **5001 / 5002 sont bloqués** de l'extérieur (accès uniquement en `localhost` via Caddy) — vérifié.
 
-### Services
-- Chaque environnement tourne dans un service **systemd** dédié (`bde-menu`, `bde-menu-staging`) :
-  redémarrage automatique au boot et en cas de crash.
+### Comptes du VPS
+
+| Compte | Rôle | Shell / accès |
+|---|---|---|
+| `root` | super-utilisateur | atteignable uniquement via `sudo` |
+| `debian` | compte humain (déploiement, administration) | SSH (clé uniquement), `sudo` |
+| `bde-app` | fait tourner l'application, **et seulement ça** | **aucun shell** (`/usr/sbin/nologin`), **aucun `sudo`** |
+| `caddy` | reverse proxy | aucun shell |
+
+`bde-app` est un compte système créé spécifiquement pour l'app (`useradd --system
+--no-create-home --shell /usr/sbin/nologin`). Il est propriétaire du code
+(`/opt/Menu_Bde`, `/opt/Menu_Bde-staging`) mais ne peut ni se connecter en SSH,
+ni exécuter `sudo`. Objectif : si l'application est un jour compromise via une
+faille (RCE, dépendance vérolée…), l'attaquant hérite des droits de `bde-app` —
+pas de root, pas d'accès au reste du serveur.
+
+### Services — isolation systemd
+
+Chaque environnement tourne dans un service **systemd** dédié (`bde-menu`,
+`bde-menu-staging`), sous l'utilisateur `bde-app`, avec un bac à sable renforcé :
+
+| Directive | Effet |
+|---|---|
+| `User=bde-app` / `Group=bde-app` | le process ne tourne jamais en `debian` ni en `root` |
+| `ProtectSystem=strict` | **tout le système de fichiers en lecture seule**, sauf : |
+| `ReadWritePaths=…/server/data` | seul le dossier de données est accessible en écriture |
+| `ProtectHome=true` | les `/home/*` (dont `debian`) sont inaccessibles |
+| `PrivateTmp=true` | `/tmp` isolé, invisible pour les autres process |
+| `PrivateDevices=true` | pas d'accès aux périphériques matériels |
+| `NoNewPrivileges=true` | le process ne peut jamais gagner de privilèges (même via un binaire setuid) |
+| `ProtectKernelTunables` / `ProtectKernelModules` / `ProtectKernelLogs` | pas de lecture/écriture des réglages ou modules noyau |
+| `ProtectControlGroups`, `ProtectClock`, `ProtectHostname` | pas de modification de l'état système |
+| `RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX` | pas de sockets exotiques (Bluetooth, netlink brut…) |
+| `RestrictNamespaces`, `RestrictSUIDSGID`, `LockPersonality` | pas de création de namespaces/conteneurs, pas de binaires setuid, pas de changement de personnalité syscall |
+| `SystemCallFilter=@system-service` | seuls les appels système d'un service classique sont autorisés (allowlist) |
+| `CapabilityBoundingSet=` (vide) | **aucune capability Linux** — même pas celles qu'un process non-root peut parfois avoir |
+| `UMask=0077` | tout fichier créé par l'app est privé par défaut |
+
+Résultat mesuré avec `systemd-analyze security bde-menu` : score d'exposition
+**1.9 / "OK"** (un service Node par défaut, non durci, se situe généralement autour de 9-10).
+
+- Redémarrage automatique au boot et en cas de crash (`Restart=always`).
 - Mises à jour système appliquées (`apt upgrade`).
+- Déploiement (`infra/deploy-prod.sh`, `infra/deploy-staging.sh`) : `debian`
+  orchestre (`sudo systemctl restart …`) mais toutes les opérations sur les
+  fichiers du code (`git pull`, `npm install`, `npm run build`) s'exécutent
+  **sous l'identité `bde-app`** (`sudo -u bde-app …`), jamais en `debian` direct.
 
 ---
 
@@ -156,7 +199,7 @@ Points identifiés, non encore traités (par priorité) :
 | Sujet | État |
 |---|---|
 | Jeton de session dans `localStorage` | À migrer vers un **cookie `httpOnly` + `SameSite`** (protection XSS du jeton). |
-| Service Node exécuté par l'utilisateur `debian` (qui a `sudo`) | À faire tourner sous un **utilisateur système dédié sans shell ni sudo** + durcissement systemd (`ProtectSystem=strict`, `NoNewPrivileges`, `PrivateTmp`). |
+| Tous les accès SSH partagent le compte `debian` | Donner une clé = donner un accès `sudo` complet. À remplacer par des **comptes humains nommés** (un par personne), avec `sudo` demandant un mot de passe (retrait de `NOPASSWD:ALL`) et, si besoin, un rôle lecture-seule pour les personnes qui n'ont qu'à vérifier que le service tourne. |
 | `fail2ban` | Non installé — à ajouter (SSH + application). |
 | Mises à jour de sécurité automatiques | `unattended-upgrades` à activer. |
 | Sauvegardes | Pas de **sauvegarde automatique chiffrée** de `server/data/db.json` vers un stockage externe. |
