@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=bde-app
-Group=bde-app
+User=bde-app-staging
+Group=bde-app-staging
 WorkingDirectory=/opt/Menu_Bde-staging
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node server/index.js

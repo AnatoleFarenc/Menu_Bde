@@ -49,21 +49,33 @@ Navigateur ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──HTTP loc
 | Compte | Rôle | Shell / accès |
 |---|---|---|
 | `root` | super-utilisateur | atteignable uniquement via `sudo` |
-| `debian` | compte humain (déploiement, administration) | SSH (clé uniquement), `sudo` |
-| `bde-app` | fait tourner l'application, **et seulement ça** | **aucun shell** (`/usr/sbin/nologin`), **aucun `sudo`** |
+| groupe **`sudo`** (ex: `anfarenc`) | administrateur humain nommé | SSH (clé), `sudo` complet **avec mot de passe** |
+| groupe **`bde-ops`** (coéquipiers) | accès développeur limité | SSH (clé) ; `sudo` restreint au staging + lecture seule sur la prod (détails §7) |
+| `debian` | compte de déploiement automatisé | SSH (clé), `sudo` — voir note ci-dessous |
+| `bde-app` | fait tourner la **prod**, et seulement ça | **aucun shell** (`/usr/sbin/nologin`), **aucun `sudo`** |
+| `bde-app-staging` | fait tourner le **staging**, et seulement ça — **compte séparé de `bde-app`** | aucun shell, aucun `sudo` |
 | `caddy` | reverse proxy | aucun shell |
 
-`bde-app` est un compte système créé spécifiquement pour l'app (`useradd --system
---no-create-home --shell /usr/sbin/nologin`). Il est propriétaire du code
-(`/opt/Menu_Bde`, `/opt/Menu_Bde-staging`) mais ne peut ni se connecter en SSH,
-ni exécuter `sudo`. Objectif : si l'application est un jour compromise via une
-faille (RCE, dépendance vérolée…), l'attaquant hérite des droits de `bde-app` —
-pas de root, pas d'accès au reste du serveur.
+`bde-app` / `bde-app-staging` sont des comptes système créés spécifiquement pour
+l'app (`useradd --system --no-create-home --shell /usr/sbin/nologin`), chacun
+propriétaire du code de **son seul environnement**. Ni l'un ni l'autre ne peut se
+connecter en SSH ni exécuter `sudo`. Objectif double :
+1. si l'application est un jour compromise via une faille (RCE, dépendance vérolée…),
+   l'attaquant hérite des droits du compte applicatif — pas de root, pas d'accès au
+   reste du serveur ;
+2. la séparation prod/staging garantit qu'une compromission (ou une erreur humaine)
+   sur l'un des deux environnements **ne peut techniquement pas atteindre l'autre**,
+   même en passant par `sudo`.
+
+> ⚠️ **Décision assumée et temporaire** : `debian` garde encore un `sudo` large
+> (pas restreint aux seules commandes de déploiement) pendant que l'infrastructure
+> est activement construite. La restriction au strict nécessaire (voir la portée
+> prévue en §9) sera appliquée une fois ce travail stabilisé.
 
 ### Services — isolation systemd
 
 Chaque environnement tourne dans un service **systemd** dédié (`bde-menu`,
-`bde-menu-staging`), sous l'utilisateur `bde-app`, avec un bac à sable renforcé :
+`bde-menu-staging`), sous son utilisateur applicatif dédié, avec un bac à sable renforcé :
 
 | Directive | Effet |
 |---|---|
@@ -90,7 +102,8 @@ Résultat mesuré avec `systemd-analyze security bde-menu` : score d'exposition
 - Déploiement (`infra/deploy-prod.sh`, `infra/deploy-staging.sh`) : `debian`
   orchestre (`sudo systemctl restart …`) mais toutes les opérations sur les
   fichiers du code (`git pull`, `npm install`, `npm run build`) s'exécutent
-  **sous l'identité `bde-app`** (`sudo -u bde-app …`), jamais en `debian` direct.
+  **sous l'identité applicative dédiée** (`sudo -u bde-app …` pour la prod,
+  `sudo -u bde-app-staging …` pour le staging), jamais en `debian` direct.
 
 ---
 
@@ -172,15 +185,56 @@ Toute autre origine est refusée.
 
 ---
 
-## 7. Gestion des accès serveur (infrastructure as code)
+## 7. Comptes humains & onboarding de l'équipe
 
-- Le fichier **`infra/authorized_keys`** (versionné) est la **source de vérité** des clés SSH autorisées.
-- `infra/sync-authorized-keys.sh` applique cette liste au serveur, avec :
-  - refus de s'exécuter si le fichier ne contient aucune clé valide (anti-lockout) ;
-  - sauvegarde horodatée de l'ancien `authorized_keys` avant écrasement.
-- `infra/add-ssh-user.sh <pseudo-github>` importe les clés publiques d'un compte GitHub
-  (HTTPS, vérification du code HTTP et du format, déduplication).
-- Bénéfice : `git log infra/authorized_keys` retrace **qui a eu accès, quand, ajouté par qui**.
+### Deux rôles
+
+| Rôle | Groupe Linux | Droits |
+|---|---|---|
+| **Administrateur** | `sudo` | accès root complet, mot de passe requis à chaque usage |
+| **Coéquipier** | `bde-ops` | accès "développeur" limité — voir la table détaillée en §3 (build/déploiement du staging en libre-service, lecture seule sur la prod, aucun root) |
+
+### Créer un compte
+
+```bash
+sudo infra/add-team-member.sh <username> <pseudo-github> [ops|admin]
+```
+
+- **Ne peut être exécuté que par un administrateur** (le script exige d'être lancé
+  en root via `sudo`, ce que ni `bde-ops` ni `debian` ne permettent — vérifiable
+  avec `sudo -l`, testé explicitement).
+- Importe la/les clé(s) SSH publique(s) depuis `https://github.com/<pseudo>.keys`
+  (HTTPS, vérification du code HTTP et du format).
+- Génère un **mot de passe temporaire fort**, affiché une seule fois à l'écran (jamais
+  écrit sur disque ni journalisé), à transmettre à la personne hors du terminal.
+  Changement **obligatoire à la première connexion** (`chage -d 0`).
+- **Journal d'audit** (`/var/log/bde-team-changes.log`) : date, administrateur à
+  l'origine, compte créé, rôle — jamais le mot de passe.
+
+### Politique de mot de passe (`libpam-pwquality`)
+
+S'applique à **tous** les comptes du serveur, y compris `root` :
+
+| Règle | Valeur | Base |
+|---|---|---|
+| Longueur minimale | **20 caractères** | recommandation ANSSI pour un compte à privilèges (≈ 80 bits d'entropie) |
+| Classes de caractères | ≥ 2 sur 4 | garde-fou léger, sans imposer un motif prévisible |
+| Répétitions | ≤ 3 caractères identiques consécutifs | anti-motifs triviaux (`aaaa`, `1111`) |
+| Dictionnaire | vérification (`cracklib`) | rejette les mots de passe évidents — approximation locale, pas une vraie vérification contre une base de fuites |
+| Rotation périodique forcée | **aucune** | l'ANSSI déconseille la rotation obligatoire (elle pousse vers des mots de passe prévisibles) ; changement uniquement en cas de compromission avérée |
+
+En pratique : SSH exige déjà une **clé** pour atteindre le compte, et `sudo` exige
+ensuite un **mot de passe** — soit, de fait, une authentification à deux facteurs
+(« ce que j'ai » + « ce que je sais ») pour toute action privilégiée, sans outil TOTP dédié.
+
+### Gestion des clés SSH du compte de déploiement (`debian`)
+
+- Le fichier **`infra/authorized_keys`** (versionné) est la **source de vérité** des
+  clés autorisées sur `debian`.
+- `infra/sync-authorized-keys.sh` applique cette liste, avec refus si le fichier ne
+  contient aucune clé valide (anti-lockout) et sauvegarde horodatée avant écrasement.
+- `infra/add-ssh-user.sh <pseudo-github>` importe des clés GitHub dans ce fichier.
+- Bénéfice : `git log infra/authorized_keys` retrace qui a eu accès à ce compte, quand.
 
 ---
 
@@ -199,7 +253,7 @@ Points identifiés, non encore traités (par priorité) :
 | Sujet | État |
 |---|---|
 | Jeton de session dans `localStorage` | À migrer vers un **cookie `httpOnly` + `SameSite`** (protection XSS du jeton). |
-| Tous les accès SSH partagent le compte `debian` | Donner une clé = donner un accès `sudo` complet. À remplacer par des **comptes humains nommés** (un par personne), avec `sudo` demandant un mot de passe (retrait de `NOPASSWD:ALL`) et, si besoin, un rôle lecture-seule pour les personnes qui n'ont qu'à vérifier que le service tourne. |
+| `debian` garde un `sudo` large | Décision assumée le temps de finir de construire l'infra (voir §3). À restreindre aux seules commandes de déploiement une fois stabilisé — le principe (compte applicatif dédié + commandes nommées) est déjà en place pour `bde-ops`, il suffira de dupliquer l'approche. |
 | `fail2ban` | Non installé — à ajouter (SSH + application). |
 | Mises à jour de sécurité automatiques | `unattended-upgrades` à activer. |
 | Sauvegardes | Pas de **sauvegarde automatique chiffrée** de `server/data/db.json` vers un stockage externe. |
