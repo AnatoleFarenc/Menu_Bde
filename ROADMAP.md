@@ -17,6 +17,39 @@ de l'école.
 
 ---
 
+## Ambition professionnelle
+
+Ce projet a un **second objectif, assumé** : c'est aussi une **vitrine** que
+chacun d'entre nous peut montrer à un recruteur. On applique donc, autant que
+raisonnable pour un projet BDE, les pratiques qu'on trouverait en entreprise —
+pas pour faire compliqué, mais pour que le projet se distingue clairement d'un
+simple projet étudiant/amateur.
+
+**Déjà en place**
+- [x] Environnements séparés (dev / staging / prod) avec CI de déploiement manuel documentée
+- [x] Infrastructure versionnée ("as code") — `infra/`
+- [x] Modèle de sécurité documenté (`SECURITY.md`) : durcissement serveur, sessions,
+      CSRF, CSP, rate limiting, séparation des privilèges
+- [x] Gestion d'équipe à rôles (admin / accès développeur limité), onboarding scripté et journalisé
+- [x] Politique de mot de passe conforme aux recommandations ANSSI actuelles
+
+**À ajouter** (liste ouverte, à compléter en équipe)
+- [ ] **RGPD** : politique de confidentialité, durée de conservation/purge des
+      données, procédure de droit à l'effacement, registre des traitements
+- [ ] **Revue de code obligatoire** : aucune fusion directe sur `dev`/`main` sans
+      Pull Request relue par quelqu'un d'autre (voir `CONTRIBUTING.md`)
+- [ ] **Intégration continue (CI)** : build + lint automatiques sur chaque PR
+      (GitHub Actions)
+- [ ] **Tests automatisés** : au moins les routes critiques (commande, paiement/statut, stock)
+- [ ] **Style de code homogène** : ESLint + Prettier, appliqués en CI
+- [ ] **Suivi des tâches** : GitHub Issues/Projects plutôt que ce fichier seul,
+      une fois l'équipe plus nombreuse
+- [ ] **Changelog** des versions livrées en production
+- [ ] **Surveillance (monitoring)** : alerte si le site tombe, tableau de bord d'état
+- [ ] **Sauvegardes automatiques et testées** de la base de données
+
+---
+
 ## Ce qui tourne déjà
 
 ### Vitrine & commandes
