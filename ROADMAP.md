@@ -38,6 +38,9 @@ simple projet étudiant/amateur.
       données, procédure de droit à l'effacement, registre des traitements
 - [ ] **Revue de code obligatoire** : aucune fusion directe sur `dev`/`main` sans
       Pull Request relue par quelqu'un d'autre (voir `CONTRIBUTING.md`)
+- [ ] **Branch protection rules GitHub** sur `main` et `dev` : PR + 1 review
+      obligatoire, y compris pour les admins du repo (à faire dans
+      Settings → Branches, voir détails discutés en conversation)
 - [ ] **Intégration continue (CI)** : build + lint automatiques sur chaque PR
       (GitHub Actions)
 - [ ] **Tests automatisés** : au moins les routes critiques (commande, paiement/statut, stock)
