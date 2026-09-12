@@ -13,4 +13,4 @@ sudo -u bde-app npm run build
 echo "▶ Restarting prod service..."
 sudo systemctl restart bde-menu
 sleep 2
-sudo systemctl is-active bde-menu && echo "✅ Prod deployed : https://bde42perpignan.fr"
+sudo systemctl is-active bde-menu && echo "✅ Prod deployed: https://bde42perpignan.fr"
