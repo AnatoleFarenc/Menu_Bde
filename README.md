@@ -104,6 +104,31 @@ Ouvrir ensuite [http://localhost:3000](http://localhost:3000) dans un navigateur
 
 La commande `npm run dev` démarre le frontend et le backend en parallèle. Les messages du serveur indiquent notamment que l'API écoute sur `http://localhost:5001`. Pour arrêter les deux services, appuyer sur `Ctrl+C` dans le terminal.
 
+### Base de données (MariaDB)
+
+Le projet utilise MariaDB (via Prisma). Il n'y a rien à installer nativement :
+une base jetable tourne dans Docker, propre à chaque machine.
+
+1. [Installer Docker](https://docs.docker.com/get-docker/) si besoin.
+2. Depuis la racine du projet :
+   ```bash
+   docker compose up -d mariadb
+   ```
+3. Dans `.env` (voir `.env.example`), garder tel quel :
+   ```env
+   DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
+   ```
+   (identifiants de développement local uniquement, définis dans `docker-compose.yml`.)
+
+Pour arrêter la base ou repartir de zéro :
+```bash
+docker compose down            # arrête
+docker compose down -v         # arrête ET efface les données locales
+```
+
+> Staging et production utilisent une instance MariaDB séparée sur le serveur —
+> détails dans [`infra/README.md`](infra/README.md#6-base-de-données-mariadb).
+
 ### Commandes disponibles
 
 ```bash
@@ -134,6 +159,7 @@ PUBLIC_APP_URL=http://localhost:5001
 INTRA42_CLIENT_ID=votre_uid_intra
 INTRA42_CLIENT_SECRET=votre_secret_intra
 ADMIN_LOGINS=login_bde_1,login_bde_2
+DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
 ```
 
 `ADMIN_LOGINS` contient, séparés par des virgules, les logins 42 autorisés à accéder à l'espace BDE. Seuls ces logins peuvent administrer les commandes, les produits et les menus.
@@ -243,10 +269,12 @@ nom et adapte `HOSTNAME` + `.env`.
 
 ## Docker
 
-Le projet peut être hébergé sur un PC du réseau local avec Docker :
+Le projet peut être hébergé sur un PC du réseau local avec Docker (app + base MariaDB) :
 
 ```bash
 docker compose up --build -d
 ```
 
-L'application sera accessible depuis ce PC sur `http://localhost:5001` et depuis un autre appareil sur `http://ADRESSE_IP_DU_PC:5001`. Dans `.env`, utilisez cette même adresse pour `INTRA42_REDIRECT_URI`, et déclarez exactement cette URL comme Redirect URI dans l'application OAuth 42. Le fichier `server/data/db.json` est conservé par le volume Docker.
+L'application sera accessible depuis ce PC sur `http://localhost:5001` et depuis un autre appareil sur `http://ADRESSE_IP_DU_PC:5001`. Dans `.env`, utilisez cette même adresse pour `INTRA42_REDIRECT_URI`, et déclarez exactement cette URL comme Redirect URI dans l'application OAuth 42. Les données MariaDB sont conservées par le volume Docker `mariadb_data`.
+
+Pour ne lancer que la base (développement avec `npm run dev` en dehors de Docker), voir [Base de données (MariaDB)](#base-de-données-mariadb) plus haut.

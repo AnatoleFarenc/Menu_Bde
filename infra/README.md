@@ -14,6 +14,7 @@ Configuration serveur versionnée (VPS OVH, `bde42perpignan.fr`).
 | `systemd/bde-menu-staging.service` | service staging (port 5002), tourne sous `bde-app-staging` |
 | `sudoers.d/20-bde-ops` | droits limités du groupe `bde-ops` (copie versionnée de `/etc/sudoers.d/`) |
 | `deploy-prod.sh` / `deploy-staging.sh` | `git pull` + build + redémarrage (copies dans `~debian/`) |
+| `setup-mariadb.sh` | installe et configure MariaDB (prod + staging), voir §6 |
 
 ---
 
@@ -95,7 +96,51 @@ Config : `/etc/security/pwquality.conf` (non versionnée — locale au serveur).
 
 ---
 
-## 6. Détails
+## 6. Base de données MariaDB
+
+Une seule instance MariaDB sur le VPS, avec deux bases isolées (`bde_sandwich` en
+prod, `bde_sandwich_staging` en staging) et un utilisateur dédié par base, à droits
+limités à cette seule base — même logique que la séparation `bde-app` / `bde-app-staging`.
+
+### Sur le VPS (une seule fois)
+
+```bash
+sudo infra/setup-mariadb.sh
+```
+
+Installe MariaDB, le restreint à `localhost` (jamais exposé sur Internet — aucune
+règle `ufw` à ouvrir), crée les deux bases et leurs utilisateurs, puis affiche
+**une seule fois** les deux `DATABASE_URL` à coller dans :
+- `/opt/Menu_Bde/.env` (prod)
+- `/opt/Menu_Bde-staging/.env` (staging)
+
+### En local (chaque développeur, sur sa propre machine)
+
+Pas d'installation native : MariaDB tourne dans Docker, une base jetable propre à
+chaque machine (comme `server/data/db.json` aujourd'hui).
+
+1. [Installer Docker](https://docs.docker.com/get-docker/) si besoin.
+2. Depuis la racine du projet :
+   ```bash
+   docker compose up -d mariadb
+   ```
+3. Dans `.env` (copié depuis `.env.example`), garder tel quel :
+   ```env
+   DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
+   ```
+   (identifiants de dev local uniquement, définis dans `docker-compose.yml` —
+   sans rapport avec les mots de passe générés côté VPS.)
+4. `npm run dev` comme d'habitude.
+
+Pour arrêter/réinitialiser la base locale :
+```bash
+docker compose down            # arrête
+docker compose down -v         # arrête ET efface les données locales
+```
+
+---
+
+## 7. Détails
 
 - Port SSH : **2231** · connexion par **clé uniquement** · pas de login `root`.
 - Pare-feu `ufw` : ouverts 2231 / 80 / 443 uniquement.

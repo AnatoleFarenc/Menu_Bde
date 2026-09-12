@@ -83,16 +83,24 @@ sur sa propre machine. Ici c'est pareil :
    C'est une modification à faire une seule fois, par quelqu'un qui a accès à
    cette app OAuth.
 
-3. **Lancer le projet** :
+3. **Base de données** : MariaDB tourne dans Docker, une base jetable propre à
+   chaque machine (pas d'installation native) :
+   ```bash
+   docker compose up -d mariadb
+   ```
+   Garde les identifiants par défaut de `.env.example` pour `DATABASE_URL` — ce
+   sont des identifiants de dev local uniquement, sans rapport avec ceux de
+   staging/prod. Détails : [`infra/README.md`](infra/README.md#6-base-de-données-mariadb).
+
+4. **Lancer le projet** :
    ```bash
    npm install
    npm run dev      # backend (5001) + frontend (5173) en parallèle
    ```
-   Chaque personne a sa propre base `server/data/db.json`, créée
-   automatiquement au premier lancement — aucun risque d'écraser les données
-   de quelqu'un d'autre.
+   Chaque personne a sa propre base locale, isolée des autres — aucun risque
+   d'écraser les données de quelqu'un d'autre.
 
-4. Une fois que ça marche en local → push la branche → PR vers `dev` → ça part
+5. Une fois que ça marche en local → push la branche → PR vers `dev` → ça part
    en staging → l'équipe vérifie là-bas dans les mêmes conditions que la prod
    (HTTPS, vrai domaine) → puis direction `main`.
 
