@@ -37,7 +37,7 @@ Browser ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──local HTTP�
 - **Non-standard port (2231)** — greatly reduces noise from automated scans.
 - **Key-based authentication only** — `PasswordAuthentication no`. No password login possible.
 - No `root` login: `debian` account with `sudo`.
-- Authorized keys are managed **as code** (see §7).
+- Authorized keys are managed **as code** (see [§7](#7-human-accounts--team-onboarding)).
 
 ### Firewall
 - `ufw` active, default policy **deny (inbound)**.
@@ -50,7 +50,7 @@ Browser ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──local HTTP�
 |---|---|---|
 | `root` | superuser | reachable only via `sudo` |
 | **`sudo`** group (e.g. `anfarenc`) | named human administrator | SSH (key), full `sudo` **with password** |
-| **`bde-ops`** group (teammates) | limited developer access | SSH (key); `sudo` restricted to staging + read-only on prod (details in §7) |
+| **`bde-ops`** group (teammates) | limited developer access | SSH (key); `sudo` restricted to staging + read-only on prod (details in [§7](#7-human-accounts--team-onboarding)) |
 | `debian` | automated deployment account | SSH (key), `sudo` — see note below |
 | `bde-app` | runs **prod**, and only that | **no shell** (`/usr/sbin/nologin`), **no `sudo`** |
 | `bde-app-staging` | runs **staging**, and only that — **separate account from `bde-app`** | no shell, no `sudo` |
@@ -70,7 +70,7 @@ or run `sudo`. Two goals:
 > ⚠️ **Deliberate, temporary decision**: `debian` still has broad `sudo`
 > access (not restricted to deployment commands only) while the
 > infrastructure is being actively built. It will be restricted to the
-> strict necessary (see the planned scope in §9) once this work has
+> strict necessary (see the planned scope in [§9](#9-known-limitations--roadmap)) once this work has
 > stabilized.
 
 ### Services — systemd isolation
@@ -196,7 +196,7 @@ Any other origin is rejected.
 | Role | Linux group | Rights |
 |---|---|---|
 | **Administrator** | `sudo` | full root access, password required for every use |
-| **Teammate** | `bde-ops` | limited "developer" access — see the detailed table in §3 (self-service staging build/deploy, read-only on prod, no root) |
+| **Teammate** | `bde-ops` | limited "developer" access — see the detailed table in [§3](#3-server-hardening-vps) (self-service staging build/deploy, read-only on prod, no root) |
 
 ### Creating an account
 
@@ -258,7 +258,7 @@ Identified points, not yet addressed (by priority):
 | Topic | Status |
 |---|---|
 | Session token in `localStorage` | To be migrated to an **`httpOnly` + `SameSite` cookie** (XSS protection for the token). |
-| `debian` retains broad `sudo` | A deliberate decision while the infra is still being built (see §3). To be restricted to deployment commands only once stabilized — the principle (dedicated application account + named commands) is already in place for `bde-ops`; it will just need to be duplicated. |
+| `debian` retains broad `sudo` | A deliberate decision while the infra is still being built (see [§3](#3-server-hardening-vps)). To be restricted to deployment commands only once stabilized — the principle (dedicated application account + named commands) is already in place for `bde-ops`; it will just need to be duplicated. |
 | `fail2ban` | Not installed — to be added (SSH + application). |
 | Automatic security updates | `unattended-upgrades` to be enabled. |
 | Backups | No **automatic encrypted backup** of `server/data/db.json` to external storage. |
