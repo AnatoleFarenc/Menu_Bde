@@ -1,6 +1,6 @@
-// Import unique : recopie server/data/db.json (catégories, produits, formules,
-// templates, commandes) vers MariaDB via Prisma. À lancer une seule fois par
-// environnement, juste après la première migration.
+// One-time import: copies server/data/db.json (categories, products, meal
+// deals, templates, orders) into MariaDB via Prisma. Run once per
+// environment, right after the first migration.
 //
 //   node prisma/import-from-json.mjs
 //
@@ -19,13 +19,13 @@ const prisma = new PrismaClient({ adapter });
 
 function readJsonDb() {
   if (!fs.existsSync(DB_FILE)) {
-    throw new Error(`Fichier introuvable : ${DB_FILE}`);
+    throw new Error(`File not found: ${DB_FILE}`);
   }
   return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
 }
 
-// Extrait les produits choisis dans une ligne "formule" d'une commande, quel
-// que soit le format historique (tableau [{label, product}] ou objet clé/valeur).
+// Extracts the products chosen in a "meal deal" order line, whatever the
+// historical format (array [{label, product}] or key/value object).
 function extractChoices(item) {
   if (!item.choices) return [];
   const entries = Array.isArray(item.choices) ? item.choices : Object.values(item.choices);
@@ -42,7 +42,7 @@ function extractChoices(item) {
 async function main() {
   const data = readJsonDb();
 
-  console.log('▶ Catégories...');
+  console.log('▶ Categories...');
   for (const category of data.categories || []) {
     await prisma.category.create({
       data: {
@@ -54,7 +54,7 @@ async function main() {
     });
   }
 
-  console.log('▶ Produits...');
+  console.log('▶ Products...');
   for (const product of data.products || []) {
     await prisma.product.create({
       data: {
@@ -73,7 +73,7 @@ async function main() {
     });
   }
 
-  console.log('▶ Formules & groupes de choix...');
+  console.log('▶ Meal deals & choice groups...');
   for (const menu of data.menus || []) {
     await prisma.menu.create({
       data: {
@@ -103,7 +103,7 @@ async function main() {
     }
   }
 
-  console.log('▶ Templates (catalogues sauvegardés)...');
+  console.log('▶ Templates (saved catalogs)...');
   for (const template of data.templates || []) {
     await prisma.template.create({
       data: {
@@ -118,16 +118,16 @@ async function main() {
     });
   }
 
-  console.log('▶ Commandes...');
+  console.log('▶ Orders...');
   const seenOrderNumbers = new Set();
   for (const order of data.orders || []) {
     let orderNumber = order.orderNumber;
     if (seenOrderNumbers.has(orderNumber)) {
-      // Doublon historique détecté (bug de génération jamais vérifiée avant
-      // ce nettoyage) : suffixé pour respecter la contrainte d'unicité,
-      // l'original reste visible dans server/data/db.json.
+      // Historical duplicate detected (a generation bug never checked before
+      // this cleanup): suffixed to satisfy the unique constraint, the original
+      // is still visible in server/data/db.json.
       orderNumber = `${orderNumber}-dup`;
-      console.warn(`  ⚠️  orderNumber dupliqué "${order.orderNumber}" (commande ${order.id}) → renommé "${orderNumber}"`);
+      console.warn(`  ⚠️  duplicate orderNumber "${order.orderNumber}" (order ${order.id}) → renamed to "${orderNumber}"`);
     }
     seenOrderNumbers.add(orderNumber);
 
@@ -172,12 +172,12 @@ async function main() {
     prisma.order.count()
   ]);
   console.log('');
-  console.log('✅ Import terminé :', { categories, products, menus, templates, orders });
+  console.log('✅ Import complete:', { categories, products, menus, templates, orders });
 }
 
 main()
   .catch(error => {
-    console.error('❌ Import échoué :', error);
+    console.error('❌ Import failed:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

@@ -10,15 +10,15 @@ services:
       - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost:5001}
       - INTRA42_CLIENT_ID=${INTRA42_CLIENT_ID}
       - INTRA42_CLIENT_SECRET=${INTRA42_CLIENT_SECRET}
-      # Optionnel : déduit de PUBLIC_APP_URL si non défini.
+      # Optional: derived from PUBLIC_APP_URL if not set.
       - INTRA42_REDIRECT_URI=${INTRA42_REDIRECT_URI:-}
       - ADMIN_LOGINS=${ADMIN_LOGINS}
       - DATABASE_URL=mysql://bde_app:devpassword@mariadb:3306/bde_sandwich
     depends_on:
       - mariadb
 
-  # Base de données pour le développement local (staging/prod utilisent
-  # MariaDB natif sur le VPS, voir infra/setup-mariadb.sh).
+  # Database for local development (staging/prod use native MariaDB on the
+  # VPS, see infra/setup-mariadb.sh).
   mariadb:
     image: mariadb:11
     restart: unless-stopped

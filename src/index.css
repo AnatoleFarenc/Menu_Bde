@@ -301,12 +301,12 @@ main h3 {
   color: #e3a0a0;
 }
 
-/* Libellés courts réservés au mobile */
+/* Short labels reserved for mobile */
 .tab-text-short {
   display: none;
 }
 
-/* Barre de navigation basse — masquée hors mobile */
+/* Bottom navigation bar — hidden outside mobile */
 .nav-tabs-bottom {
   display: none;
 }
@@ -1042,7 +1042,7 @@ main h3 {
     padding: 0 1rem calc(5.5rem + env(safe-area-inset-bottom));
   }
 
-  /* --- Barre du haut : compacte et discrète --- */
+  /* --- Top bar: compact and discreet --- */
   .navbar {
     padding: 0.45rem 0.85rem;
     margin-bottom: 1rem;
@@ -1077,7 +1077,7 @@ main h3 {
     text-overflow: ellipsis;
   }
 
-  /* Onglets de la barre du haut : déplacés vers la barre basse */
+  /* Top bar tabs: moved to the bottom bar */
   .navbar .nav-tabs {
     display: none;
   }

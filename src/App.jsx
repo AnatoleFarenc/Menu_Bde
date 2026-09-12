@@ -11,8 +11,8 @@ import AdminCatalogTools from './components/AdminCatalogTools';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
 
-// Mode borne (kiosk) : activation cachée via l'URL, propre à ce navigateur uniquement.
-// Pour activer sur une borne : ouvrir une fois l'URL avec ?kiosk=1 (puis ?kiosk=0 pour désactiver).
+// Kiosk mode: hidden activation via the URL, specific to this browser only.
+// To activate on a kiosk: open the URL once with ?kiosk=1 (then ?kiosk=0 to deactivate).
 const KIOSK_STORAGE_KEY = 'bde_kiosk_mode';
 const KIOSK_INACTIVITY_MINUTES = 3;
 const KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS = 6;
@@ -70,7 +70,7 @@ export default function App() {
     }
   }, []);
 
-  // Activation cachée du mode borne : ?kiosk=1 (ou ?kiosk=0 pour désactiver), propre à ce navigateur.
+  // Hidden kiosk mode activation: ?kiosk=1 (or ?kiosk=0 to deactivate), specific to this browser.
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const kioskParam = urlParams.get('kiosk');
@@ -87,7 +87,7 @@ export default function App() {
     }
   }, []);
 
-  // Mode borne : déconnexion automatique après inactivité.
+  // Kiosk mode: automatic logout after inactivity.
   useEffect(() => {
     if (!isKioskMode || !user) return undefined;
     let timer;
@@ -258,7 +258,7 @@ export default function App() {
     setActiveTab('vitrine');
   };
 
-  // Connexion borne : pas d'OAuth 42, juste un login déclaré à la main pour attribuer la commande.
+  // Kiosk login: no 42 OAuth, just a manually entered login to attribute the order.
   const handleKioskLogin = async (login) => {
     const trimmed = (login || '').trim();
     if (!trimmed) return;
@@ -526,7 +526,7 @@ export default function App() {
   // Filter products by category tab
   const visibleCategoryIds = new Set(categories.filter(category => category.isVisible !== false).map(category => category.id));
   const visibleProducts = products.filter(product => visibleCategoryIds.has(product.category));
-  // Sur "Tous les Produits", on regroupe par type (dans l'ordre des catégories) au lieu de l'ordre de création.
+  // On "All Products", group by type (in category order) instead of creation order.
   const categoryOrder = new Map(categories.map((category, idx) => [category.id, idx]));
   const filteredProducts = categoryFilter === 'all'
     ? [...visibleProducts].sort((a, b) => (categoryOrder.get(a.category) ?? 999) - (categoryOrder.get(b.category) ?? 999))

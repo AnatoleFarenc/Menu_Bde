@@ -95,8 +95,8 @@ export default function KitchenDashboard({
     if (adminTab === 'avis') onFetchReviews();
   }, [adminTab]);
 
-  // Filter orders by slot & status — l'historique ne montre que les commandes récupérées
-  // (ni les commandes en cours, ni les commandes annulées).
+  // Filter orders by slot & status — history only shows picked-up orders
+  // (neither in-progress nor cancelled orders).
   const filteredOrders = orders.filter(order => {
     if (statusFilter === 'active' && (order.status === 'completed' || order.status === 'cancelled')) {
       return false;

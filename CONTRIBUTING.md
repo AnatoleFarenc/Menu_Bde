@@ -1,121 +1,118 @@
-# Contribuer au projet
-
-Guide pratique pour travailler à plusieurs sur le repo sans se marcher dessus.
-Ce sont les mêmes mécanismes qu'en entreprise — on les applique volontairement
-ici aussi (voir "Ambition professionnelle" dans [`ROADMAP.md`](./ROADMAP.md)).
-
-## Les 3 environnements
-
+# Contributing to the project
+ 
+A practical guide for working as a team on the repo without stepping on each other's toes.
+These are the same mechanisms used in industry — we apply them here on purpose too
+(see "Professional ambition" in [`ROADMAP.md`](./ROADMAP.md)).
+ 
+## The 3 environments
+ 
 ```
-ta machine (local)  →  dev.bde42perpignan.fr (staging)  →  bde42perpignan.fr (prod)
+your machine (local)  →  dev.bde42perpignan.fr (staging)  →  bde42perpignan.fr (prod)
 ```
-
-- **Local** : sur ta machine, base de données à toi, pour itérer vite.
-- **Staging** : partagé par l'équipe, sert à vérifier qu'une fonctionnalité
-  marche une fois vraiment déployée, avant que de vrais étudiants la voient.
-- **Prod** : jamais modifiée directement. On n'y déploie que ce qui a déjà
-  été validé sur staging.
-
-Le code ne saute jamais une étape : `local → dev → main` (jamais `local → main`).
-
-## Le modèle de branches
-
-- `main` = ce qui tourne en prod.
-- `dev` = ce qui tourne en staging. C'est la branche d'intégration de l'équipe.
-- Chaque tâche = **sa propre branche**, créée à partir de `dev` :
-
+ 
+- **Local**: on your machine, your own database, for fast iteration.
+- **Staging**: shared by the team, used to verify that a feature actually
+  works once really deployed, before real students see it.
+- **Prod**: never modified directly. Only what has already been validated on
+  staging gets deployed here.
+Code never skips a step: `local → dev → main` (never `local → main`).
+ 
+## The branching model
+ 
+- `main` = what's running in prod.
+- `dev` = what's running in staging. This is the team's integration branch.
+- Each task = **its own branch**, created from `dev`:
 ```bash
 git checkout dev
 git pull
-git checkout -b feature/nom-de-la-tache      # ou fix/..., chore/...
+git checkout -b feature/task-name      # or fix/..., chore/...
 ```
-
-Travaille dessus, commit, puis :
-
+ 
+Work on it, commit, then:
+ 
 ```bash
-git push -u origin feature/nom-de-la-tache
+git push -u origin feature/task-name
 ```
-
-Ouvre une **Pull Request vers `dev`** sur GitHub (pas vers `main`). Quelqu'un
-d'autre de l'équipe relit avant de merger — c'est la règle numéro 1 pour éviter
-qu'un bug ou un conflit silencieux parte en staging sans que personne d'autre
-ne l'ait vu. Une fois mergée, le staging est redéployé (`infra/deploy-staging.sh`)
-et tout le monde peut aller tester sur `dev.bde42perpignan.fr`.
-
-Quand plusieurs fonctionnalités validées sur staging sont prêtes à partir en
-prod, on ouvre une PR `dev → main`, et on déploie avec `infra/deploy-prod.sh`.
-
-**Comment éviter de se marcher dessus à 4 :**
-- Une branche = une tâche, la plus petite possible. Des PR courtes se relisent
-  vite et se mergent vite, donc restent peu de temps "en conflit potentiel".
-- On se répartit le travail par fichier/fonctionnalité autant que possible
-  (ex: quelqu'un sur le modèle événement, quelqu'un sur les notifications) —
-  moins de chances de toucher les mêmes lignes en même temps.
-- Avant d'ouvrir sa PR, on remet sa branche à jour avec `dev` :
-  ```bash
+ 
+Open a **Pull Request targeting `dev`** on GitHub (not `main`). Someone else
+on the team reviews it before merging — this is rule number one for avoiding
+a bug or a silent conflict slipping into staging without anyone else having
+seen it. Once merged, staging gets redeployed (`infra/deploy-staging.sh`) and
+everyone can go test it on `dev.bde42perpignan.fr`.
+ 
+When several features validated on staging are ready to go to prod, open a
+`dev → main` PR, and deploy with `infra/deploy-prod.sh`.
+ 
+**Contribution system:**
+- One branch = one task, as small as possible. Short PRs get reviewed
+  quickly and merged quickly, so they spend less time "potentially
+  conflicting."
+- Split work by file/feature as much as possible (e.g. someone on the event
+  model, someone on notifications) — less chance of changing the same lines
+  at the same time.
+- Before opening your PR, bring your branch up to date with `dev`:
+```bash
   git checkout dev && git pull
-  git checkout feature/nom-de-la-tache
-  git merge dev            # ou : git rebase dev
-  ```
-  Ça fait apparaître les conflits éventuels tout de suite, sur sa propre
-  machine, plutôt que de laisser GitHub bloquer la fusion plus tard.
-- Chaque environnement (ton PC, staging, prod) a sa propre base MariaDB : pas
-  de conflit possible sur "qui a quelles commandes/produits" pendant le dev.
+  git checkout feature/task-name
+  git merge dev            # or: git rebase dev
+```
+  This surfaces any conflicts right away, on your own machine, rather than
+  letting GitHub block the merge later.
+- Each environment (your PC, staging, prod) has its own MariaDB database, so
+  there's no possible conflict over "who has which orders/products" during
+  development.
 
-## Tester en local (comme en entreprise)
-
-En entreprise, avant qu'un changement parte où que ce soit, on le fait tourner
-sur sa propre machine. Ici c'est pareil :
-
-1. **Chacun son `.env`** (jamais commité — voir `.env.example`) :
-   ```bash
+## Testing locally (just like in industry)
+ 
+In industry, before a change goes anywhere, you run it on your own machine
+first. Same thing here:
+ 
+1. **Everyone has their own `.env`** (never committed — see `.env.example`):
+```bash
    cp .env.example .env
-   ```
-   Laisse `PUBLIC_APP_URL=http://localhost:5001` : c'est déjà prévu pour le
-   test local, la redirect URI OAuth en est déduite automatiquement.
-
-2. **Connexion 42 en local** : la connexion Intra 42 passe par l'app OAuth
-   "dev" (celle utilisée pour le staging). Pour que ça marche aussi en local,
-   il faut ajouter `http://localhost:5001/api/auth/42/callback` à la liste
-   des **Redirect URI** de cette app OAuth, en plus de celle de staging
-   (https://profile.intra.42.fr/oauth/applications → app "dev" → Redirect URI).
-   C'est une modification à faire une seule fois, par quelqu'un qui a accès à
-   cette app OAuth.
-
-3. **Base de données** : MariaDB tourne dans Docker, une base jetable propre à
-   chaque machine (pas d'installation native) :
-   ```bash
+```
+   Leave `PUBLIC_APP_URL=http://localhost:5001`: it's already set up for
+   local testing, and the OAuth redirect URI is derived from it
+   automatically.
+ 
+2. **42 login locally**: 42 Intra login goes through the "dev" OAuth app (the
+   same one used for staging). For it to also work locally, you need to add
+   `http://localhost:5001/api/auth/42/callback` to that OAuth app's list of
+   **Redirect URIs**, alongside the staging one
+   (https://profile.intra.42.fr/oauth/applications → "dev" app → Redirect
+   URI). This only needs to be done once, by someone with access to that
+   OAuth app.
+3. **Database**: MariaDB runs in Docker, a disposable database specific to
+   each machine (no native install needed):
+```bash
    docker compose up -d mariadb
-   ```
-   Garde les identifiants par défaut de `.env.example` pour `DATABASE_URL` — ce
-   sont des identifiants de dev local uniquement, sans rapport avec ceux de
-   staging/prod. Détails : [`infra/README.md`](infra/README.md#6-base-de-données-mariadb).
-
-4. **Lancer le projet** :
-   ```bash
+```
+   Keep `.env.example`'s default `DATABASE_URL` — these are local-dev-only
+   credentials, unrelated to staging/prod. Details:
+   [`infra/README.md`](infra/README.md#6-mariadb).
+4. **Run the project**:
+```bash
    npm install
-   npm run dev      # backend (5001) + frontend (5173) en parallèle
-   ```
-   Chaque personne a sa propre base locale, isolée des autres — aucun risque
-   d'écraser les données de quelqu'un d'autre.
-
-5. Une fois que ça marche en local → push la branche → PR vers `dev` → ça part
-   en staging → l'équipe vérifie là-bas dans les mêmes conditions que la prod
-   (HTTPS, vrai domaine) → puis direction `main`.
-
-## Règles GitHub à activer (à faire une fois, dans les Settings du repo)
-
-À configurer manuellement sur github.com (Settings → Branches → Branch
-protection rules), pas automatisable depuis cette session :
-
-- Sur `dev` et `main` : **"Require a pull request before merging"** +
-  **"Require approvals"** (au moins 1) — personne ne peut pousser directement
-  dessus, même les admins du repo.
-- Optionnel une fois une CI en place (voir `ROADMAP.md`) :
+   npm run dev      # backend (5001) + frontend (5173) in parallel
+```
+   Each person has their own local database, isolated from everyone else's —
+   no risk of overwriting someone else's data.
+ 
+5. Once it works locally → push the branch → PR to `dev` → it goes to
+   staging → the team checks it there under the same conditions as prod
+   (HTTPS, real domain) → then on to `main`.
+## GitHub rules to enable (do this once, in the repo Settings)
+ 
+To be configured manually on github.com (Settings → Branches → Branch
+protection rules), not something that can be automated from this session:
+ 
+- On `dev` and `main`: **"Require a pull request before merging"** +
+  **"Require approvals"** (at least 1) — no one can push directly to them,
+  not even repo admins.
+- Optional once CI is in place (see `ROADMAP.md`):
   **"Require status checks to pass before merging"**.
-
-## Convention de commit
-
-Pas de norme stricte imposée, mais préférer des messages qui disent le
-**pourquoi** plutôt que juste le quoi (ex: `fix: recalcule le stock après
-annulation d'une commande offerte` plutôt que `fix bug`).
+## Commit convention
+ 
+No strict standard is enforced, but prefer messages that say **why** rather
+than just what (e.g. `fix: recalculate stock after cancelling a gifted
+order` rather than `fix bug`).

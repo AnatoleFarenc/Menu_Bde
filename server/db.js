@@ -17,8 +17,8 @@ function slugify(name) {
 }
 
 // ---------------------------------------------------------------------------
-// Sérialisation : les modèles Prisma -> les formes plates que le reste du
-// serveur (et le frontend) connaît déjà, pour ne rien changer côté routes.
+// Serialization: Prisma models -> the flat shapes the rest of the
+// server (and the frontend) already know, so routes don't need to change.
 // ---------------------------------------------------------------------------
 
 function serializeCategory(c) {
@@ -106,8 +106,8 @@ function serializeOrder(o) {
   return order;
 }
 
-// Construit l'entrée Prisma "items: { create: [...] }" à partir d'un tableau
-// d'items au format plat (celui envoyé par le panier / l'édition admin).
+// Builds the Prisma "items: { create: [...] }" input from a flat-format
+// items array (the one sent by the cart / admin editing).
 function buildOrderItemsInput(items) {
   return {
     create: (items || []).map(item => ({
@@ -236,8 +236,8 @@ class DB {
     };
   }
 
-  // Remplace intégralement le catalogue actif (catégories/produits/formules)
-  // par l'instantané fourni. Utilisé pour rejouer un template sauvegardé.
+  // Fully replaces the active catalog (categories/products/meal deals)
+  // with the given snapshot. Used to replay a saved template.
   async applyTemplate(id) {
     const template = await prisma.template.findUnique({ where: { id } });
     if (!template) return null;
@@ -481,9 +481,9 @@ class DB {
     return true;
   }
 
-  // Décrémente (delta -1) ou restitue (delta +1) le stock des produits d'une
-  // commande, en décomposant les formules dans leurs produits choisis. Ne
-  // touche que les produits pour lesquels un stock est suivi (stock !== null).
+  // Decrements (delta -1) or restores (delta +1) the stock of an order's
+  // products, breaking meal deals down into their chosen products. Only
+  // touches products with tracked stock (stock !== null).
   async _adjustStock(items, delta) {
     const applyToProduct = async (productId, qty) => {
       const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -528,8 +528,8 @@ class DB {
     return serialized;
   }
 
-  // Le numéro affiché au comptoir doit être unique : on tire au sort et on
-  // réessaie en cas de collision (rare, mais déjà arrivé avant cette contrainte).
+  // The number shown at the counter must be unique: we pick one at random
+  // and retry on collision (rare, but has already happened before this constraint).
   async _generateUniqueOrderNumber() {
     for (let attempt = 0; attempt < 20; attempt++) {
       const candidate = `42-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -606,7 +606,7 @@ class DB {
   }
 }
 
-// Reconstruit les groupes d'une formule à partir de l'entrée admin.
+// Rebuilds a meal deal's choice groups from the admin input.
 function normalizeGroups(value) {
   if (!Array.isArray(value)) return [];
   return value

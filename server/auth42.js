@@ -5,9 +5,9 @@ const getAdminLogins = () => (process.env.ADMIN_LOGINS || '')
   .map(login => login.trim().toLowerCase())
   .filter(Boolean);
 
-// L'URL de redirection OAuth est toujours « <URL publique>/api/auth/42/callback ».
-// On la déduit donc de PUBLIC_APP_URL : une seule variable à renseigner.
-// INTRA42_REDIRECT_URI reste accepté si tu veux forcer une valeur.
+// The OAuth redirect URI is always "<public URL>/api/auth/42/callback".
+// We derive it from PUBLIC_APP_URL, so there's only one variable to set.
+// INTRA42_REDIRECT_URI is still accepted if you want to force a value.
 const getRedirectUri = () => {
   if (process.env.INTRA42_REDIRECT_URI) {
     return process.env.INTRA42_REDIRECT_URI.trim();

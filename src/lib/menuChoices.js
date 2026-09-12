@@ -1,15 +1,15 @@
-// Modèle d'une formule : une liste de "groupes de choix".
+// A meal deal's model: a list of "choice groups".
 // Chaque groupe : { id, name, productIds: [] }
-//   - name        : libellé défini par l'admin ("Plat", "Boisson", "Accompagnement"...)
-//   - productIds   : produits éligibles cochés depuis la liste complète.
-//                    Vide => tous les produits disponibles sont proposés.
+//   - name        : label set by the admin ("Main", "Drink", "Side"...)
+//   - productIds   : eligible products checked from the full list.
+//                    Empty => all available products are offered.
 
 export function makeGroupId() {
   return 'g_' + Math.random().toString(36).slice(2, 9);
 }
 
-// Récupère les groupes d'une formule, en reconstruisant ceux des anciennes
-// formules (modèle plat/boisson/dessert) pour rester rétro-compatible.
+// Gets a meal deal's choice groups, rebuilding those of older meal deals
+// (main/drink/dessert model) to stay backward-compatible.
 export function getMenuGroups(menu) {
   if (menu && Array.isArray(menu.groups) && menu.groups.length) {
     return menu.groups;
@@ -28,7 +28,7 @@ export function getMenuGroups(menu) {
   return legacy;
 }
 
-// Produits proposés pour un groupe donné.
+// Products offered for a given group.
 export function resolveGroupProducts(group, products) {
   if (Array.isArray(group.productIds) && group.productIds.length) {
     return products.filter(product => group.productIds.includes(product.id));
@@ -39,8 +39,8 @@ export function resolveGroupProducts(group, products) {
   return products;
 }
 
-// Normalise les choix stockés dans une commande vers une liste [{ label, product }].
-// Gère l'ancien format objet { plat: {...}, boisson: {...}, dessert: {...} }.
+// Normalizes the choices stored in an order into a [{ label, product }] list.
+// Handles the old object format { plat: {...}, boisson: {...}, dessert: {...} }.
 export function normalizeChoices(choices) {
   if (!choices) return [];
   if (Array.isArray(choices)) {

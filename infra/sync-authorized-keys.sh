@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Applique infra/authorized_keys au fichier ~/.ssh/authorized_keys de l'utilisateur courant.
-# À lancer sur le VPS après un `git pull` sur main.
+# Applies infra/authorized_keys to the current user's ~/.ssh/authorized_keys file.
+# Run this on the VPS after a `git pull` on main.
 #
 #   cd /opt/Menu_Bde && git pull && infra/sync-authorized-keys.sh
 #
@@ -10,15 +10,15 @@ SRC="$(cd "$(dirname "$0")" && pwd)/authorized_keys"
 DEST="$HOME/.ssh/authorized_keys"
 
 if [ ! -f "$SRC" ]; then
-  echo "❌ Fichier source introuvable : $SRC"
+  echo "❌ Source file not found: $SRC"
   exit 1
 fi
 
-# Ne garde que les vraies lignes de clés (ignore commentaires et lignes vides)
+# Only keep actual key lines (ignore comments and blank lines)
 CLEAN="$(grep -E '^(ssh-|ecdsa-|sk-)' "$SRC" || true)"
 
 if [ -z "$CLEAN" ]; then
-  echo "❌ Aucune clé valide dans $SRC — abandon (on ne vide pas authorized_keys)."
+  echo "❌ No valid ssh key found in $SRC. Aborting. (do not empty authorized_keys)."
   exit 1
 fi
 
@@ -34,5 +34,5 @@ fi
 printf '%s\n' "$CLEAN" > "$DEST"
 chmod 600 "$DEST"
 
-echo "✅ $COUNT clé(s) appliquée(s) dans $DEST"
-echo "   Sauvegarde de l'ancienne version : $DEST.bak-*"
+echo "✅ $COUNT key(s) applied to $DEST"
+echo "   Old version backup: $DEST.bak-*"

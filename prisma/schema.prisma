@@ -7,7 +7,7 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Vitrine
+// Storefront
 // ---------------------------------------------------------------------------
 
 model Category {
@@ -50,7 +50,7 @@ model Menu {
   groups      MenuGroup[]
 }
 
-// Un groupe de choix d'une formule (ex: "Plat", "Boisson").
+// A meal-deal choice group (e.g. "Main", "Drink").
 model MenuGroup {
   id       String  @id @default(cuid())
   menuId   String
@@ -63,7 +63,7 @@ model MenuGroup {
   @@index([menuId])
 }
 
-// Produits proposés dans un groupe de choix (many-to-many Menu group <-> Product).
+// Products offered in a choice group (many-to-many Menu group <-> Product).
 model MenuGroupProduct {
   menuGroupId String
   menuGroup   MenuGroup @relation(fields: [menuGroupId], references: [id], onDelete: Cascade)
@@ -73,9 +73,9 @@ model MenuGroupProduct {
   @@id([menuGroupId, productId])
 }
 
-// Catalogue sauvegardé (produits + menus + catégories), rejouable tel quel.
-// Stocké en JSON : ce sont des instantanés figés, pas des données vivantes à
-// interroger relationnellement.
+// Saved catalog snapshot (products + meal deals + categories), replayable as-is.
+// Stored as JSON: these are frozen snapshots, not live data to query
+// relationally.
 model Template {
   id          String   @id @default(cuid())
   name        String
@@ -87,7 +87,7 @@ model Template {
 }
 
 // ---------------------------------------------------------------------------
-// Commandes
+// Orders
 // ---------------------------------------------------------------------------
 
 model Order {
@@ -115,17 +115,17 @@ model Order {
   @@index([createdAt])
 }
 
-// Une ligne de commande. Le nom/prix/coût sont dupliqués ici au moment de la
-// commande (snapshot), volontairement : l'historique doit rester exact même
-// si le produit ou la formule d'origine est ensuite modifié ou supprimé.
+// An order line. Name/price/cost are duplicated here at order time
+// (snapshot), deliberately: history must stay accurate even if the
+// original product or meal deal is later changed or deleted.
 model OrderItem {
   id        String  @id @default(cuid())
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   type      String  // 'product' | 'menu'
-  refId     String  // id du produit/de la formule au moment de la commande
+  refId     String  // id of the product/meal deal at order time
   name      String
-  category  String? // snapshot, sert uniquement à l'icône affichée
+  category  String? // snapshot, used only for the displayed icon
   price     Float
   costPrice Float?
   quantity  Int
@@ -135,8 +135,8 @@ model OrderItem {
   @@index([orderId])
 }
 
-// Pour une ligne "formule" : quel produit a été choisi dans chaque groupe.
-// Snapshot également (nom + coût au moment de la commande).
+// For a "meal deal" line: which product was chosen in each group.
+// Also a snapshot (name + cost at order time).
 model OrderItemChoice {
   id          String    @id @default(cuid())
   orderItemId String

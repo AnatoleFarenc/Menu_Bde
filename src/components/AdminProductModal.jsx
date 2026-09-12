@@ -4,7 +4,7 @@ import { getMenuGroups, makeGroupId } from '../lib/menuChoices';
 
 const ICONS = ['🥪', '🐟', '🥗', '🥤', '🦈', '💧', '⚡', '🍗', '🍩', '🥧', '🍎', '🍫', '🎣'];
 
-// Reconstruit les groupes éditables d'une formule (avec migration des anciennes).
+// Rebuilds a meal deal's editable groups (with migration of older ones).
 function initGroups(editingItem, products) {
   if (editingItem && Array.isArray(editingItem.groups) && editingItem.groups.length) {
     return editingItem.groups.map(group => ({
@@ -24,7 +24,7 @@ function initGroups(editingItem, products) {
     }));
   }
 
-  // Nouvelle formule : on démarre avec un groupe vide.
+  // New meal deal: start with one empty group.
   return [{ id: makeGroupId(), name: '', productIds: [] }];
 }
 

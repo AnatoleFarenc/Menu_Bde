@@ -18,11 +18,11 @@ const __dirname = path.dirname(__filename);
 const publicAppUrl = (process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).trim().replace(/\/+$/, '');
 const oauthRedirectUri = (process.env.INTRA42_REDIRECT_URI || `${publicAppUrl}/api/auth/42/callback`).trim();
 
-// Derrière le reverse proxy Caddy : nécessaire pour que le rate-limit voie la vraie IP client.
+// Behind the Caddy reverse proxy: needed so rate-limiting sees the real client IP.
 app.set('trust proxy', 1);
 
-// En-têtes de sécurité (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy…).
-// CSP taillée sur mesure pour l'app : bundle servi en propre, polices Google, avatars 42.
+// Security headers (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy...).
+// CSP tailored for the app: self-served bundle, Google fonts, 42 avatars.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -41,7 +41,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS restreint aux origines connues (domaine public + localhost pour le dev).
+// CORS restricted to known origins (public domain + localhost for dev).
 const allowedOrigins = new Set([
   publicAppUrl,
   'http://localhost:3000',
@@ -54,12 +54,12 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
-// Rate limiting : global large, strict sur l'authentification.
+// Rate limiting: broad globally, strict on authentication.
 app.use('/api/', rateLimit({ windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 
-// Mode staging : si STAGING_MODE=true, seuls les logins 42 listés dans STAGING_ALLOWED_LOGINS
-// peuvent se connecter. Sur la prod la variable est absente → aucun effet.
+// Staging mode: if STAGING_MODE=true, only the 42 logins listed in STAGING_ALLOWED_LOGINS
+// can log in. On prod the variable is absent -> no effect.
 const stagingMode = process.env.STAGING_MODE === 'true';
 const stagingAllowedLogins = (process.env.STAGING_ALLOWED_LOGINS || '')
   .split(',')
@@ -68,7 +68,7 @@ const stagingAllowedLogins = (process.env.STAGING_ALLOWED_LOGINS || '')
 const isStagingAllowed = (login) => !stagingMode || stagingAllowedLogins.includes((login || '').toLowerCase());
 
 // ----------------------------------------------------
-// SESSIONS  (jeton opaque aléatoire, expiration glissante)
+// SESSIONS  (random opaque token, sliding expiration)
 // ----------------------------------------------------
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 const sessions = new Map(); // token -> { user, expiresAt }
@@ -89,11 +89,11 @@ const getUserFromReq = (req) => {
     sessions.delete(token);
     return null;
   }
-  entry.expiresAt = Date.now() + SESSION_TTL_MS; // expiration glissante
+  entry.expiresAt = Date.now() + SESSION_TTL_MS; // sliding expiration
   return entry.user;
 };
 
-// Purge périodique des sessions expirées.
+// Periodic cleanup of expired sessions.
 setInterval(() => {
   const now = Date.now();
   for (const [token, entry] of sessions) {
@@ -101,7 +101,7 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000).unref();
 
-// Middlewares d'autorisation
+// Authorization middlewares
 const requireAuth = (req, res, next) => {
   const user = getUserFromReq(req);
   if (!user) return res.status(401).json({ error: 'Non authentifié' });
@@ -115,7 +115,7 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-// État anti-CSRF pour le flux OAuth 42 (state param), jetons à usage unique & courte durée.
+// Anti-CSRF state for the 42 OAuth flow (state param), single-use short-lived tokens.
 const oauthStates = new Map(); // state -> expiresAt
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const issueOauthState = () => {
@@ -169,8 +169,8 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
-// Connexion simplifiée pour la borne (mode kiosque) : pas d'OAuth 42, juste un login déclaré
-// à la main pour pouvoir attribuer les commandes. Le compte n'a jamais les droits admin.
+// Simplified login for the kiosk (kiosk mode): no 42 OAuth, just a manually
+// entered login so orders can be attributed. This account never has admin rights.
 app.post('/api/auth/kiosk-login', authLimiter, (req, res) => {
   if (stagingMode) {
     return res.status(403).json({ error: 'Le mode borne est désactivé sur l\'environnement de test.' });
@@ -200,16 +200,16 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 
-// Toutes les routes /api/admin/* exigent un compte administrateur — vérifié une seule fois ici.
+// All /api/admin/* routes require an administrator account — checked once here.
 app.use('/api/admin', requireAdmin);
 
-// db.js utilise Prisma : chaque route qui touche la base est asynchrone. Ce
-// wrapper évite de répéter un try/catch partout et transmet toute erreur au
-// middleware d'erreur global défini en bas de fichier.
+// db.js uses Prisma: every route touching the database is asynchronous. This
+// wrapper avoids repeating try/catch everywhere and forwards any error to the
+// global error middleware defined at the bottom of this file.
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ----------------------------------------------------
-// PRODUCT & MENU ROUTES (Vitrine)
+// PRODUCT & MENU ROUTES (Storefront)
 // ----------------------------------------------------
 app.get('/api/products', ah(async (req, res) => {
   const [products, menus, categories] = await Promise.all([
@@ -335,7 +335,7 @@ app.post('/api/orders', ah(async (req, res) => {
   res.status(201).json({ order: newOrder });
 }));
 
-// Commande créée par un admin pour un produit offert (prix à 0, hors panier étudiant).
+// Order created by an admin for a gifted product (price 0, outside the student cart).
 app.post('/api/admin/orders/free', ah(async (req, res) => {
   const { productId, quantity, beneficiary, pickupTime, note } = req.body;
   const product = await db.getProductById(productId);
@@ -370,7 +370,7 @@ app.get('/api/orders', ah(async (req, res) => {
   res.json({ orders: userOrders });
 }));
 
-// L'étudiant laisse (ou modifie) un avis sur une de ses commandes récupérées.
+// The student leaves (or edits) a review on one of their picked-up orders.
 app.post('/api/orders/:id/review', ah(async (req, res) => {
   const user = getUserFromReq(req);
   if (!user) {
@@ -402,7 +402,7 @@ app.get('/api/admin/orders', ah(async (req, res) => {
     synthesisByTime[slot].totalOrders += 1;
 
     order.items.forEach(item => {
-      // Direct products or elements inside a menu formula
+      // Direct products or elements inside a meal deal
       if (item.type === 'menu' && item.choices) {
         const chosenProducts = Array.isArray(item.choices)
           ? item.choices.map(entry => entry && entry.product)
@@ -463,7 +463,7 @@ app.delete('/api/admin/orders/:id', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
-// Tous les avis clients laissés sur des commandes, du plus récent au plus ancien.
+// All customer reviews left on orders, most recent first.
 app.get('/api/admin/reviews', ah(async (req, res) => {
   const orders = await db.getOrders();
   const reviews = orders
@@ -485,9 +485,9 @@ app.delete('/api/admin/reviews/:orderId', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
-// Bilan des ventes sur une période (?from=YYYY-MM-DD&to=YYYY-MM-DD, par défaut aujourd'hui
-// pour les deux). Ne compte que les commandes récupérées (completed) ; les dons (isFree)
-// comptent en quantité mais pas en chiffre d'affaires.
+// Sales report over a period (?from=YYYY-MM-DD&to=YYYY-MM-DD, defaults to today
+// for both). Only counts picked-up orders (completed); gifted orders (isFree)
+// count toward quantity but not revenue.
 app.get('/api/admin/report', ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || req.query.date || today).slice(0, 10);
@@ -503,8 +503,8 @@ app.get('/api/admin/report', ah(async (req, res) => {
   let totalRevenue = 0;
   let totalCost = 0;
 
-  // Coût d'achat d'une ligne : pour un produit c'est son costPrice ; pour une formule c'est
-  // la somme des costPrice des produits choisis dedans. costPrice absent/null => 0 (inconnu).
+  // Cost of a line: for a product it's its costPrice; for a meal deal it's
+  // the sum of the costPrice of the products chosen within it. Missing/null costPrice => 0 (unknown).
   const itemUnitCost = (item) => {
     if (item.type === 'menu' && item.choices) {
       const chosen = Array.isArray(item.choices)
@@ -515,8 +515,8 @@ app.get('/api/admin/report', ah(async (req, res) => {
     return item.costPrice || 0;
   };
 
-  // Décompte "consommation réelle" : décompose aussi les produits choisis dans les formules,
-  // pour savoir combien de fois chaque produit a été pris au total (seul ou via un menu).
+  // "Real consumption" count: also breaks down products chosen within meal deals,
+  // to know how many times each product was taken in total (alone or via a meal deal).
   const usageMap = new Map();
   const addUsage = (name, qty) => {
     if (!name) return;
@@ -575,18 +575,18 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Middleware d'erreur global : toute erreur transmise via next(err) (dont les
-// rejets de promesses côté routes async, voir ah() plus haut) atterrit ici
-// plutôt que de faire planter le process ou renvoyer la page HTML par défaut d'Express.
+// Global error middleware: any error passed via next(err) (including rejected
+// promises from async routes, see ah() above) lands here instead of crashing
+// the process or returning Express's default HTML error page.
 app.use((err, req, res, next) => {
-  console.error('Erreur non gérée sur', req.method, req.path, ':', err);
+  console.error('Unhandled error on', req.method, req.path, ':', err);
   res.status(500).json({ error: 'Erreur serveur interne' });
 });
 
 await db.ready;
 app.listen(PORT, () => {
-  console.log(`🚀 Serveur BDE Sandwich 42 démarré sur http://localhost:${PORT}`);
-  console.log(`   URL publique        : ${publicAppUrl}`);
-  console.log(`   Redirect URI OAuth  : ${oauthRedirectUri}`);
-  console.log('   ↳ cette Redirect URI doit être déclarée à l\'identique dans ton application OAuth 42.');
+  console.log(`🚀 BDE Sandwich 42 server started on http://localhost:${PORT}`);
+  console.log(`   Public URL          : ${publicAppUrl}`);
+  console.log(`   OAuth Redirect URI  : ${oauthRedirectUri}`);
+  console.log('   \u21b3 this Redirect URI must be declared identically in your 42 OAuth application.');
 });
