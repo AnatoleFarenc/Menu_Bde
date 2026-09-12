@@ -44,7 +44,7 @@ The project consists of two parts started together via `npm run dev`:
 
 Data is stored locally in `server/data/db.json`. The file is created with the default products and menus if it doesn't exist, then updated as changes or orders are made.
 
-### Student journey
+### Student usage
 
 1. The student browses the products and meal deals available in the showcase.
 2. They can add products or build a meal deal with a main dish, a drink, and optionally a dessert.
