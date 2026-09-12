@@ -101,7 +101,52 @@ Configuration: `/etc/security/pwquality.conf` (not version-controlled — local 
 
 ---
 
-## 6. Details
+## 6. MariaDB
+
+A single MariaDB instance on the VPS, with two isolated databases (`bde_sandwich`
+for prod, `bde_sandwich_staging` for staging) and a dedicated user per database,
+with permissions limited to that database only — same logic as the `bde-app` /
+`bde-app-staging` separation.
+
+### On the VPS (one time only)
+
+```bash
+sudo infra/setup-mariadb.sh
+```
+
+Installs MariaDB, restricts it to `localhost` (never exposed to the Internet — no
+`ufw` rule to open), creates the two databases and their users, then displays
+**only once** the two `DATABASE_URL` values to paste into:
+- `/opt/Menu_Bde/.env` (prod)
+- `/opt/Menu_Bde-staging/.env` (staging)
+
+### Locally (each developer, on their own machine)
+
+No native installation needed: MariaDB runs in Docker, with a disposable database
+specific to each machine (like `server/data/db.json` today).
+
+1. [Install Docker](https://docs.docker.com/get-docker/) if needed.
+2. From the project root:
+```bash
+   docker compose up -d mariadb
+```
+3. In `.env` (copied from `.env.example`), leave as is:
+```env
+   DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
+```
+   (local dev credentials only, defined in `docker-compose.yml` — unrelated
+   to the passwords generated on the VPS side.)
+4. `npm run dev` as usual.
+
+To stop/reset the local database:
+```bash
+docker compose down            # stops
+docker compose down -v         # stops AND wipes local data
+```
+
+---
+
+## 7. Details
 
 - SSH port: **2231** · **key-only authentication** · no `root` login.
 - `ufw` firewall: only 2231 / 80 / 443 are open.

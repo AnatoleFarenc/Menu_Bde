@@ -17,3 +17,24 @@ services:
       # Optionnel : déduit de PUBLIC_APP_URL si non défini.
       - INTRA42_REDIRECT_URI=${INTRA42_REDIRECT_URI:-}
       - ADMIN_LOGINS=${ADMIN_LOGINS}
+      - DATABASE_URL=mysql://bde_app:devpassword@mariadb:3306/bde_sandwich
+    depends_on:
+      - mariadb
+
+  # Base de données pour le développement local (staging/prod utilisent
+  # MariaDB natif sur le VPS, voir infra/setup-mariadb.sh).
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: bde_sandwich
+      MARIADB_USER: bde_app
+      MARIADB_PASSWORD: devpassword
+      MARIADB_ROOT_PASSWORD: rootdevpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  mariadb_data:
