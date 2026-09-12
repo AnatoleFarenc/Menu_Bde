@@ -4,13 +4,13 @@
 # le compte de la prod) : les opérations fichiers s'exécutent sous son identité.
 set -euo pipefail
 cd /opt/Menu_Bde-staging
-echo "▶ git pull (dev)…"
+echo "▶ git pull (dev)..."
 sudo -u bde-app-staging git pull origin dev
-echo "▶ npm install…"
+echo "▶ npm install..."
 sudo -u bde-app-staging npm install --no-audit --no-fund
-echo "▶ build…"
+echo "▶ build..."
 sudo -u bde-app-staging npm run build
-echo "▶ redémarrage du service staging…"
+echo "▶ Restarting staging service"
 sudo systemctl restart bde-menu-staging
 sleep 2
-sudo systemctl is-active bde-menu-staging && echo "✅ Staging déployé : https://dev.bde42perpignan.fr"
+sudo systemctl is-active bde-menu-staging && echo "✅ Staging deployed: https://dev.bde42perpignan.fr"

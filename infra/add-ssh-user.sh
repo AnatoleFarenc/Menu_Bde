@@ -13,12 +13,12 @@ set -euo pipefail
 
 GH_USER="${1:-}"
 if [ -z "$GH_USER" ]; then
-  echo "Usage : infra/add-ssh-user.sh <pseudo-github> [\"Prénom Nom - rôle\"]"
+  echo "Usage: infra/add-ssh-user.sh <github username> [\"<Name> <Surname> - role\"]"
   exit 1
 fi
 # pseudo GitHub : lettres, chiffres, tirets uniquement
 if ! printf '%s' "$GH_USER" | grep -qE '^[A-Za-z0-9-]+$'; then
-  echo "❌ Pseudo GitHub invalide : '$GH_USER'"
+  echo "❌ Invalid GitHub username: '$GH_USER'"
   exit 1
 fi
 
@@ -31,14 +31,14 @@ trap 'rm -f "$TMP"' EXIT
 
 HTTP_CODE="$(curl -fsS --max-time 15 -o "$TMP" -w '%{http_code}' "$KEYS_URL" || true)"
 if [ "$HTTP_CODE" != "200" ]; then
-  echo "❌ Récupération impossible pour '$GH_USER' (HTTP $HTTP_CODE) — le compte GitHub existe-t-il ?"
+  echo "❌ GitHub account not found: '$GH_USER' (HTTP $HTTP_CODE). Make sure the account exists, and that you typed it correctly."
   exit 1
 fi
 
 KEYS="$(grep -E '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-|sk-ssh-ed25519|sk-ecdsa-sha2-) ' "$TMP" || true)"
 if [ -z "$KEYS" ]; then
-  echo "❌ Le compte GitHub '$GH_USER' n'a aucune clé SSH publique."
-  echo "   Il doit en ajouter une dans https://github.com/settings/keys"
+  echo "❌ The GitHub account '$GH_USER' does not have a public SSH key."
+  echo "   They can add one at https://github.com/settings/keys"
   exit 1
 fi
 
@@ -48,7 +48,7 @@ while IFS= read -r key; do
   [ -z "$key" ] && continue
   key_body="$(printf '%s' "$key" | awk '{print $2}')"
   if grep -qF -- "$key_body" "$DEST"; then
-    echo "↷ clé déjà présente, ignorée"
+    echo "↷ key already present, no changes were made"
     continue
   fi
   printf '%s %s\n' "$key" "$COMMENT" >> "$DEST"
@@ -57,11 +57,11 @@ done <<< "$KEYS"
 
 echo
 if [ "$ADDED" -eq 0 ]; then
-  echo "ℹ️  Rien ajouté (toutes les clés de '$GH_USER' étaient déjà là)."
+  echo "ℹ️  No changes were made (all keys for '$GH_USER' have already been added)."
 else
-  echo "✅ $ADDED clé(s) ajoutée(s) pour '$GH_USER'."
+  echo "✅ $ADDED key(s) added pour '$GH_USER'."
 fi
 echo
-echo "Étapes suivantes :"
-echo "  git add infra/authorized_keys && git commit -m \"ssh: accès $GH_USER\" && git push"
-echo "  puis sur le VPS :  cd /opt/Menu_Bde && git pull && infra/sync-authorized-keys.sh"
+echo "Next steps:"
+echo "  git add infra/authorized_keys && git commit -m \"ssh: access $GH_USER\" && git push"
+echo "  then on the VPS:  cd /opt/Menu_Bde && git pull && infra/sync-authorized-keys.sh"

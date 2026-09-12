@@ -1,104 +1,110 @@
 # infra/
 
-Configuration serveur versionnée (VPS OVH, `bde42perpignan.fr`).
+Version-controlled server configuration (OVH VPS, bde42perpignan.fr).
 
-## Contenu
+## Content
 
-| Fichier | Rôle |
+| File | Purpose |
 |---|---|
-| `authorized_keys` | clés SSH du compte de déploiement `debian` (voir plus bas) |
-| `sync-authorized-keys.sh` | applique `authorized_keys` au compte courant (anti-lockout + sauvegarde) |
-| `add-ssh-user.sh <pseudo-github>` | importe des clés GitHub dans `authorized_keys` (pour `debian`) |
-| `add-team-member.sh <user> <pseudo-github> [ops\|admin]` | **crée un compte nommé** pour un membre de l'équipe (voir §3) |
-| `systemd/bde-menu.service` | service prod (port 5001), tourne sous `bde-app` |
-| `systemd/bde-menu-staging.service` | service staging (port 5002), tourne sous `bde-app-staging` |
-| `sudoers.d/20-bde-ops` | droits limités du groupe `bde-ops` (copie versionnée de `/etc/sudoers.d/`) |
-| `deploy-prod.sh` / `deploy-staging.sh` | `git pull` + build + redémarrage (copies dans `~debian/`) |
+| `authorized_keys` | SSH keys for the Debian deployment account (see below) |
+| `sync-authorized-keys.sh` | Applies `authorized_keys` to the current account (anti-lockout + backup) |
+| `add-ssh-user.sh <github username>` | Imports GitHub keys into `authorized_keys` (for Debian) |
+| `add-team-member.sh <user> <github username> [ops\|admin]` | **Creates a named account** for a team member (see [§2](#2-the-bde-ops-group-teammates)) |
+| `systemd/bde-menu.service` | Production service (port 5001), runs as `bde-app` |
+| `systemd/bde-menu-staging.service` | Staging service (port 5002), runs as `bde-app-staging` |
+| `sudoers.d/20-bde-ops` | Limited permissions for the `bde-ops` group (version-controlled copy of `/etc/sudoers.d/`) |
+| `deploy-prod.sh` / `deploy-staging.sh` | `git pull` + build + restart (copies in `~debian/`) |
 
 ---
 
-## 1. Utilisateurs du VPS — vue d'ensemble
+## 1. VPS Users
 
-| Compte | Rôle | Droits |
+| Account | Role | Permissions |
 |---|---|---|
-| `root` | super-utilisateur | via `sudo` uniquement |
-| **groupe `sudo`** (ex: `anfarenc`) | administrateur(s) | `sudo` complet, **mot de passe requis** |
-| **groupe `bde-ops`** (coéquipiers) | accès développeur limité | voir §2 — pas de root |
-| `debian` | compte de déploiement automatisé | `sudo` restreint à des commandes précises (déploiement/redémarrage) — voir §4 |
-| `bde-app` | fait tourner la **prod**, et seulement ça | aucun shell, aucun `sudo` |
-| `bde-app-staging` | fait tourner le **staging**, et seulement ça | aucun shell, aucun `sudo` — **séparé de `bde-app`** : ne peut pas toucher aux fichiers de prod |
-| `caddy` | reverse proxy | aucun shell |
+| `root` | superuser | via `sudo` only |
+| **`sudo` group** (e.g. `anfarenc`) | administrator(s) | full `sudo`, **password required** |
+| **`bde-ops` group** (teammates) | limited developer access | see [§2](#2-the-bde-ops-group-teammates) — no root |
+| `debian` | automated deployment account | `sudo` restricted to specific commands (deployment/restart) — see [§4](#4-the-debian-account-automated-deployment) |
+| `bde-app` | runs **production**, and nothing else | no shell, no `sudo` |
+| `bde-app-staging` | runs **staging**, and nothing else | no shell, no `sudo` — **separate from `bde-app`**: cannot access production files |
+| `caddy` | reverse proxy | no shell |
 
-Chaque environnement (prod / staging) a son **propre utilisateur système propriétaire du code**
-— un accès à l'un ne donne strictement aucun accès à l'autre.
+Each environment (production / staging) has its **own system user that owns the code**
 
----
-
-## 2. Le groupe `bde-ops` (coéquipiers)
-
-Un compte `bde-ops` peut, **sans mot de passe** :
-- agir librement en tant que `bde-app-staging` (`git pull`, `npm install`, `npm run build`
-  dans `/opt/Menu_Bde-staging` — jamais dans la prod)
-- redémarrer / consulter le statut / les logs du **staging**
-- consulter (lecture seule) le statut et les logs de la **prod** et de **Caddy**
-
-Il **ne peut pas** : redémarrer ou modifier la prod, installer des paquets, créer des
-comptes, éditer un fichier système, exécuter `add-team-member.sh` (droits sudo trop
-restreints pour ça — vérifiable via `sudo -l`).
-
-Règles exactes : [`sudoers.d/20-bde-ops`](sudoers.d/20-bde-ops).
+— access to one gives absolutely no access to the other.
 
 ---
 
-## 3. Ajouter un membre de l'équipe
+## 2. The `bde-ops` Group (Teammates)
+
+A `bde-ops` account can, **without a password**:
+
+- act freely as `bde-app-staging` (`git pull`, `npm install`, `npm run build`
+  in `/opt/Menu_Bde-staging` — never in production)
+- restart / check the status / view the logs of **staging**
+- view (read-only) the status and logs of **production** and **Caddy**
+
+It **cannot**: restart or modify production, install packages, create
+accounts, edit a system file, or run `add-team-member.sh` (sudo permissions are
+too restricted for that — verifiable via `sudo -l`).
+
+Exact rules: [`sudoers.d/20-bde-ops`](sudoers.d/20-bde-ops).
+
+---
+
+## 3. Adding a Team Member
 
 ```bash
-sudo infra/add-team-member.sh <username> <pseudo-github> [ops|admin]
+sudo infra/add-team-member.sh <username> <github-username> [ops|admin]
 ```
 
-- **Doit être lancé par un administrateur** (compte du groupe `sudo`) — un compte
-  `bde-ops` ou `debian` ne peut pas l'exécuter, leurs droits sudo sont trop limités.
-- Importe les clés SSH publiques depuis `https://github.com/<pseudo>.keys`.
-- `ops` (par défaut) → groupe `bde-ops` (§2). `admin` → groupe `sudo` (accès complet).
-- Génère un **mot de passe temporaire fort**, affiché une seule fois : à transmettre
-  à la personne **hors de ce terminal** (message chiffré, en main propre…), jamais
-  par ce canal. Changement **obligatoire** à la première connexion (`chage -d 0`).
-- Journalise l'action dans `/var/log/bde-team-changes.log` (qui, quand, pour qui,
-  quel rôle — jamais le mot de passe).
+- **Must be run by an administrator** (an account in the `sudo` group) — a
+  `bde-ops` or `debian` account cannot run it; their sudo permissions are too restricted.
+- Imports public SSH keys from `https://github.com/<username>.keys`.
+- `ops` (default) → `bde-ops` group ([§2](#2-the-bde-ops-group-teammates)). `admin` → `sudo` group (full access).
+- Generates a **strong temporary password**, displayed only once: it must be
+  transmitted to the person **outside this terminal** (encrypted message, in person, etc.),
+  never through this channel. Password change is **mandatory** on first login (`chage -d 0`).
+- Logs the action to `/var/log/bde-team-changes.log` (who, when, for whom,
+  which role — never the password).
 
-### Retirer un accès
+### Removing Access
+
 ```bash
 sudo userdel -r <username>
 ```
 
 ---
 
-## 4. Le compte `debian` (déploiement automatisé)
+## 4. The `debian` Account (Automated Deployment)
 
-`debian` sert uniquement à orchestrer les déploiements (`deploy-prod.sh`,
-`deploy-staging.sh`). Ses droits `sudo` sont restreints aux commandes strictement
-nécessaires à ça (agir en `bde-app`/`bde-app-staging`, redémarrer les deux services) —
-pas de `sudo` généraliste. Les clés autorisées sur ce compte sont dans
-`authorized_keys` (ci-dessus), gérées via `sync-authorized-keys.sh` / `add-ssh-user.sh`.
+`debian` is used only to orchestrate deployments (`deploy-prod.sh`,
+`deploy-staging.sh`). Its `sudo` permissions are restricted to the commands strictly
+necessary for this (acting as `bde-app`/`bde-app-staging`, restarting both services) —
+no general-purpose `sudo`.
 
----
-
-## 5. Politique de mot de passe
-
-`libpam-pwquality` impose, pour tout compte du serveur :
-- **20 caractères minimum** (comptes à privilèges — recommandation ANSSI)
-- au moins 2 classes de caractères, pas plus de 3 caractères identiques à la suite
-- vérification contre un dictionnaire de mots de passe faibles
-- s'applique aussi à `root`
-
-Config : `/etc/security/pwquality.conf` (non versionnée — locale au serveur).
+The authorized keys for this account are in `authorized_keys` (above), managed via
+`sync-authorized-keys.sh` / `add-ssh-user.sh`.
 
 ---
 
-## 6. Détails
+## 5. Password Policy
 
-- Port SSH : **2231** · connexion par **clé uniquement** · pas de login `root`.
-- Pare-feu `ufw` : ouverts 2231 / 80 / 443 uniquement.
-- HTTPS : Caddy + Let's Encrypt automatique.
-- Durcissement systemd des deux services : `ProtectSystem=strict`, `NoNewPrivileges`,
-  `PrivateTmp`, capacités vidées, etc. — détails dans `SECURITY.md` à la racine du dépôt.
+`libpam-pwquality` enforces the following for every account on the server:
+
+- **20 characters minimum** (privileged accounts — ANSSI recommendation)
+- at least 2 character classes, with no more than 3 identical characters in a row
+- checks against a dictionary of weak passwords
+- also applies to `root`
+
+Configuration: `/etc/security/pwquality.conf` (not version-controlled — local to the server).
+
+---
+
+## 6. Details
+
+- SSH port: **2231** · **key-only authentication** · no `root` login.
+- `ufw` firewall: only 2231 / 80 / 443 are open.
+- HTTPS: Caddy + automatic Let's Encrypt certificates.
+- systemd hardening for both services: `ProtectSystem=strict`, `NoNewPrivileges`,
+  `PrivateTmp`, capabilities cleared, etc. — details in `SECURITY.md` at the repository root.

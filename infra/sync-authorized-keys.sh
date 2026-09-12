@@ -10,7 +10,7 @@ SRC="$(cd "$(dirname "$0")" && pwd)/authorized_keys"
 DEST="$HOME/.ssh/authorized_keys"
 
 if [ ! -f "$SRC" ]; then
-  echo "❌ Fichier source introuvable : $SRC"
+  echo "❌ Source file not found: $SRC"
   exit 1
 fi
 
@@ -18,7 +18,7 @@ fi
 CLEAN="$(grep -E '^(ssh-|ecdsa-|sk-)' "$SRC" || true)"
 
 if [ -z "$CLEAN" ]; then
-  echo "❌ Aucune clé valide dans $SRC — abandon (on ne vide pas authorized_keys)."
+  echo "❌ No valid ssh key found in $SRC. Aborting. (do not empty authorized_keys)."
   exit 1
 fi
 
@@ -34,5 +34,5 @@ fi
 printf '%s\n' "$CLEAN" > "$DEST"
 chmod 600 "$DEST"
 
-echo "✅ $COUNT clé(s) appliquée(s) dans $DEST"
-echo "   Sauvegarde de l'ancienne version : $DEST.bak-*"
+echo "✅ $COUNT key(s) applied to $DEST"
+echo "   Old version backup: $DEST.bak-*"
