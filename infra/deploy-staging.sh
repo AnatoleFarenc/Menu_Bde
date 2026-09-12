@@ -10,7 +10,7 @@ echo "▶ npm install..."
 sudo -u bde-app-staging npm install --no-audit --no-fund
 echo "▶ build..."
 sudo -u bde-app-staging npm run build
-echo "▶ Restarting staging service"
+echo "▶ Restarting staging service..."
 sudo systemctl restart bde-menu-staging
 sleep 2
 sudo systemctl is-active bde-menu-staging && echo "✅ Staging deployed: https://dev.bde42perpignan.fr"
