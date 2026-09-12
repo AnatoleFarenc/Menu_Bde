@@ -10,7 +10,7 @@ echo "▶ npm install..."
 sudo -u bde-app npm install --no-audit --no-fund
 echo "▶ build..."
 sudo -u bde-app npm run build
-echo "▶ Restaring prod service..."
+echo "▶ Restarting prod service..."
 sudo systemctl restart bde-menu
 sleep 2
 sudo systemctl is-active bde-menu && echo "✅ Prod deployed : https://bde42perpignan.fr"
