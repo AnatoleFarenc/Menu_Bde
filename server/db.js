@@ -536,7 +536,7 @@ class DB {
       const existing = await prisma.order.findUnique({ where: { orderNumber: candidate } });
       if (!existing) return candidate;
     }
-    throw new Error('Impossible de générer un numéro de commande unique');
+    throw new Error('Could not generate a unique order number');
   }
 
   async updateOrderStatus(id, status) {

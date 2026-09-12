@@ -1,148 +1,145 @@
-# Feuille de route — Sandwicherie BDE 42 Perpignan
+# Roadmap — BDE 42 Perpignan Sandwich Shop
 
-> Document vivant : à modifier au fil des décisions d'équipe (une PR suffit).
-> Une case cochée = fonctionnalité en production.
+> Living document: edit as the team makes decisions (a PR is enough).
+> A checked box = feature in production.
 
 ## Vision
 
-Aujourd'hui : une plateforme de précommande de repas connectée à l'Intra 42.
-Demain : l'outil de gestion de tous les projets de vente du BDE — catalogue,
-stock, équipe et bilan par événement — accessible en un lien depuis le site
-de l'école.
+Today: a meal pre-order platform connected to the 42 Intra.
+Tomorrow: the tool for managing all of the BDE's sales projects — catalog,
+stock, team, and financial reporting per event — accessible via a single
+link from the school's own website.
 
-**Environnements**
-- Production : https://bde42perpignan.fr
-- Staging (tests) : https://dev.bde42perpignan.fr
-- Dépôt : https://github.com/AnatoleFarenc/Menu_Bde
+**Environments**
+- Production: https://bde42perpignan.fr
+- Staging (testing): https://dev.bde42perpignan.fr
+- Repository: https://github.com/AnatoleFarenc/Menu_Bde
 
 ---
 
-## Ambition professionnelle
+## Professional ambition
 
-Ce projet a un **second objectif, assumé** : c'est aussi une **vitrine** que
-chacun d'entre nous peut montrer à un recruteur. On applique donc, autant que
-raisonnable pour un projet BDE, les pratiques qu'on trouverait en entreprise —
-pas pour faire compliqué, mais pour que le projet se distingue clairement d'un
-simple projet étudiant/amateur.
+This project has a **second, deliberate objective**: it's also a **showcase**
+that any of us can show to a recruiter. So we apply, as much as is reasonable
+for a BDE project, the practices you'd find in a company — not to make things
+complicated, but so the project clearly stands apart from a simple
+student/amateur project.
 
-**Déjà en place**
-- [x] Environnements séparés (dev / staging / prod) avec CI de déploiement manuel documentée
-- [x] Infrastructure versionnée ("as code") — `infra/`
-- [x] Modèle de sécurité documenté (`SECURITY.md`) : durcissement serveur, sessions,
-      CSRF, CSP, rate limiting, séparation des privilèges
-- [x] Gestion d'équipe à rôles (admin / accès développeur limité), onboarding scripté et journalisé
-- [x] Politique de mot de passe conforme aux recommandations ANSSI actuelles
+**Already in place**
+- [x] Separate environments (dev / staging / prod) with documented manual deployment
+- [x] Version-controlled infrastructure ("as code") — `infra/`
+- [x] Documented security model (`SECURITY.md`): server hardening, sessions,
+      CSRF, CSP, rate limiting, privilege separation
+- [x] Role-based team management (full admin / limited developer access), scripted and logged onboarding
+- [x] Password policy compliant with current ANSSI recommendations
 
-**À ajouter** (liste ouverte, à compléter en équipe)
-- [ ] **RGPD** : politique de confidentialité, durée de conservation/purge des
-      données, procédure de droit à l'effacement, registre des traitements
-- [ ] **Revue de code obligatoire** : aucune fusion directe sur `dev`/`main` sans
-      Pull Request relue par quelqu'un d'autre (voir `CONTRIBUTING.md`)
-- [ ] **Branch protection rules GitHub** sur `main` et `dev` : PR + 1 review
-      obligatoire, y compris pour les admins du repo (à faire dans
-      Settings → Branches, voir détails discutés en conversation)
-- [ ] **Intégration continue (CI)** : build + lint automatiques sur chaque PR
+**To add** (open list, to be filled in as a team)
+- [ ] **GDPR**: privacy policy, data retention/purge duration, right-to-erasure
+      procedure, register of processing activities
+- [ ] **Mandatory code review**: no direct merges to `dev`/`main` without a
+      Pull Request reviewed by someone else (see `CONTRIBUTING.md`)
+- [ ] **GitHub branch protection rules** on `main` and `dev`: PR + 1 required
+      review, including for repo admins (to be done in
+      Settings → Branches, see details discussed in conversation)
+- [ ] **Continuous integration (CI)**: automatic build + lint on every PR
       (GitHub Actions)
-- [ ] **Tests automatisés** : au moins les routes critiques (commande, paiement/statut, stock)
-- [ ] **Style de code homogène** : ESLint + Prettier, appliqués en CI
-- [ ] **Suivi des tâches** : GitHub Issues/Projects plutôt que ce fichier seul,
-      une fois l'équipe plus nombreuse
-- [ ] **Changelog** des versions livrées en production
-- [ ] **Surveillance (monitoring)** : alerte si le site tombe, tableau de bord d'état
-- [ ] **Sauvegardes automatiques et testées** de la base de données
+- [ ] **Automated tests**: at least the critical routes (order, payment/status, stock)
+- [ ] **Consistent code style**: ESLint + Prettier, enforced in CI
+- [ ] **Task tracking**: GitHub Issues/Projects rather than this file alone,
+      once the team grows
+- [ ] **Changelog** of versions shipped to production
+- [ ] **Monitoring**: alert if the site goes down, status dashboard
+- [ ] **Automatic, tested backups** of the database
 
 ---
 
-## Ce qui tourne déjà
+## What's already running
 
-### Vitrine & commandes
-- [x] Connexion Intra 42 (OAuth2, session par jeton signé, protection CSRF)
-- [x] Formules personnalisables (groupes de choix par produit, prix calculé en direct)
-- [x] Suivi de commande & avis client
-- [x] Mode borne (poste de commande partagé, sans compte 42)
+### Storefront & orders
+- [x] 42 Intra login (OAuth2, signed session token, CSRF protection)
+- [x] Customizable meal deals (per-product choice groups, live price calculation)
+- [x] Order tracking & customer reviews
+- [x] Kiosk mode (shared order terminal, no 42 account)
 
 ### Administration
-- [x] Catalogue & stock (rupture automatique à 0, restitution si annulation)
-- [x] Prix d'achat & bénéfice (marge par produit et par formule)
-- [x] Bilan financier (période choisie, export CSV, CA / coût / bénéfice)
-- [x] Dons & produits offerts
+- [x] Catalog & stock (automatic out-of-stock at 0, restored on cancellation)
+- [x] Purchase price & profit (margin per product and per meal deal)
+- [x] Financial report (chosen period, CSV export, revenue / cost / profit)
+- [x] Gifted/free products
 
-### Équipe, sécurité & infra
-- [x] Environnement de test séparé (base de données isolée, accès restreint)
-- [x] Comptes nommés & rôle limité (admin complet vs accès développeur)
-- [x] Durcissement serveur (HTTPS, pare-feu, isolation systemd — détail dans [`SECURITY.md`](./SECURITY.md))
-
----
-
-## Feuille de route
-
-Le modèle "événement" est la fondation du reste — on l'attaque en premier.
-Les statistiques et la gestion d'équipe en dépendent directement.
-
-### 01 — Modèle événement / projet — 🔜 Prochain
-
-Faire évoluer les templates de catalogue en véritables événements datés :
-chaque vente (une piscine, un partiel, une soirée…) garde son propre
-catalogue, ses commandes et son historique — réutilisable telle quelle par
-une autre équipe l'année suivante.
-
-### 02 — Statistiques & graphiques par événement — 📋 Prévu
-
-Visualiser l'évolution des ventes d'un événement à l'autre, comparer les
-éditions.
-
-*Dépend de : 01*
-
-### 03 — Gestion d'équipe par événement — 📋 Prévu
-
-Postes personnalisables (caisse, préparation…), nombre de personnes
-nécessaires, affectation nominative optionnelle — pour voir d'un coup d'œil
-les ressources humaines à prévoir.
-
-*Dépend de : 01*
-
-### 04 — Notifications de commandes — 📋 Prévu
-
-Notification navigateur (push) à l'arrivée d'une commande, activable/
-désactivable par chaque membre admin.
-
-### 05 — Liste de courses automatique — 📋 Prévu
-
-À partir des seuils de stock, générer quoi racheter et en quelle quantité
-avant le prochain événement.
-
-### 06 — Hiérarchie des rôles dans l'app — 📋 Prévu
-
-Bureau / Admin / Staff / Membre — des permissions plus fines que le simple
-"admin ou pas" actuel.
-
-### 🔧 À corriger — Créneaux horaires de retrait
-
-Le découpage précis (9h–18h toutes les 15 min) ne correspond pas à un usage
-réel et sera retiré au profit d'un modèle plus simple.
+### Team, security & infra
+- [x] Separate test environment (isolated database, restricted access)
+- [x] Named accounts & limited role (full admin vs. developer access)
+- [x] Server hardening (HTTPS, firewall, systemd isolation — details in [`SECURITY.md`](./SECURITY.md))
 
 ---
 
-## Comment on travaille
+## Roadmap
+
+The "event" model is the foundation for everything else — we tackle it first.
+Statistics and team management depend directly on it.
+
+### 01 — Event / project model — 🔜 Next
+
+Evolve catalog templates into real dated events: each sale (a "piscine", a
+midterm, a party...) keeps its own catalog, orders, and history —
+reusable as-is by another team the following year.
+
+### 02 — Statistics & graphs per event — 📋 Planned
+
+Visualize sales trends from one event to the next, compare editions.
+
+*Depends on: 01*
+
+### 03 — Team management per event — 📋 Planned
+
+Customizable roles (checkout, prep...), number of people needed, optional
+named assignment — to see at a glance the staffing to plan for.
+
+*Depends on: 01*
+
+### 04 — Order notifications — 📋 Planned
+
+Browser (push) notification when an order comes in, toggleable per admin
+member.
+
+### 05 — Automatic shopping list — 📋 Planned
+
+From stock thresholds, generate what to restock and in what quantity before
+the next event.
+
+### 06 — Role hierarchy in the app — 📋 Planned
+
+Board / Admin / Staff / Member — finer-grained permissions than today's
+simple "admin or not".
+
+### 🔧 To fix — Pickup time slots
+
+The precise slicing (9am–6pm every 15 min) doesn't match real usage and will
+be removed in favor of a simpler model.
+
+---
+
+## How we work
 
 ```
-branche dev → dev.bde42perpignan.fr → merge main → bde42perpignan.fr
+dev branch → dev.bde42perpignan.fr → merge main → bde42perpignan.fr
 ```
 
-La prod n'est jamais modifiée sans être passée par le staging.
+Prod is never modified without going through staging first.
 
-| Rôle | Droits |
+| Role | Rights |
 |---|---|
-| **Admin** | Accès serveur complet, mot de passe requis. Peut créer les comptes de l'équipe. |
-| **Bde-ops** | Build & déploiement du staging en autonomie. Lecture seule sur la prod, aucun accès root. |
+| **Admin** | Full server access, password required. Can create team accounts. |
+| **Bde-ops** | Builds & deploys staging autonomously. Read-only on prod, no root access. |
 
-Documentation technique : [`SECURITY.md`](./SECURITY.md) · [`infra/README.md`](./infra/README.md)
+Technical documentation: [`SECURITY.md`](./SECURITY.md) · [`infra/README.md`](./infra/README.md)
 
-Ajouter un membre à l'équipe :
+Add a team member:
 ```bash
-sudo infra/add-team-member.sh <username> <pseudo-github> ops
+sudo infra/add-team-member.sh <username> <github-username> ops
 ```
 
 ---
 
-*Dernière mise à jour : 2026-09-11*
+*Last updated: 2026-09-12*
