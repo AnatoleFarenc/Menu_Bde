@@ -1,421 +1,620 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaClient } from '@prisma/client';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL);
+const prisma = new PrismaClient({ adapter });
 
-const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'db.json');
+const DEFAULT_CATEGORIES = [
+  { id: 'plat', name: 'Plat', icon: '🥪', isVisible: true },
+  { id: 'boisson', name: 'Boisson', icon: '🥤', isVisible: true },
+  { id: 'dessert', name: 'Dessert', icon: '🍩', isVisible: true },
+  { id: 'supplement', name: 'Supplément', icon: '🧂', isVisible: true }
+];
+const PROTECTED_CATEGORY_IDS = ['plat', 'boisson', 'dessert', 'supplement'];
 
-// Ensure directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+function slugify(name) {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
 }
 
-// Initial Default Data for 42 BDE Sandwicherie
-const defaultData = {
-  categories: [
-    { id: 'plat', name: 'Plat', icon: '🥪', isVisible: true },
-    { id: 'boisson', name: 'Boisson', icon: '🥤', isVisible: true },
-    { id: 'dessert', name: 'Dessert', icon: '🍩', isVisible: true },
-    { id: 'supplement', name: 'Supplément', icon: '🧂', isVisible: true }
-  ],
-  products: [
-    { id: 'p1', name: 'Sandwich Jambon', category: 'plat', price: 3.5, description: 'Pain baguette, jambon blanc, salade, beurre.', badge: '', available: true, icon: '🥪' },
-    { id: 'p2', name: 'Sandwich Rosette', category: 'plat', price: 3.5, description: 'Pain baguette, rosette, cornichons, beurre.', badge: '', available: true, icon: '🥪' },
-    { id: 'p3', name: 'Sandwich Poulet', category: 'plat', price: 4.5, extraMenuPrice: 1, description: 'Pain baguette, aiguillettes de poulet, tomates fraiches, oignons caramélisés, sauce pesto (+1€ en menu).', badge: 'Premium (+1€)', available: true, icon: '🍗' },
-    { id: 'p3_thon', name: 'Sandwich Thon Mayonnaise', category: 'plat', price: 4.5, extraMenuPrice: 1, description: 'Pain baguette, thon, échalotes, tomates fraîche, salade, mayonnaise.', badge: 'Premium (+1€)', available: true, icon: '🐟' },
-    { id: 'p4', name: 'Salade Composée', category: 'plat', price: 3.5, description: 'Salade, tomates fraiche, maïs, carotte, croutons, mozzarella et sauce vinaigrette.', badge: 'Végétarien', available: true, icon: '🥗' },
-    { id: 'b1', name: 'Coca-Cola 33cl', category: 'boisson', price: 1, description: 'Cannette fraîche 33cl.', available: true, icon: '🥤' },
-    { id: 'b3', name: 'Ice Tea Pêche 33cl', category: 'boisson', price: 1, description: 'Thé glacé au goût de pêche.', available: true, icon: '🍑' },
-    { id: 'b4', name: 'Eau Minérale Cristaline 50cl', category: 'boisson', price: 0.5, description: 'Bouteille d\'eau plate 50cl.', available: true, icon: '💧' },
-    { id: 'b5', name: 'RedBull 25cl', category: 'boisson', price: 2, extraMenuPrice: 1, description: 'Pour les rushes de fin de piscine & nuit de code. (+1€ en formule menu)', badge: 'Booster (+1€)', available: true, icon: '⚡' },
-    { id: 'd1', name: 'Donut au Sucre', category: 'dessert', price: 1.5, description: 'Donut moelleux, saupoudré de sucre boule de cristal.', badge: '', available: true, icon: '🍩' },
-    { id: 'd2', name: 'Brownie', category: 'dessert', price: 1.6, description: 'C\'est fort en chocolat.', available: true, icon: '🍫' },
-    { id: 'd3', name: 'Crumble ', category: 'dessert', price: 1.5, description: 'Delicieux crumble au fruit de saison.', badge: 'Fait maison', available: true, icon: '🥧' },
-    { id: 'd4', name: "Pom'Potes", category: 'dessert', price: 0.8, description: 'Ton meilleur pote à l\'exam final.', available: true, icon: '🍎' }
-  ],
-  menus: [
-    {
-      id: 'm1',
-      name: 'Formule Plouf (Plat + Boisson + Chips)',
-      price: 4.50,
-      description: 'Le snack parfait entre deux évaluations. Choisissez 1 Plat + 1 Boisson au choix.',
-      badge: 'Économique',
-      available: true,
-      groups: [
-        { id: 'g_plat', name: 'Plat', productIds: [], category: 'plat' },
-        { id: 'g_boisson', name: 'Boisson', productIds: [], category: 'boisson' }
-      ],
-      icon: '🎣'
-    },
-    {
-      id: 'm2',
-      name: 'Formule Jaws (Plat + Boisson + Chips + Dessert)',
-      price: 5.50,
-      description: 'La formule incontournable du midi ! 1 Plat + 1 Boisson + 1 Dessert au choix.',
-      badge: 'Le + Populaire',
-      available: true,
-      groups: [
-        { id: 'g_plat', name: 'Plat', productIds: [], category: 'plat' },
-        { id: 'g_boisson', name: 'Boisson', productIds: [], category: 'boisson' },
-        { id: 'g_dessert', name: 'Dessert', productIds: [], category: 'dessert' }
-      ],
-      icon: '🦈'
-    }
-  ],
-  orders: [],
-  templates: [],
-  users: []
-};
+// ---------------------------------------------------------------------------
+// Sérialisation : les modèles Prisma -> les formes plates que le reste du
+// serveur (et le frontend) connaît déjà, pour ne rien changer côté routes.
+// ---------------------------------------------------------------------------
 
-function normalizeGroups(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map(group => ({
-      id: (group && group.id) || 'g_' + Math.random().toString(36).slice(2, 9),
-      name: (group && group.name ? String(group.name) : '').trim(),
-      productIds: Array.isArray(group && group.productIds) ? group.productIds.filter(Boolean) : [],
-      ...(group && group.category ? { category: group.category } : {})
+function serializeCategory(c) {
+  return { id: c.id, name: c.name, icon: c.icon, isVisible: c.isVisible };
+}
+
+function serializeProduct(p) {
+  if (!p) return null;
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.categoryId,
+    price: p.price,
+    extraMenuPrice: p.extraMenuPrice,
+    costPrice: p.costPrice,
+    stock: p.stock,
+    description: p.description,
+    badge: p.badge,
+    available: p.available,
+    icon: p.icon
+  };
+}
+
+function serializeMenu(m) {
+  return {
+    id: m.id,
+    name: m.name,
+    price: m.price,
+    description: m.description,
+    badge: m.badge,
+    available: m.available,
+    icon: m.icon,
+    groups: (m.groups || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(group => ({
+        id: group.id,
+        name: group.name,
+        productIds: (group.products || []).map(link => link.productId)
+      }))
+  };
+}
+
+function serializeOrder(o) {
+  const order = {
+    id: o.id,
+    orderNumber: o.orderNumber,
+    status: o.status,
+    isPaid: o.isPaid,
+    isFree: o.isFree,
+    userId: o.userId,
+    userLogin: o.userLogin,
+    userDisplayName: o.userDisplayName,
+    pickupTime: o.pickupTime,
+    note: o.note,
+    totalPrice: o.totalPrice,
+    createdAt: o.createdAt.toISOString(),
+    items: (o.items || []).map(item => {
+      const serialized = {
+        id: item.refId,
+        type: item.type,
+        name: item.name,
+        category: item.category || undefined,
+        price: item.price,
+        costPrice: item.costPrice,
+        quantity: item.quantity
+      };
+      if (item.type === 'menu') serialized.menuId = item.refId;
+      if (item.choices && item.choices.length) {
+        serialized.choices = item.choices.map(choice => ({
+          label: choice.groupName,
+          product: { id: choice.productId, name: choice.productName, costPrice: choice.costPrice }
+        }));
+      }
+      return serialized;
+    })
+  };
+  if (o.reviewRating !== null && o.reviewRating !== undefined) {
+    order.review = {
+      rating: o.reviewRating,
+      comment: o.reviewComment || '',
+      createdAt: o.reviewCreatedAt.toISOString()
+    };
+  }
+  return order;
+}
+
+// Construit l'entrée Prisma "items: { create: [...] }" à partir d'un tableau
+// d'items au format plat (celui envoyé par le panier / l'édition admin).
+function buildOrderItemsInput(items) {
+  return {
+    create: (items || []).map(item => ({
+      type: item.type || 'product',
+      refId: item.type === 'menu' ? (item.menuId || item.id) : item.id,
+      name: item.name || '',
+      category: item.category || null,
+      price: parseFloat(item.price) || 0,
+      costPrice: (item.costPrice === undefined || item.costPrice === null) ? null : parseFloat(item.costPrice),
+      quantity: parseInt(item.quantity, 10) || 1,
+      choices: {
+        create: extractChoices(item)
+      }
     }))
-    .filter(group => group.name || group.productIds.length || group.category);
+  };
 }
+
+function extractChoices(item) {
+  if (!item.choices) return [];
+  const entries = Array.isArray(item.choices) ? item.choices : Object.values(item.choices);
+  return entries
+    .filter(entry => entry && entry.product)
+    .map(entry => ({
+      groupName: entry.label || '',
+      productId: entry.product.id,
+      productName: entry.product.name || '',
+      costPrice: (entry.product.costPrice === undefined || entry.product.costPrice === null) ? null : parseFloat(entry.product.costPrice)
+    }));
+}
+
+const orderInclude = { items: { include: { choices: true } } };
+const menuInclude = { groups: { include: { products: true } } };
 
 class DB {
   constructor() {
-    this.data = this.load();
+    this.ready = this._ensureDefaultCategories();
   }
 
-  load() {
-    try {
-      if (fs.existsSync(DB_FILE)) {
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        const data = JSON.parse(raw);
-        const hasNewCatalog = data.products?.some(product => ['p5', 'b2', 's1'].includes(product.id));
-        if (hasNewCatalog) {
-          data.products = defaultData.products;
-          this.save(data);
-        }
-        data.categories = (data.categories || defaultData.categories).map(category => ({ isVisible: true, ...category }));
-        data.templates = data.templates || [];
-        return data;
-      }
-    } catch (e) {
-      console.error('Error reading database file, resetting to default:', e);
+  async _ensureDefaultCategories() {
+    const count = await prisma.category.count();
+    if (count > 0) return;
+    for (const category of DEFAULT_CATEGORIES) {
+      await prisma.category.create({ data: category });
     }
-    this.save(defaultData);
-    return defaultData;
   }
 
-  save(data = this.data) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  // CATEGORIES
+  async getCategories() {
+    const categories = await prisma.category.findMany();
+    return categories.map(serializeCategory);
   }
 
-  getCategories() {
-    return this.data.categories || [];
+  async getPublicProducts() {
+    const products = await prisma.product.findMany({
+      where: { category: { isVisible: true } }
+    });
+    return products.map(serializeProduct);
   }
 
-  getPublicProducts() {
-    const visibleCategoryIds = new Set(this.getCategories().filter(category => category.isVisible !== false).map(category => category.id));
-    return this.data.products.filter(product => visibleCategoryIds.has(product.category));
+  async addCategory(category) {
+    const id = category.id || slugify(category.name);
+    if (!id) return null;
+    const existing = await prisma.category.findUnique({ where: { id } });
+    if (existing) return null;
+    const created = await prisma.category.create({
+      data: { id, name: category.name.trim(), icon: category.icon || '📦', isVisible: true }
+    });
+    return serializeCategory(created);
   }
 
-  addCategory(category) {
-    const id = category.id || category.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-    if (!id || this.data.categories.some(existing => existing.id === id)) return null;
-    const newCategory = { id, name: category.name.trim(), icon: category.icon || '📦', isVisible: true };
-    this.data.categories.push(newCategory);
-    this.save();
-    return newCategory;
-  }
-
-  deleteCategory(id) {
-    if (['plat', 'boisson', 'dessert', 'supplement'].includes(id)) return false;
-    this.data.categories = this.data.categories.filter(category => category.id !== id);
-    this.save();
+  async deleteCategory(id) {
+    if (PROTECTED_CATEGORY_IDS.includes(id)) return false;
+    const productsUsingIt = await prisma.product.count({ where: { categoryId: id } });
+    if (productsUsingIt > 0) return false;
+    await prisma.category.delete({ where: { id } }).catch(() => null);
     return true;
   }
 
-  toggleCategoryVisibility(id) {
-    const category = this.data.categories.find(item => item.id === id);
+  async toggleCategoryVisibility(id) {
+    const category = await prisma.category.findUnique({ where: { id } });
     if (!category) return null;
-    category.isVisible = category.isVisible === false;
-    this.save();
-    return category;
+    const updated = await prisma.category.update({
+      where: { id },
+      data: { isVisible: !category.isVisible }
+    });
+    return serializeCategory(updated);
   }
 
-  getTemplates() {
-    return this.data.templates || [];
+  // TEMPLATES
+  async getTemplates() {
+    const templates = await prisma.template.findMany({ orderBy: { createdAt: 'desc' } });
+    return templates.map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      createdAt: t.createdAt.toISOString(),
+      products: t.products,
+      menus: t.menus,
+      categories: t.categories
+    }));
   }
 
-  addTemplate(templateData) {
-    const copy = value => JSON.parse(JSON.stringify(value));
-    const newTemplate = {
-      id: 'template_' + Date.now(),
-      name: templateData.name.trim(),
-      description: templateData.description || '',
-      createdAt: new Date().toISOString(),
-      products: copy(this.data.products),
-      menus: copy(this.data.menus),
-      categories: copy(this.data.categories)
+  async addTemplate(templateData) {
+    const [products, menus, categories] = await Promise.all([
+      this.getProducts(),
+      this.getMenus(),
+      this.getCategories()
+    ]);
+    const created = await prisma.template.create({
+      data: {
+        name: templateData.name.trim(),
+        description: templateData.description || '',
+        products,
+        menus,
+        categories
+      }
+    });
+    return {
+      id: created.id,
+      name: created.name,
+      description: created.description,
+      createdAt: created.createdAt.toISOString(),
+      products: created.products,
+      menus: created.menus,
+      categories: created.categories
     };
-    this.data.templates.unshift(newTemplate);
-    this.save();
-    return newTemplate;
   }
 
-  applyTemplate(id) {
-    const template = this.data.templates.find(savedTemplate => savedTemplate.id === id);
+  // Remplace intégralement le catalogue actif (catégories/produits/formules)
+  // par l'instantané fourni. Utilisé pour rejouer un template sauvegardé.
+  async applyTemplate(id) {
+    const template = await prisma.template.findUnique({ where: { id } });
     if (!template) return null;
-    this.data.products = template.products;
-    this.data.menus = template.menus;
-    this.data.categories = template.categories;
-    this.save();
-    return template;
+
+    await prisma.$transaction([
+      prisma.menu.deleteMany(),
+      prisma.product.deleteMany(),
+      prisma.category.deleteMany()
+    ]);
+
+    for (const category of template.categories || []) {
+      await prisma.category.create({
+        data: {
+          id: category.id,
+          name: category.name,
+          icon: category.icon || '📦',
+          isVisible: category.isVisible !== false
+        }
+      });
+    }
+    for (const product of template.products || []) {
+      await prisma.product.create({
+        data: {
+          id: product.id,
+          name: product.name,
+          categoryId: product.category,
+          price: parseFloat(product.price) || 0,
+          extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
+          costPrice: product.costPrice ?? null,
+          stock: product.stock ?? null,
+          description: product.description || '',
+          badge: product.badge || '',
+          available: product.available !== false,
+          icon: product.icon || '🥪'
+        }
+      });
+    }
+    const knownProductIds = new Set((template.products || []).map(p => p.id));
+    for (const menu of template.menus || []) {
+      await prisma.menu.create({
+        data: {
+          id: menu.id,
+          name: menu.name,
+          price: parseFloat(menu.price) || 0,
+          description: menu.description || '',
+          badge: menu.badge || '',
+          available: menu.available !== false,
+          icon: menu.icon || '🍱'
+        }
+      });
+      for (const [index, group] of (menu.groups || []).entries()) {
+        const validProductIds = (group.productIds || []).filter(pid => knownProductIds.has(pid));
+        await prisma.menuGroup.create({
+          data: {
+            id: group.id,
+            menuId: menu.id,
+            name: group.name || '',
+            position: index,
+            products: { create: validProductIds.map(productId => ({ productId })) }
+          }
+        });
+      }
+    }
+
+    return {
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      createdAt: template.createdAt.toISOString(),
+      products: template.products,
+      menus: template.menus,
+      categories: template.categories
+    };
   }
 
-  deleteTemplate(id) {
-    this.data.templates = this.data.templates.filter(template => template.id !== id);
-    this.save();
+  async deleteTemplate(id) {
+    await prisma.template.delete({ where: { id } }).catch(() => null);
   }
 
   // PRODUCTS
-  getProducts() {
-    return this.data.products;
+  async getProducts() {
+    const products = await prisma.product.findMany();
+    return products.map(serializeProduct);
   }
 
-  getProductById(id) {
-    return this.data.products.find(p => p.id === id);
+  async getProductById(id) {
+    const product = await prisma.product.findUnique({ where: { id } });
+    return serializeProduct(product);
   }
 
-  addProduct(product) {
-    const newProduct = {
-      id: 'p_' + Date.now(),
-      available: true,
-      badge: '',
-      icon: product.icon || '🥪',
-      ...product,
-      price: parseFloat(product.price) || 0,
-      extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
-      costPrice: (product.costPrice === '' || product.costPrice === undefined || product.costPrice === null) ? null : parseFloat(product.costPrice),
-      stock: (product.stock === '' || product.stock === undefined || product.stock === null) ? null : parseInt(product.stock, 10),
-    };
-    if (newProduct.stock !== null) {
-      newProduct.available = newProduct.stock > 0;
+  async addProduct(product) {
+    const stock = (product.stock === '' || product.stock === undefined || product.stock === null)
+      ? null
+      : parseInt(product.stock, 10);
+    const created = await prisma.product.create({
+      data: {
+        name: product.name,
+        categoryId: product.category,
+        price: parseFloat(product.price) || 0,
+        extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
+        costPrice: (product.costPrice === '' || product.costPrice === undefined || product.costPrice === null) ? null : parseFloat(product.costPrice),
+        stock,
+        description: product.description || '',
+        badge: product.badge || '',
+        available: stock !== null ? stock > 0 : true,
+        icon: product.icon || '🥪'
+      }
+    });
+    return serializeProduct(created);
+  }
+
+  async updateProduct(id, updates) {
+    const existing = await prisma.product.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    const data = {};
+    if (updates.name !== undefined) data.name = updates.name;
+    if (updates.category !== undefined) data.categoryId = updates.category;
+    if (updates.description !== undefined) data.description = updates.description;
+    if (updates.badge !== undefined) data.badge = updates.badge;
+    if (updates.icon !== undefined) data.icon = updates.icon;
+    if (updates.available !== undefined) data.available = !!updates.available;
+    if (updates.price !== undefined) data.price = parseFloat(updates.price);
+    if (updates.extraMenuPrice !== undefined) data.extraMenuPrice = parseFloat(updates.extraMenuPrice) || 0;
+    if (updates.costPrice !== undefined) {
+      data.costPrice = (updates.costPrice === '' || updates.costPrice === null) ? null : parseFloat(updates.costPrice);
     }
-    this.data.products.unshift(newProduct);
-    this.save();
-    return newProduct;
-  }
-
-  updateProduct(id, updates) {
-    const idx = this.data.products.findIndex(p => p.id === id);
-    if (idx !== -1) {
-      this.data.products[idx] = { ...this.data.products[idx], ...updates };
-      if (updates.price !== undefined) {
-        this.data.products[idx].price = parseFloat(updates.price);
-      }
-      if (updates.extraMenuPrice !== undefined) {
-        this.data.products[idx].extraMenuPrice = parseFloat(updates.extraMenuPrice) || 0;
-      }
-      if (updates.costPrice !== undefined) {
-        this.data.products[idx].costPrice = (updates.costPrice === '' || updates.costPrice === null) ? null : parseFloat(updates.costPrice);
-      }
-      if (updates.stock !== undefined) {
-        const stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
-        this.data.products[idx].stock = stock;
-        if (stock !== null) {
-          this.data.products[idx].available = stock > 0;
-        }
-      }
-      this.save();
-      return this.data.products[idx];
+    if (updates.stock !== undefined) {
+      const stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
+      data.stock = stock;
+      if (stock !== null) data.available = stock > 0;
     }
-    return null;
+
+    const updated = await prisma.product.update({ where: { id }, data });
+    return serializeProduct(updated);
   }
 
-  deleteProduct(id) {
-    this.data.products = this.data.products.filter(p => p.id !== id);
-    this.save();
+  async deleteProduct(id) {
+    await prisma.product.delete({ where: { id } }).catch(() => null);
   }
 
-  toggleProductStock(id) {
-    const product = this.getProductById(id);
-    if (product) {
-      product.available = !product.available;
-      this.save();
-      return product;
-    }
-    return null;
+  async toggleProductStock(id) {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) return null;
+    const updated = await prisma.product.update({
+      where: { id },
+      data: { available: !product.available }
+    });
+    return serializeProduct(updated);
   }
 
   // MENUS
-  getMenus() {
-    return this.data.menus || [];
+  async getMenus() {
+    const menus = await prisma.menu.findMany({ include: menuInclude });
+    return menus.map(serializeMenu);
   }
 
-  addMenu(menu) {
-    const newMenu = {
-      id: 'm_' + Date.now(),
-      available: true,
-      badge: '',
-      icon: menu.icon || '🍱',
-      ...menu,
-      groups: normalizeGroups(menu.groups),
-      price: parseFloat(menu.price) || 0
-    };
-    this.data.menus.unshift(newMenu);
-    this.save();
-    return newMenu;
+  async addMenu(menu) {
+    const groups = normalizeGroups(menu.groups);
+    const created = await prisma.menu.create({
+      data: {
+        name: menu.name,
+        price: parseFloat(menu.price) || 0,
+        description: menu.description || '',
+        badge: menu.badge || '',
+        available: true,
+        icon: menu.icon || '🍱',
+        groups: {
+          create: groups.map((group, index) => ({
+            name: group.name,
+            position: index,
+            products: { create: group.productIds.map(productId => ({ productId })) }
+          }))
+        }
+      },
+      include: menuInclude
+    });
+    return serializeMenu(created);
   }
 
-  updateMenu(id, updates) {
-    const idx = this.data.menus.findIndex(m => m.id === id);
-    if (idx !== -1) {
-      this.data.menus[idx] = { ...this.data.menus[idx], ...updates };
-      if (updates.price !== undefined) {
-        this.data.menus[idx].price = parseFloat(updates.price);
-      }
-      if (updates.groups !== undefined) {
-        this.data.menus[idx].groups = normalizeGroups(updates.groups);
-      }
-      this.save();
-      return this.data.menus[idx];
+  async updateMenu(id, updates) {
+    const existing = await prisma.menu.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    const data = {};
+    if (updates.name !== undefined) data.name = updates.name;
+    if (updates.description !== undefined) data.description = updates.description;
+    if (updates.badge !== undefined) data.badge = updates.badge;
+    if (updates.icon !== undefined) data.icon = updates.icon;
+    if (updates.available !== undefined) data.available = !!updates.available;
+    if (updates.price !== undefined) data.price = parseFloat(updates.price);
+
+    if (updates.groups !== undefined) {
+      const groups = normalizeGroups(updates.groups);
+      await prisma.menuGroup.deleteMany({ where: { menuId: id } });
+      data.groups = {
+        create: groups.map((group, index) => ({
+          name: group.name,
+          position: index,
+          products: { create: group.productIds.map(productId => ({ productId })) }
+        }))
+      };
     }
-    return null;
+
+    const updated = await prisma.menu.update({ where: { id }, data, include: menuInclude });
+    return serializeMenu(updated);
   }
 
-  deleteMenu(id) {
-    this.data.menus = this.data.menus.filter(m => m.id !== id);
-    this.save();
+  async deleteMenu(id) {
+    await prisma.menu.delete({ where: { id } }).catch(() => null);
   }
 
-  toggleMenuStock(id) {
-    const menu = this.data.menus.find(m => m.id === id);
-    if (menu) {
-      menu.available = !menu.available;
-      this.save();
-      return menu;
-    }
-    return null;
+  async toggleMenuStock(id) {
+    const menu = await prisma.menu.findUnique({ where: { id } });
+    if (!menu) return null;
+    const updated = await prisma.menu.update({
+      where: { id },
+      data: { available: !menu.available },
+      include: menuInclude
+    });
+    return serializeMenu(updated);
   }
 
   // ORDERS
-  getOrders() {
-    return this.data.orders || [];
+  async getOrders() {
+    const orders = await prisma.order.findMany({ include: orderInclude, orderBy: { createdAt: 'asc' } });
+    return orders.map(serializeOrder);
   }
 
-  clearOrders() {
-    this.data.orders = [];
-    this.save();
+  async clearOrders() {
+    await prisma.order.deleteMany();
   }
 
-  deleteOrder(id) {
-    const order = this.data.orders.find(o => o.id === id);
+  async deleteOrder(id) {
+    const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!order) return false;
     if (order.status !== 'cancelled') {
-      this._adjustStock(order.items || [], 1);
+      await this._adjustStock(serializeOrder(order).items, 1);
     }
-    this.data.orders = this.data.orders.filter(o => o.id !== id);
-    this.save();
+    await prisma.order.delete({ where: { id } });
     return true;
   }
 
-  // Décrémente (delta -1) ou restitue (delta +1) le stock des produits d'une commande,
-  // en décomposant les formules dans leurs produits choisis. Ne touche que les produits
-  // pour lesquels un stock est suivi (stock !== null) ; passe automatiquement en rupture
-  // quand le stock atteint 0.
-  _adjustStock(items, delta) {
-    const applyToProduct = (productId, qty) => {
-      const product = this.data.products.find(p => p.id === productId);
+  // Décrémente (delta -1) ou restitue (delta +1) le stock des produits d'une
+  // commande, en décomposant les formules dans leurs produits choisis. Ne
+  // touche que les produits pour lesquels un stock est suivi (stock !== null).
+  async _adjustStock(items, delta) {
+    const applyToProduct = async (productId, qty) => {
+      const product = await prisma.product.findUnique({ where: { id: productId } });
       if (!product || product.stock === null || product.stock === undefined) return;
-      product.stock = Math.max(0, product.stock + delta * qty);
-      product.available = product.stock > 0;
+      const stock = Math.max(0, product.stock + delta * qty);
+      await prisma.product.update({ where: { id: productId }, data: { stock, available: stock > 0 } });
     };
-    (items || []).forEach(item => {
+    for (const item of items || []) {
       if (item.type === 'menu' && item.choices) {
         const chosenProducts = Array.isArray(item.choices)
           ? item.choices.map(entry => entry && entry.product)
           : Object.values(item.choices);
-        chosenProducts.forEach(chosenProduct => {
-          if (chosenProduct && chosenProduct.id) applyToProduct(chosenProduct.id, item.quantity);
-        });
+        for (const chosenProduct of chosenProducts) {
+          if (chosenProduct && chosenProduct.id) await applyToProduct(chosenProduct.id, item.quantity);
+        }
       } else if (item.id) {
-        applyToProduct(item.id, item.quantity);
+        await applyToProduct(item.id, item.quantity);
       }
-    });
-  }
-
-  addOrder(orderData) {
-    const orderNumber = Math.floor(1000 + Math.random() * 9000);
-    const newOrder = {
-      id: 'ord_' + Date.now(),
-      orderNumber: `42-${orderNumber}`,
-      status: 'pending', // 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
-      isPaid: false,
-      createdAt: new Date().toISOString(),
-      ...orderData
-    };
-    this.data.orders.push(newOrder);
-    this._adjustStock(newOrder.items || [], -1);
-    this.save();
-    return newOrder;
-  }
-
-  updateOrderStatus(id, status) {
-    const order = this.data.orders.find(o => o.id === id);
-    if (order) {
-      if (status === 'cancelled' && order.status !== 'cancelled') {
-        this._adjustStock(order.items || [], 1);
-      }
-      order.status = status;
-      this.save();
-      return order;
     }
-    return null;
   }
 
-  setOrderPaid(id, isPaid) {
-    const order = this.data.orders.find(o => o.id === id);
+  async addOrder(orderData) {
+    const orderNumber = await this._generateUniqueOrderNumber();
+    const created = await prisma.order.create({
+      data: {
+        orderNumber,
+        status: 'pending',
+        isPaid: false,
+        userId: String(orderData.userId),
+        userLogin: orderData.userLogin,
+        userDisplayName: orderData.userDisplayName,
+        pickupTime: orderData.pickupTime || '12h00',
+        note: orderData.note || '',
+        totalPrice: parseFloat(orderData.totalPrice) || 0,
+        isFree: !!orderData.isFree,
+        items: buildOrderItemsInput(orderData.items)
+      },
+      include: orderInclude
+    });
+    const serialized = serializeOrder(created);
+    await this._adjustStock(serialized.items, -1);
+    return serialized;
+  }
+
+  // Le numéro affiché au comptoir doit être unique : on tire au sort et on
+  // réessaie en cas de collision (rare, mais déjà arrivé avant cette contrainte).
+  async _generateUniqueOrderNumber() {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = `42-${Math.floor(1000 + Math.random() * 9000)}`;
+      const existing = await prisma.order.findUnique({ where: { orderNumber: candidate } });
+      if (!existing) return candidate;
+    }
+    throw new Error('Impossible de générer un numéro de commande unique');
+  }
+
+  async updateOrderStatus(id, status) {
+    const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!order) return null;
-    order.isPaid = !!isPaid;
-    this.save();
-    return order;
+    if (status === 'cancelled' && order.status !== 'cancelled') {
+      await this._adjustStock(serializeOrder(order).items, 1);
+    }
+    const updated = await prisma.order.update({ where: { id }, data: { status }, include: orderInclude });
+    return serializeOrder(updated);
   }
 
-  updateOrder(id, updates) {
-    const order = this.data.orders.find(o => o.id === id);
-    if (!order) return null;
-    if (updates.items !== undefined) order.items = updates.items;
-    if (updates.pickupTime !== undefined) order.pickupTime = updates.pickupTime;
-    if (updates.note !== undefined) order.note = updates.note;
-    if (updates.totalPrice !== undefined) order.totalPrice = parseFloat(updates.totalPrice) || 0;
-    this.save();
-    return order;
+  async setOrderPaid(id, isPaid) {
+    const existing = await prisma.order.findUnique({ where: { id } });
+    if (!existing) return null;
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { isPaid: !!isPaid },
+      include: orderInclude
+    });
+    return serializeOrder(updated);
   }
 
-  setOrderReview(id, userId, review) {
-    const order = this.data.orders.find(o => o.id === id);
+  async updateOrder(id, updates) {
+    const existing = await prisma.order.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    const data = {};
+    if (updates.pickupTime !== undefined) data.pickupTime = updates.pickupTime;
+    if (updates.note !== undefined) data.note = updates.note;
+    if (updates.totalPrice !== undefined) data.totalPrice = parseFloat(updates.totalPrice) || 0;
+
+    if (updates.items !== undefined) {
+      await prisma.orderItem.deleteMany({ where: { orderId: id } });
+      data.items = buildOrderItemsInput(updates.items);
+    }
+
+    const updated = await prisma.order.update({ where: { id }, data, include: orderInclude });
+    return serializeOrder(updated);
+  }
+
+  async setOrderReview(id, userId, review) {
+    const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return { error: 'not_found' };
-    if (order.userId !== userId) return { error: 'forbidden' };
+    if (order.userId !== String(userId)) return { error: 'forbidden' };
     if (order.status !== 'completed') return { error: 'not_completed' };
-    order.review = {
-      rating: review.rating,
-      comment: review.comment || '',
-      createdAt: new Date().toISOString()
-    };
-    this.save();
-    return { order };
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        reviewRating: review.rating,
+        reviewComment: review.comment || '',
+        reviewCreatedAt: new Date()
+      },
+      include: orderInclude
+    });
+    return { order: serializeOrder(updated) };
   }
 
-  deleteReview(orderId) {
-    const order = this.data.orders.find(o => o.id === orderId);
-    if (!order || !order.review) return false;
-    delete order.review;
-    this.save();
+  async deleteReview(orderId) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order || order.reviewRating === null || order.reviewRating === undefined) return false;
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { reviewRating: null, reviewComment: null, reviewCreatedAt: null }
+    });
     return true;
   }
+}
+
+// Reconstruit les groupes d'une formule à partir de l'entrée admin.
+function normalizeGroups(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(group => ({
+      name: (group && group.name ? String(group.name) : '').trim(),
+      productIds: Array.isArray(group && group.productIds) ? group.productIds.filter(Boolean) : []
+    }))
+    .filter(group => group.name || group.productIds.length);
 }
 
 export const db = new DB();

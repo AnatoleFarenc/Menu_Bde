@@ -203,103 +203,114 @@ app.post('/api/auth/logout', (req, res) => {
 // Toutes les routes /api/admin/* exigent un compte administrateur — vérifié une seule fois ici.
 app.use('/api/admin', requireAdmin);
 
+// db.js utilise Prisma : chaque route qui touche la base est asynchrone. Ce
+// wrapper évite de répéter un try/catch partout et transmet toute erreur au
+// middleware d'erreur global défini en bas de fichier.
+const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 // ----------------------------------------------------
 // PRODUCT & MENU ROUTES (Vitrine)
 // ----------------------------------------------------
-app.get('/api/products', (req, res) => {
-  const products = db.getProducts();
-  const menus = db.getMenus();
-  res.json({ products, menus, categories: db.getCategories() });
-});
+app.get('/api/products', ah(async (req, res) => {
+  const [products, menus, categories] = await Promise.all([
+    db.getProducts(),
+    db.getMenus(),
+    db.getCategories()
+  ]);
+  res.json({ products, menus, categories });
+}));
 
-app.get('/api/admin/templates', (req, res) => {
-  res.json({ templates: db.getTemplates() });
-});
+app.get('/api/admin/templates', ah(async (req, res) => {
+  res.json({ templates: await db.getTemplates() });
+}));
 
-app.post('/api/admin/templates', (req, res) => {
+app.post('/api/admin/templates', ah(async (req, res) => {
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom du template est obligatoire' });
-  res.status(201).json({ template: db.addTemplate(req.body) });
-});
+  res.status(201).json({ template: await db.addTemplate(req.body) });
+}));
 
-app.post('/api/admin/templates/:id/apply', (req, res) => {
-  const template = db.applyTemplate(req.params.id);
+app.post('/api/admin/templates/:id/apply', ah(async (req, res) => {
+  const template = await db.applyTemplate(req.params.id);
   if (!template) return res.status(404).json({ error: 'Template introuvable' });
-  res.json({ template, products: db.getProducts(), menus: db.getMenus(), categories: db.getCategories() });
-});
+  const [products, menus, categories] = await Promise.all([db.getProducts(), db.getMenus(), db.getCategories()]);
+  res.json({ template, products, menus, categories });
+}));
 
-app.delete('/api/admin/templates/:id', (req, res) => {
-  db.deleteTemplate(req.params.id);
+app.delete('/api/admin/templates/:id', ah(async (req, res) => {
+  await db.deleteTemplate(req.params.id);
   res.json({ success: true });
-});
+}));
 
-app.post('/api/admin/categories', (req, res) => {
+app.post('/api/admin/categories', ah(async (req, res) => {
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la catégorie est obligatoire' });
-  const category = db.addCategory(req.body);
+  const category = await db.addCategory(req.body);
   if (!category) return res.status(409).json({ error: 'Cette catégorie existe déjà' });
-  res.status(201).json({ category, categories: db.getCategories() });
-});
+  res.status(201).json({ category, categories: await db.getCategories() });
+}));
 
-app.delete('/api/admin/categories/:id', (req, res) => {
-  if (!db.deleteCategory(req.params.id)) return res.status(400).json({ error: 'Cette catégorie par défaut ne peut pas être supprimée' });
-  res.json({ categories: db.getCategories() });
-});
+app.delete('/api/admin/categories/:id', ah(async (req, res) => {
+  if (!(await db.deleteCategory(req.params.id))) {
+    return res.status(400).json({ error: 'Catégorie par défaut ou encore utilisée par des produits : impossible à supprimer' });
+  }
+  res.json({ categories: await db.getCategories() });
+}));
 
-app.patch('/api/admin/categories/:id/visibility', (req, res) => {
-  const category = db.toggleCategoryVisibility(req.params.id);
+app.patch('/api/admin/categories/:id/visibility', ah(async (req, res) => {
+  const category = await db.toggleCategoryVisibility(req.params.id);
   if (!category) return res.status(404).json({ error: 'Catégorie introuvable' });
-  res.json({ category, categories: db.getCategories() });
-});
+  res.json({ category, categories: await db.getCategories() });
+}));
 
 // Admin product routes
-app.post('/api/admin/products', (req, res) => {
-  const newProduct = db.addProduct(req.body);
+app.post('/api/admin/products', ah(async (req, res) => {
+  const newProduct = await db.addProduct(req.body);
   res.status(201).json({ product: newProduct });
-});
+}));
 
-app.put('/api/admin/products/:id', (req, res) => {
-  const updated = db.updateProduct(req.params.id, req.body);
+app.put('/api/admin/products/:id', ah(async (req, res) => {
+  const updated = await db.updateProduct(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Produit non trouvé' });
   res.json({ product: updated });
-});
+}));
 
-app.delete('/api/admin/products/:id', (req, res) => {
-  db.deleteProduct(req.params.id);
+app.delete('/api/admin/products/:id', ah(async (req, res) => {
+  await db.deleteProduct(req.params.id);
   res.json({ success: true });
-});
+}));
 
-app.patch('/api/admin/products/:id/toggle-stock', (req, res) => {
-  const updated = db.toggleProductStock(req.params.id);
+app.patch('/api/admin/products/:id/toggle-stock', ah(async (req, res) => {
+  const updated = await db.toggleProductStock(req.params.id);
   if (!updated) return res.status(404).json({ error: 'Produit non trouvé' });
   res.json({ product: updated });
-});
+}));
 
 // Admin menu routes
-app.post('/api/admin/menus', (req, res) => {
-  const newMenu = db.addMenu(req.body);
+app.post('/api/admin/menus', ah(async (req, res) => {
+  const newMenu = await db.addMenu(req.body);
   res.status(201).json({ menu: newMenu });
-});
+}));
 
-app.put('/api/admin/menus/:id', (req, res) => {
-  const updated = db.updateMenu(req.params.id, req.body);
+app.put('/api/admin/menus/:id', ah(async (req, res) => {
+  const updated = await db.updateMenu(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Menu non trouvé' });
   res.json({ menu: updated });
-});
+}));
 
-app.delete('/api/admin/menus/:id', (req, res) => {
-  db.deleteMenu(req.params.id);
+app.delete('/api/admin/menus/:id', ah(async (req, res) => {
+  await db.deleteMenu(req.params.id);
   res.json({ success: true });
-});
+}));
 
-app.patch('/api/admin/menus/:id/toggle-stock', (req, res) => {
-  const updated = db.toggleMenuStock(req.params.id);
+app.patch('/api/admin/menus/:id/toggle-stock', ah(async (req, res) => {
+  const updated = await db.toggleMenuStock(req.params.id);
   if (!updated) return res.status(404).json({ error: 'Menu non trouvé' });
   res.json({ menu: updated });
-});
+}));
 
 // ----------------------------------------------------
 // ORDERS & KITCHEN DASHBOARD
 // ----------------------------------------------------
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', ah(async (req, res) => {
   const user = getUserFromReq(req);
   const { items, pickupTime, note, totalPrice } = req.body;
 
@@ -311,7 +322,7 @@ app.post('/api/orders', (req, res) => {
     return res.status(400).json({ error: 'Panier vide' });
   }
 
-  const newOrder = db.addOrder({
+  const newOrder = await db.addOrder({
     userId: user.id,
     userLogin: user.login,
     userDisplayName: user.displayName,
@@ -322,19 +333,19 @@ app.post('/api/orders', (req, res) => {
   });
 
   res.status(201).json({ order: newOrder });
-});
+}));
 
 // Commande créée par un admin pour un produit offert (prix à 0, hors panier étudiant).
-app.post('/api/admin/orders/free', (req, res) => {
+app.post('/api/admin/orders/free', ah(async (req, res) => {
   const { productId, quantity, beneficiary, pickupTime, note } = req.body;
-  const product = db.getProductById(productId);
+  const product = await db.getProductById(productId);
   if (!product) {
     return res.status(404).json({ error: 'Produit introuvable' });
   }
   const qty = Math.max(1, parseInt(quantity, 10) || 1);
   const label = (beneficiary || '').trim() || 'Don BDE';
 
-  const newOrder = db.addOrder({
+  const newOrder = await db.addOrder({
     userId: 'free_' + Date.now(),
     userLogin: label,
     userDisplayName: label,
@@ -346,21 +357,21 @@ app.post('/api/admin/orders/free', (req, res) => {
   });
 
   res.status(201).json({ order: newOrder });
-});
+}));
 
 // Get user orders
-app.get('/api/orders', (req, res) => {
+app.get('/api/orders', ah(async (req, res) => {
   const user = getUserFromReq(req);
-  const allOrders = db.getOrders();
   if (!user) {
     return res.json({ orders: [] });
   }
-  const userOrders = allOrders.filter(o => o.userId === user.id || o.userLogin === user.login);
+  const allOrders = await db.getOrders();
+  const userOrders = allOrders.filter(o => o.userId === String(user.id) || o.userLogin === user.login);
   res.json({ orders: userOrders });
-});
+}));
 
 // L'étudiant laisse (ou modifie) un avis sur une de ses commandes récupérées.
-app.post('/api/orders/:id/review', (req, res) => {
+app.post('/api/orders/:id/review', ah(async (req, res) => {
   const user = getUserFromReq(req);
   if (!user) {
     return res.status(401).json({ error: 'Connexion 42 requise' });
@@ -369,16 +380,16 @@ app.post('/api/orders/:id/review', (req, res) => {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return res.status(400).json({ error: 'La note doit être comprise entre 1 et 5' });
   }
-  const result = db.setOrderReview(req.params.id, user.id, { rating, comment: req.body.comment });
+  const result = await db.setOrderReview(req.params.id, user.id, { rating, comment: req.body.comment });
   if (result.error === 'not_found') return res.status(404).json({ error: 'Commande introuvable' });
   if (result.error === 'forbidden') return res.status(403).json({ error: 'Cette commande ne t\'appartient pas' });
   if (result.error === 'not_completed') return res.status(400).json({ error: 'L\'avis n\'est possible que sur une commande récupérée' });
   res.json({ order: result.order });
-});
+}));
 
 // Get all orders for Admin / Kitchen Board with synthesis computation
-app.get('/api/admin/orders', (req, res) => {
-  const orders = db.getOrders();
+app.get('/api/admin/orders', ah(async (req, res) => {
+  const orders = await db.getOrders();
 
   // Compute kitchen synthesis per pickup time and product count
   const synthesisByTime = {};
@@ -410,51 +421,52 @@ app.get('/api/admin/orders', (req, res) => {
   });
 
   res.json({ orders, synthesisByTime });
-});
+}));
 
-app.patch('/api/admin/orders/:id', (req, res) => {
+app.patch('/api/admin/orders/:id', ah(async (req, res) => {
   const { items, pickupTime, note, totalPrice } = req.body;
   if (items && items.length === 0) {
     return res.status(400).json({ error: 'Une commande doit contenir au moins un article' });
   }
-  const updated = db.updateOrder(req.params.id, { items, pickupTime, note, totalPrice });
+  const updated = await db.updateOrder(req.params.id, { items, pickupTime, note, totalPrice });
   if (!updated) return res.status(404).json({ error: 'Commande introuvable' });
   res.json({ order: updated });
-});
+}));
 
-app.patch('/api/admin/orders/:id/status', (req, res) => {
+app.patch('/api/admin/orders/:id/status', ah(async (req, res) => {
   const { status } = req.body;
   const allowedStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({ error: 'Statut de commande invalide' });
   }
-  const updatedOrder = db.updateOrderStatus(req.params.id, status);
+  const updatedOrder = await db.updateOrderStatus(req.params.id, status);
   if (!updatedOrder) {
     return res.status(404).json({ error: 'Commande introuvable' });
   }
   res.json({ order: updatedOrder });
-});
+}));
 
-app.patch('/api/admin/orders/:id/paid', (req, res) => {
-  const updatedOrder = db.setOrderPaid(req.params.id, !!req.body.isPaid);
+app.patch('/api/admin/orders/:id/paid', ah(async (req, res) => {
+  const updatedOrder = await db.setOrderPaid(req.params.id, !!req.body.isPaid);
   if (!updatedOrder) return res.status(404).json({ error: 'Commande introuvable' });
   res.json({ order: updatedOrder });
-});
+}));
 
-app.delete('/api/admin/orders', (req, res) => {
-  db.clearOrders();
+app.delete('/api/admin/orders', ah(async (req, res) => {
+  await db.clearOrders();
   res.json({ success: true });
-});
+}));
 
-app.delete('/api/admin/orders/:id', (req, res) => {
-  const deleted = db.deleteOrder(req.params.id);
+app.delete('/api/admin/orders/:id', ah(async (req, res) => {
+  const deleted = await db.deleteOrder(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Commande introuvable' });
   res.json({ success: true });
-});
+}));
 
 // Tous les avis clients laissés sur des commandes, du plus récent au plus ancien.
-app.get('/api/admin/reviews', (req, res) => {
-  const reviews = db.getOrders()
+app.get('/api/admin/reviews', ah(async (req, res) => {
+  const orders = await db.getOrders();
+  const reviews = orders
     .filter(order => order.review)
     .map(order => ({
       orderId: order.id,
@@ -465,22 +477,23 @@ app.get('/api/admin/reviews', (req, res) => {
     }))
     .sort((a, b) => new Date(b.review.createdAt) - new Date(a.review.createdAt));
   res.json({ reviews });
-});
+}));
 
-app.delete('/api/admin/reviews/:orderId', (req, res) => {
-  const deleted = db.deleteReview(req.params.orderId);
+app.delete('/api/admin/reviews/:orderId', ah(async (req, res) => {
+  const deleted = await db.deleteReview(req.params.orderId);
   if (!deleted) return res.status(404).json({ error: 'Avis introuvable' });
   res.json({ success: true });
-});
+}));
 
 // Bilan des ventes sur une période (?from=YYYY-MM-DD&to=YYYY-MM-DD, par défaut aujourd'hui
 // pour les deux). Ne compte que les commandes récupérées (completed) ; les dons (isFree)
 // comptent en quantité mais pas en chiffre d'affaires.
-app.get('/api/admin/report', (req, res) => {
+app.get('/api/admin/report', ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || req.query.date || today).slice(0, 10);
   const to = (req.query.to || from).slice(0, 10);
-  const periodOrders = db.getOrders().filter(order => {
+  const allOrders = await db.getOrders();
+  const periodOrders = allOrders.filter(order => {
     if (order.status !== 'completed') return false;
     const day = (order.createdAt || '').slice(0, 10);
     return day >= from && day <= to;
@@ -551,7 +564,7 @@ app.get('/api/admin/report', (req, res) => {
       .map(([name, quantity]) => ({ name, quantity }))
       .sort((a, b) => b.quantity - a.quantity)
   });
-});
+}));
 
 // In production, serve the built React application from the same origin as the API.
 if (process.env.NODE_ENV === 'production') {
@@ -562,7 +575,15 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Middleware d'erreur global : toute erreur transmise via next(err) (dont les
+// rejets de promesses côté routes async, voir ah() plus haut) atterrit ici
+// plutôt que de faire planter le process ou renvoyer la page HTML par défaut d'Express.
+app.use((err, req, res, next) => {
+  console.error('Erreur non gérée sur', req.method, req.path, ':', err);
+  res.status(500).json({ error: 'Erreur serveur interne' });
+});
 
+await db.ready;
 app.listen(PORT, () => {
   console.log(`🚀 Serveur BDE Sandwich 42 démarré sur http://localhost:${PORT}`);
   console.log(`   URL publique        : ${publicAppUrl}`);
