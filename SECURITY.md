@@ -1,270 +1,275 @@
-# Sécurité
+# Security
 
-Ce document décrit les mesures de sécurité en place sur l'application BDE Sandwicherie
-(site de précommande de repas pour l'École 42), son hébergement et son cycle de vie.
-Il est tenu à jour à chaque évolution significative.
+This document describes the security measures in place on the BDE Sandwicherie
+application (a meal pre-order site for École 42), its hosting, and its
+lifecycle. It is kept up to date with every significant change.
 
 ---
 
 ## 1. Architecture
 
 ```
-Navigateur ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──HTTP local──►  Node/Express (:5001)
+Browser ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──local HTTP──►  Node/Express (:5001)
                               │                                                │
-                              └── obtient/renouvelle le certificat            └── server/data/db.json
-                                  Let's Encrypt automatiquement                    (base de données fichier)
+                              └── obtains/renews the certificate              └── server/data/db.json
+                                  automatically via Let's Encrypt                  (file-based database)
 ```
 
-- **1 VPS** (OVH, Debian 13), 2 services : production (`bde42perpignan.fr`, :5001) et
-  pré-production (`dev.bde42perpignan.fr`, :5002), isolés (dossiers, bases, services systemd séparés).
-- Le serveur Node n'est **jamais exposé directement** : seul Caddy écoute sur l'extérieur.
+- **1 VPS** (OVH, Debian 13), 2 services: production (`bde42perpignan.fr`, :5001) and
+  pre-production (`dev.bde42perpignan.fr`, :5002), isolated (separate folders, databases, systemd services).
+- The Node server is **never exposed directly**: only Caddy listens externally.
 
 ---
 
-## 2. Sécurité du transport
+## 2. Transport security
 
-| Mesure | Détail |
+| Measure | Detail |
 |---|---|
-| **HTTPS partout** | Certificats Let's Encrypt obtenus et renouvelés automatiquement par Caddy (ACME, challenge TLS-ALPN). Aucune clé privée à gérer à la main. |
-| **HSTS** | En-tête `Strict-Transport-Security: max-age=31536000; includeSubDomains` — le navigateur refuse le HTTP en clair pour ce domaine pendant 1 an. |
-| **Redirection HTTP → HTTPS** | Gérée par Caddy (`upgrade-insecure-requests` + redirection 308). |
+| **HTTPS everywhere** | Let's Encrypt certificates obtained and renewed automatically by Caddy (ACME, TLS-ALPN challenge). No private key to manage by hand. |
+| **HSTS** | `Strict-Transport-Security: max-age=31536000; includeSubDomains` header — the browser refuses plain HTTP for this domain for 1 year. |
+| **HTTP → HTTPS redirect** | Handled by Caddy (`upgrade-insecure-requests` + 308 redirect). |
 
 ---
 
-## 3. Durcissement du serveur (VPS)
+## 3. Server hardening (VPS)
 
-### Accès SSH
-- Port **non standard (2231)** — réduit fortement le bruit des scans automatisés.
-- **Authentification par clé uniquement** — `PasswordAuthentication no`. Aucune connexion par mot de passe possible.
-- Pas de connexion `root` : compte `debian` avec `sudo`.
-- Les clés autorisées sont gérées **en tant que code** (voir §7).
+### SSH access
+- **Non-standard port (2231)** — greatly reduces noise from automated scans.
+- **Key-based authentication only** — `PasswordAuthentication no`. No password login possible.
+- No `root` login: `debian` account with `sudo`.
+- Authorized keys are managed **as code** (see §7).
 
-### Pare-feu
-- `ufw` actif, politique par défaut **deny (entrant)**.
-- Ports ouverts : **22→2231** (SSH), **80** et **443** (Caddy) uniquement.
-- Les ports applicatifs **5001 / 5002 sont bloqués** de l'extérieur (accès uniquement en `localhost` via Caddy) — vérifié.
+### Firewall
+- `ufw` active, default policy **deny (inbound)**.
+- Open ports: **22→2231** (SSH), **80** and **443** (Caddy) only.
+- Application ports **5001 / 5002 are blocked** from the outside (accessible only via `localhost` through Caddy) — verified.
 
-### Comptes du VPS
+### VPS accounts
 
-| Compte | Rôle | Shell / accès |
+| Account | Role | Shell / access |
 |---|---|---|
-| `root` | super-utilisateur | atteignable uniquement via `sudo` |
-| groupe **`sudo`** (ex: `anfarenc`) | administrateur humain nommé | SSH (clé), `sudo` complet **avec mot de passe** |
-| groupe **`bde-ops`** (coéquipiers) | accès développeur limité | SSH (clé) ; `sudo` restreint au staging + lecture seule sur la prod (détails §7) |
-| `debian` | compte de déploiement automatisé | SSH (clé), `sudo` — voir note ci-dessous |
-| `bde-app` | fait tourner la **prod**, et seulement ça | **aucun shell** (`/usr/sbin/nologin`), **aucun `sudo`** |
-| `bde-app-staging` | fait tourner le **staging**, et seulement ça — **compte séparé de `bde-app`** | aucun shell, aucun `sudo` |
-| `caddy` | reverse proxy | aucun shell |
+| `root` | superuser | reachable only via `sudo` |
+| **`sudo`** group (e.g. `anfarenc`) | named human administrator | SSH (key), full `sudo` **with password** |
+| **`bde-ops`** group (teammates) | limited developer access | SSH (key); `sudo` restricted to staging + read-only on prod (details in §7) |
+| `debian` | automated deployment account | SSH (key), `sudo` — see note below |
+| `bde-app` | runs **prod**, and only that | **no shell** (`/usr/sbin/nologin`), **no `sudo`** |
+| `bde-app-staging` | runs **staging**, and only that — **separate account from `bde-app`** | no shell, no `sudo` |
+| `caddy` | reverse proxy | no shell |
 
-`bde-app` / `bde-app-staging` sont des comptes système créés spécifiquement pour
-l'app (`useradd --system --no-create-home --shell /usr/sbin/nologin`), chacun
-propriétaire du code de **son seul environnement**. Ni l'un ni l'autre ne peut se
-connecter en SSH ni exécuter `sudo`. Objectif double :
-1. si l'application est un jour compromise via une faille (RCE, dépendance vérolée…),
-   l'attaquant hérite des droits du compte applicatif — pas de root, pas d'accès au
-   reste du serveur ;
-2. la séparation prod/staging garantit qu'une compromission (ou une erreur humaine)
-   sur l'un des deux environnements **ne peut techniquement pas atteindre l'autre**,
-   même en passant par `sudo`.
+`bde-app` / `bde-app-staging` are system accounts created specifically for the
+app (`useradd --system --no-create-home --shell /usr/sbin/nologin`), each
+owning the code of **its own environment only**. Neither can log in via SSH
+or run `sudo`. Two goals:
+1. if the application is ever compromised via a flaw (RCE, a poisoned
+   dependency…), the attacker only inherits the application account's
+   permissions — no root, no access to the rest of the server;
+2. the prod/staging separation guarantees that a compromise (or a human
+   error) on one of the two environments **technically cannot reach the
+   other**, even via `sudo`.
 
-> ⚠️ **Décision assumée et temporaire** : `debian` garde encore un `sudo` large
-> (pas restreint aux seules commandes de déploiement) pendant que l'infrastructure
-> est activement construite. La restriction au strict nécessaire (voir la portée
-> prévue en §9) sera appliquée une fois ce travail stabilisé.
+> ⚠️ **Deliberate, temporary decision**: `debian` still has broad `sudo`
+> access (not restricted to deployment commands only) while the
+> infrastructure is being actively built. It will be restricted to the
+> strict necessary (see the planned scope in §9) once this work has
+> stabilized.
 
-### Services — isolation systemd
+### Services — systemd isolation
 
-Chaque environnement tourne dans un service **systemd** dédié (`bde-menu`,
-`bde-menu-staging`), sous son utilisateur applicatif dédié, avec un bac à sable renforcé :
+Each environment runs in a dedicated **systemd** service (`bde-menu`,
+`bde-menu-staging`), under its own dedicated application user, with a
+hardened sandbox:
 
-| Directive | Effet |
+| Directive | Effect |
 |---|---|
-| `User=bde-app` / `Group=bde-app` | le process ne tourne jamais en `debian` ni en `root` |
-| `ProtectSystem=strict` | **tout le système de fichiers en lecture seule**, sauf : |
-| `ReadWritePaths=…/server/data` | seul le dossier de données est accessible en écriture |
-| `ProtectHome=true` | les `/home/*` (dont `debian`) sont inaccessibles |
-| `PrivateTmp=true` | `/tmp` isolé, invisible pour les autres process |
-| `PrivateDevices=true` | pas d'accès aux périphériques matériels |
-| `NoNewPrivileges=true` | le process ne peut jamais gagner de privilèges (même via un binaire setuid) |
-| `ProtectKernelTunables` / `ProtectKernelModules` / `ProtectKernelLogs` | pas de lecture/écriture des réglages ou modules noyau |
-| `ProtectControlGroups`, `ProtectClock`, `ProtectHostname` | pas de modification de l'état système |
-| `RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX` | pas de sockets exotiques (Bluetooth, netlink brut…) |
-| `RestrictNamespaces`, `RestrictSUIDSGID`, `LockPersonality` | pas de création de namespaces/conteneurs, pas de binaires setuid, pas de changement de personnalité syscall |
-| `SystemCallFilter=@system-service` | seuls les appels système d'un service classique sont autorisés (allowlist) |
-| `CapabilityBoundingSet=` (vide) | **aucune capability Linux** — même pas celles qu'un process non-root peut parfois avoir |
-| `UMask=0077` | tout fichier créé par l'app est privé par défaut |
+| `User=bde-app` / `Group=bde-app` | the process never runs as `debian` or `root` |
+| `ProtectSystem=strict` | **entire filesystem read-only**, except: |
+| `ReadWritePaths=…/server/data` | only the data folder is writable |
+| `ProtectHome=true` | `/home/*` (including `debian`) is inaccessible |
+| `PrivateTmp=true` | `/tmp` isolated, invisible to other processes |
+| `PrivateDevices=true` | no access to hardware devices |
+| `NoNewPrivileges=true` | the process can never gain privileges (even via a setuid binary) |
+| `ProtectKernelTunables` / `ProtectKernelModules` / `ProtectKernelLogs` | no reading/writing of kernel settings or modules |
+| `ProtectControlGroups`, `ProtectClock`, `ProtectHostname` | no modification of system state |
+| `RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX` | no exotic sockets (Bluetooth, raw netlink…) |
+| `RestrictNamespaces`, `RestrictSUIDSGID`, `LockPersonality` | no creation of namespaces/containers, no setuid binaries, no syscall personality changes |
+| `SystemCallFilter=@system-service` | only syscalls of a typical service are allowed (allowlist) |
+| `CapabilityBoundingSet=` (empty) | **no Linux capabilities at all** — not even the ones a non-root process can sometimes have |
+| `UMask=0077` | every file created by the app is private by default |
 
-Résultat mesuré avec `systemd-analyze security bde-menu` : score d'exposition
-**1.9 / "OK"** (un service Node par défaut, non durci, se situe généralement autour de 9-10).
+Result measured with `systemd-analyze security bde-menu`: exposure score
+**1.9 / "OK"** (a default, non-hardened Node service is typically around 9-10).
 
-- Redémarrage automatique au boot et en cas de crash (`Restart=always`).
-- Mises à jour système appliquées (`apt upgrade`).
-- Déploiement (`infra/deploy-prod.sh`, `infra/deploy-staging.sh`) : `debian`
-  orchestre (`sudo systemctl restart …`) mais toutes les opérations sur les
-  fichiers du code (`git pull`, `npm install`, `npm run build`) s'exécutent
-  **sous l'identité applicative dédiée** (`sudo -u bde-app …` pour la prod,
-  `sudo -u bde-app-staging …` pour le staging), jamais en `debian` direct.
+- Automatic restart on boot and on crash (`Restart=always`).
+- System updates applied (`apt upgrade`).
+- Deployment (`infra/deploy-prod.sh`, `infra/deploy-staging.sh`): `debian`
+  orchestrates (`sudo systemctl restart …`) but all operations on the code
+  files (`git pull`, `npm install`, `npm run build`) run **under the
+  dedicated application identity** (`sudo -u bde-app …` for prod,
+  `sudo -u bde-app-staging …` for staging), never directly as `debian`.
 
 ---
 
-## 4. Sécurité applicative
+## 4. Application security
 
-### En-têtes de sécurité (`helmet`)
-Une **Content-Security-Policy** taillée sur les besoins réels de l'app :
+### Security headers (`helmet`)
+A **Content-Security-Policy** tailored to the app's actual needs:
 
-| Directive | Valeur | Raison |
+| Directive | Value | Reason |
 |---|---|---|
-| `script-src` | `'self'` | le bundle JS est servi par l'app elle-même, aucun script tiers, aucun inline |
-| `style-src` | `'self' 'unsafe-inline' fonts.googleapis.com` | styles inline React + feuille de polices Google |
-| `font-src` | `'self' fonts.gstatic.com` | fichiers de polices Google |
-| `img-src` | `'self' data: cdn.intra.42.fr profile.intra.42.fr` | emojis SVG en data-URI + avatars 42 |
-| `connect-src` | `'self'` | les appels API sont same-origin |
-| `form-action` | `'self' api.intra.42.fr` | redirection du flux OAuth 42 |
+| `script-src` | `'self'` | the JS bundle is served by the app itself, no third-party scripts, no inline |
+| `style-src` | `'self' 'unsafe-inline' fonts.googleapis.com` | inline React styles + Google fonts stylesheet |
+| `font-src` | `'self' fonts.gstatic.com` | Google font files |
+| `img-src` | `'self' data: cdn.intra.42.fr profile.intra.42.fr` | SVG emojis as data-URIs + 42 avatars |
+| `connect-src` | `'self'` | API calls are same-origin |
+| `form-action` | `'self' api.intra.42.fr` | 42 OAuth flow redirect |
 | `frame-ancestors` | `'none'` | anti-clickjacking |
-| `object-src` | `'none'` | aucun plugin |
+| `object-src` | `'none'` | no plugins |
 
-Également : `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
+Also: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
 `Referrer-Policy: no-referrer`.
 
 ### CORS
-Restreint à une **liste d'origines connues** (domaine public + `localhost` pour le dev).
-Toute autre origine est refusée.
+Restricted to a **list of known origins** (public domain + `localhost` for dev).
+Any other origin is rejected.
 
 ### Rate limiting (`express-rate-limit`)
-| Portée | Limite |
+| Scope | Limit |
 |---|---|
-| Global `/api/*` | 300 requêtes / minute / IP |
-| Endpoints d'authentification (`/api/auth/*`) | 30 requêtes / 15 minutes / IP |
+| Global `/api/*` | 300 requests / minute / IP |
+| Authentication endpoints (`/api/auth/*`) | 30 requests / 15 minutes / IP |
 
-`trust proxy` est configuré pour que la limite s'applique à la **vraie IP client** (et non à celle de Caddy).
+`trust proxy` is configured so the limit applies to the **real client IP**
+(not Caddy's).
 
 ### Sessions
-- Jeton de session = **`crypto.randomBytes(32)` encodé base64url** (256 bits d'entropie, imprévisible).
-- **Expiration glissante de 12 h** : chaque requête authentifiée repousse l'échéance ; au-delà, le jeton est invalidé.
-- Purge automatique des sessions expirées toutes les 30 minutes.
-- Store **en mémoire** : un redémarrage du serveur déconnecte les utilisateurs (les données ne sont pas perdues). Choix assumé à cette échelle ; une migration vers un store persistant est possible.
+- Session token = **`crypto.randomBytes(32)` base64url-encoded** (256 bits of entropy, unpredictable).
+- **12-hour sliding expiration**: each authenticated request pushes back the deadline; beyond that, the token is invalidated.
+- Automatic purge of expired sessions every 30 minutes.
+- **In-memory** store: a server restart logs users out (data is not lost). A deliberate choice at this scale; migrating to a persistent store is possible.
 
-### Authentification — OAuth2 Intra 42
-- Connexion déléguée à l'**API OAuth2 de l'École 42**, scope minimal (`public`).
-- **Protection CSRF** : un paramètre `state` aléatoire (128 bits) est généré à chaque
-  demande de connexion et **vérifié au retour** ; usage unique, validité 10 minutes.
-- Le `client_secret` n'est jamais exposé au navigateur (échange code → token fait côté serveur).
+### Authentication — 42 Intra OAuth2
+- Login delegated to **École 42's OAuth2 API**, minimal scope (`public`).
+- **CSRF protection**: a random `state` parameter (128 bits) is generated on
+  every login request and **verified on return**; single-use, valid for 10
+  minutes.
+- The `client_secret` is never exposed to the browser (code → token exchange happens server-side).
 
-### Modèle d'autorisation
-- Deux niveaux actuellement : **utilisateur 42** (peut commander, voir ses commandes, laisser un avis)
-  et **administrateur BDE** (liste blanche de logins dans `ADMIN_LOGINS`).
-- Toutes les routes `/api/admin/*` passent par **un seul middleware `requireAdmin`** —
-  impossible d'oublier une vérification sur une nouvelle route admin.
-- Les routes qui écrivent des données d'un utilisateur vérifient la **propriété** de la
-  ressource (ex : un avis ne peut être posé que sur sa propre commande, et seulement si elle est récupérée).
+### Authorization model
+- Two levels currently: **42 user** (can order, view their orders, leave a review)
+  and **BDE administrator** (allowlist of logins in `ADMIN_LOGINS`).
+- All `/api/admin/*` routes go through **a single `requireAdmin` middleware** —
+  impossible to forget a check on a new admin route.
+- Routes that write user data verify **ownership** of the resource (e.g. a
+  review can only be left on one's own order, and only if it has been picked up).
 
-### Validation des entrées
-- Corps de requête limité à **1 Mo**.
-- Les identifiants du mode borne sont validés contre un motif strict (`^[a-z0-9_-]{1,30}$`).
-- Les montants/quantités sont convertis et bornés côté serveur (`parseFloat`/`parseInt`, minimums).
-- Les statuts de commande sont validés contre une liste fermée.
-
----
-
-## 5. Gestion des secrets
-
-- Tous les secrets (identifiants OAuth 42, liste des admins…) sont dans un fichier **`.env`
-  présent uniquement sur les serveurs**, jamais commité (`.gitignore` : `.env`, `.env.*`).
-- Le dépôt ne contient qu'un `.env.example` sans valeurs réelles.
-- Fichiers `.env` en permissions `600` (lecture propriétaire seul).
+### Input validation
+- Request body limited to **1 MB**.
+- Kiosk-mode identifiers are validated against a strict pattern (`^[a-z0-9_-]{1,30}$`).
+- Amounts/quantities are converted and bounded server-side (`parseFloat`/`parseInt`, minimums).
+- Order statuses are validated against a closed list.
 
 ---
 
-## 6. Isolation de la pré-production (staging)
+## 5. Secrets management
 
-- `dev.bde42perpignan.fr` tourne le code de la branche `dev`, avec **sa propre base de données**
-  (les tests ne touchent jamais les vraies commandes).
-- **Verrou d'accès** : la variable `STAGING_MODE=true` restreint la connexion aux seuls
-  logins 42 listés dans `STAGING_ALLOWED_LOGINS`. Le mode borne y est désactivé.
-- Aucune de ces variables n'existe en production → aucun effet sur le site public.
+- All secrets (42 OAuth credentials, admin list…) live in a **`.env` file
+  present only on the servers**, never committed (`.gitignore`: `.env`, `.env.*`).
+- The repo only contains a `.env.example` with no real values.
+- `.env` files have `600` permissions (owner-read only).
 
 ---
 
-## 7. Comptes humains & onboarding de l'équipe
+## 6. Pre-production (staging) isolation
 
-### Deux rôles
+- `dev.bde42perpignan.fr` runs the `dev` branch's code, with **its own database**
+  (tests never touch real orders).
+- **Access lock**: the `STAGING_MODE=true` variable restricts login to only
+  the 42 logins listed in `STAGING_ALLOWED_LOGINS`. Kiosk mode is disabled there.
+- None of these variables exist in production → no effect on the public site.
 
-| Rôle | Groupe Linux | Droits |
+---
+
+## 7. Human accounts & team onboarding
+
+### Two roles
+
+| Role | Linux group | Rights |
 |---|---|---|
-| **Administrateur** | `sudo` | accès root complet, mot de passe requis à chaque usage |
-| **Coéquipier** | `bde-ops` | accès "développeur" limité — voir la table détaillée en §3 (build/déploiement du staging en libre-service, lecture seule sur la prod, aucun root) |
+| **Administrator** | `sudo` | full root access, password required for every use |
+| **Teammate** | `bde-ops` | limited "developer" access — see the detailed table in §3 (self-service staging build/deploy, read-only on prod, no root) |
 
-### Créer un compte
+### Creating an account
 
 ```bash
-sudo infra/add-team-member.sh <username> <pseudo-github> [ops|admin]
+sudo infra/add-team-member.sh <username> <github-handle> [ops|admin]
 ```
 
-- **Ne peut être exécuté que par un administrateur** (le script exige d'être lancé
-  en root via `sudo`, ce que ni `bde-ops` ni `debian` ne permettent — vérifiable
-  avec `sudo -l`, testé explicitement).
-- Importe la/les clé(s) SSH publique(s) depuis `https://github.com/<pseudo>.keys`
-  (HTTPS, vérification du code HTTP et du format).
-- Génère un **mot de passe temporaire fort**, affiché une seule fois à l'écran (jamais
-  écrit sur disque ni journalisé), à transmettre à la personne hors du terminal.
-  Changement **obligatoire à la première connexion** (`chage -d 0`).
-- **Journal d'audit** (`/var/log/bde-team-changes.log`) : date, administrateur à
-  l'origine, compte créé, rôle — jamais le mot de passe.
+- **Can only be run by an administrator** (the script requires being launched
+  as root via `sudo`, which neither `bde-ops` nor `debian` allow — verifiable
+  with `sudo -l`, explicitly tested).
+- Imports the SSH public key(s) from `https://github.com/<handle>.keys`
+  (HTTPS, HTTP status and format verified).
+- Generates a **strong temporary password**, displayed once on screen (never
+  written to disk or logged), to be shared with the person outside the
+  terminal. Change is **mandatory on first login** (`chage -d 0`).
+- **Audit log** (`/var/log/bde-team-changes.log`): date, administrator who
+  performed it, account created, role — never the password.
 
-### Politique de mot de passe (`libpam-pwquality`)
+### Password policy (`libpam-pwquality`)
 
-S'applique à **tous** les comptes du serveur, y compris `root` :
+Applies to **all** accounts on the server, including `root`:
 
-| Règle | Valeur | Base |
+| Rule | Value | Basis |
 |---|---|---|
-| Longueur minimale | **20 caractères** | recommandation ANSSI pour un compte à privilèges (≈ 80 bits d'entropie) |
-| Classes de caractères | ≥ 2 sur 4 | garde-fou léger, sans imposer un motif prévisible |
-| Répétitions | ≤ 3 caractères identiques consécutifs | anti-motifs triviaux (`aaaa`, `1111`) |
-| Dictionnaire | vérification (`cracklib`) | rejette les mots de passe évidents — approximation locale, pas une vraie vérification contre une base de fuites |
-| Rotation périodique forcée | **aucune** | l'ANSSI déconseille la rotation obligatoire (elle pousse vers des mots de passe prévisibles) ; changement uniquement en cas de compromission avérée |
+| Minimum length | **20 characters** | ANSSI (French cybersecurity agency) recommendation for a privileged account (≈ 80 bits of entropy) |
+| Character classes | ≥ 2 of 4 | light guardrail, without forcing a predictable pattern |
+| Repetitions | ≤ 3 identical consecutive characters | anti trivial patterns (`aaaa`, `1111`) |
+| Dictionary | check (`cracklib`) | rejects obvious passwords — a local approximation, not a real check against a breach database |
+| Forced periodic rotation | **none** | ANSSI advises against mandatory rotation (it pushes users toward predictable passwords); change only on confirmed compromise |
 
-En pratique : SSH exige déjà une **clé** pour atteindre le compte, et `sudo` exige
-ensuite un **mot de passe** — soit, de fait, une authentification à deux facteurs
-(« ce que j'ai » + « ce que je sais ») pour toute action privilégiée, sans outil TOTP dédié.
+In practice: SSH already requires a **key** to reach the account, and `sudo`
+then requires a **password** — effectively two-factor authentication
+("something I have" + "something I know") for any privileged action,
+without a dedicated TOTP tool.
 
-### Gestion des clés SSH du compte de déploiement (`debian`)
+### Managing SSH keys for the deployment account (`debian`)
 
-- Le fichier **`infra/authorized_keys`** (versionné) est la **source de vérité** des
-  clés autorisées sur `debian`.
-- `infra/sync-authorized-keys.sh` applique cette liste, avec refus si le fichier ne
-  contient aucune clé valide (anti-lockout) et sauvegarde horodatée avant écrasement.
-- `infra/add-ssh-user.sh <pseudo-github>` importe des clés GitHub dans ce fichier.
-- Bénéfice : `git log infra/authorized_keys` retrace qui a eu accès à ce compte, quand.
-
----
-
-## 8. Cycle de développement
-
-- Développement sur la branche `dev` → test sur `dev.bde42perpignan.fr` → merge vers `main`
-  → déploiement en production. La prod n'est jamais modifiée sans passage par le staging.
-- Scripts de déploiement dédiés (`deploy-staging.sh`, `deploy-prod.sh`) : `git pull` + build + redémarrage du service.
+- The **`infra/authorized_keys`** file (version-controlled) is the **source of truth** for
+  keys authorized on `debian`.
+- `infra/sync-authorized-keys.sh` applies this list, refusing to proceed if the
+  file contains no valid key (anti-lockout) and taking a timestamped backup before overwriting.
+- `infra/add-ssh-user.sh <github-handle>` imports GitHub keys into this file.
+- Benefit: `git log infra/authorized_keys` traces who had access to this account, and when.
 
 ---
 
-## 9. Limitations connues & feuille de route
+## 8. Development cycle
 
-Points identifiés, non encore traités (par priorité) :
+- Development on the `dev` branch → testing on `dev.bde42perpignan.fr` → merge into `main`
+  → production deployment. Prod is never modified without going through staging.
+- Dedicated deployment scripts (`deploy-staging.sh`, `deploy-prod.sh`): `git pull` + build + service restart.
 
-| Sujet | État |
+---
+
+## 9. Known limitations & roadmap
+
+Identified points, not yet addressed (by priority):
+
+| Topic | Status |
 |---|---|
-| Jeton de session dans `localStorage` | À migrer vers un **cookie `httpOnly` + `SameSite`** (protection XSS du jeton). |
-| `debian` garde un `sudo` large | Décision assumée le temps de finir de construire l'infra (voir §3). À restreindre aux seules commandes de déploiement une fois stabilisé — le principe (compte applicatif dédié + commandes nommées) est déjà en place pour `bde-ops`, il suffira de dupliquer l'approche. |
-| `fail2ban` | Non installé — à ajouter (SSH + application). |
-| Mises à jour de sécurité automatiques | `unattended-upgrades` à activer. |
-| Sauvegardes | Pas de **sauvegarde automatique chiffrée** de `server/data/db.json` vers un stockage externe. |
-| Base de données | Fichier JSON en clair sur disque. Migration possible vers **SQLite** (fichier verrouillé, intégrité transactionnelle). |
-| Journal d'audit | Pas de traçabilité des actions administrateur. |
-| Analyse de dépendances | À brancher (`npm audit` en CI, Dependabot). |
-| Conformité RGPD | Politique de confidentialité, durée de conservation / purge, procédure de droit à l'effacement, registre des traitements : à rédiger une fois le modèle de données stabilisé. |
+| Session token in `localStorage` | To be migrated to an **`httpOnly` + `SameSite` cookie** (XSS protection for the token). |
+| `debian` retains broad `sudo` | A deliberate decision while the infra is still being built (see §3). To be restricted to deployment commands only once stabilized — the principle (dedicated application account + named commands) is already in place for `bde-ops`; it will just need to be duplicated. |
+| `fail2ban` | Not installed — to be added (SSH + application). |
+| Automatic security updates | `unattended-upgrades` to be enabled. |
+| Backups | No **automatic encrypted backup** of `server/data/db.json` to external storage. |
+| Database | Plain-text JSON file on disk. Migration to **SQLite** possible (locked file, transactional integrity). |
+| Audit log | No traceability of administrator actions. |
+| Dependency scanning | To be set up (`npm audit` in CI, Dependabot). |
+| GDPR compliance | Privacy policy, retention/purge periods, right-to-erasure procedure, processing register: to be written once the data model has stabilized. |
 
 ---
 
-## 10. Signaler une vulnérabilité
+## 10. Reporting a vulnerability
 
-Merci de signaler toute faille de sécurité en privé à **anatole.farenc42@gmail.com**
-plutôt que d'ouvrir une issue publique. Une réponse sera apportée dans les meilleurs délais.
+Please report any security flaw privately to **anatole.farenc42@gmail.com**
+rather than opening a public issue. A response will be provided as soon as possible.
