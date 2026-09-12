@@ -1,19 +1,19 @@
-# 🥪 BDE Sandwich 42 - Application de Précommande & Vitrine
+# 🥪 BDE Sandwicherie 42 - Pre-order & Showcase Application
 
-Plateforme de précommande de repas et sandwichs pour le BDE de l'École 42 avec connexion via l'API Intra 42, gestion de vitrine et tableau de bord de préparation cuisine par tranche horaire.
+Meal and sandwich pre-order platform for the BDE (student union) of École 42, with login via the Intra 42 API, showcase management, and a kitchen prep dashboard organized by time slot.
 
-## 🚀 Options d'Installation (Sans NPM nécessaire)
+## 🚀 Installation Options (No NPM required)
 
-Vous avez **2 options très simples** pour lancer le projet sur votre Mac :
+You have **2 very simple options** to run the project on your Mac:
 
-### Option A : Installer Node.js & NPM avec Homebrew (Recommandé)
-Puisque **Homebrew** est déjà installé sur votre Mac, vous pouvez installer `node` (qui inclut `npm`) avec une seule commande :
+### Option A: Install Node.js & NPM with Homebrew (Recommended)
+Since **Homebrew** is already installed on your Mac, you can install `node` (which includes `npm`) with a single command:
 
 ```bash
 brew install node
 ```
 
-Ensuite dans le dossier du projet :
+Then, in the project folder:
 ```bash
 cd /Users/alix/.gemini/antigravity/scratch/bde-sandwich-42
 npm install
@@ -21,78 +21,78 @@ npm run dev
 ```
 
 
-### Option B : Lancer avec Docker (Sans installer Node/NPM)
-Puisque **Docker** est disponible sur votre Mac, vous pouvez lancer directement l'application sans rien installer de plus :
+### Option B: Run with Docker (Without installing Node/NPM)
+Since **Docker** is available on your Mac, you can run the application directly without installing anything else:
 
 ```bash
 cd /Users/alix/.gemini/antigravity/scratch/bde-sandwich-42
 docker compose up --build
 ```
-L'application sera accessible sur `http://localhost:3000`.
+The application will be accessible at `http://localhost:3000`.
 
 
-# BDE Sandwich 42
+# BDE Sandwicherie 42
 
-Application web de précommande pour la sandwicherie du BDE de l'École 42. Elle permet aux étudiants de consulter la vitrine, composer des menus, passer une commande et suivre son état. Les membres du BDE disposent d'un espace d'administration pour gérer les produits, les stocks et la préparation des commandes.
+A pre-order web application for the École 42 BDE's sandwich shop. It lets students browse the showcase, build meals, place an order, and track its status. BDE members have an admin space to manage products, stock, and order preparation.
 
-## Fonctionnement
+## How it works
 
-Le projet est composé de deux parties lancées ensemble par `npm run dev` :
+The project consists of two parts started together via `npm run dev`:
 
-- **Frontend** : interface React servie par Vite sur `http://localhost:3000`.
-- **Backend** : API Express sur le port `5001`. Vite redirige automatiquement les requêtes `/api` vers cette API.
+- **Frontend**: a React interface served by Vite on `http://localhost:3000`.
+- **Backend**: an Express API on port `5001`. Vite automatically forwards `/api` requests to this API.
 
-Les données sont stockées localement dans `server/data/db.json`. Le fichier est créé avec les produits et menus par défaut s'il n'existe pas, puis mis à jour lors des modifications ou des commandes.
+Data is stored locally in `server/data/db.json`. The file is created with the default products and menus if it doesn't exist, then updated as changes or orders are made.
 
-### Parcours étudiant
+### Student journey
 
-1. L'étudiant consulte les produits et les formules disponibles dans la vitrine.
-2. Il peut ajouter des produits ou composer une formule avec un plat, une boisson et éventuellement un dessert.
-3. Il choisit un créneau de retrait, ajoute une note si nécessaire, puis valide sa commande.
-4. Il consulte ses commandes et leur statut depuis l'onglet **Mes Commandes**.
+1. The student browses the products and meal deals available in the showcase.
+2. They can add products or build a meal deal with a main dish, a drink, and optionally a dessert.
+3. They choose a pickup time slot, add a note if needed, then confirm their order.
+4. They can view their orders and their status from the **My Orders** tab.
 
-### Authentification
+### Authentication
 
-L'authentification se fait avec OAuth2 via l'API Intra 42. Une connexion 42 est obligatoire pour passer une commande.
+Authentication is handled via OAuth2 through the Intra 42 API. A 42 login is required to place an order.
 
-Les sessions sont conservées en mémoire par le serveur. Un redémarrage du serveur déconnecte donc les utilisateurs, mais ne supprime pas les produits ni les commandes enregistrés dans `server/data/db.json`.
+Sessions are kept in the server's memory. A server restart therefore logs users out, but does not delete the products or orders stored in `server/data/db.json`.
 
-### Espace administrateur BDE
+### BDE admin space
 
-Un administrateur peut accéder à :
+An administrator can access:
 
-- la liste des commandes, filtrable par créneau et par statut ;
-- la synthèse des produits à préparer pour chaque créneau ;
-- la mise à jour du statut d'une commande : en attente, en préparation, prête, récupérée ou annulée ;
-- la création, modification et suppression des produits et des menus ;
-- l'activation ou la désactivation des produits et menus selon les stocks.
+- the list of orders, filterable by time slot and status;
+- a summary of products to prepare for each time slot;
+- updating an order's status: pending, in preparation, ready, picked up, or cancelled;
+- creating, editing, and deleting products and meal deals;
+- enabling or disabling products and meal deals based on stock.
 
-## Lancement sous Linux
+## Running on Linux
 
-### Prérequis
+### Prerequisites
 
-- Node.js 18 ou une version plus récente (Node.js 20 est recommandé) ;
-- npm, installé avec Node.js.
+- Node.js 18 or a more recent version (Node.js 20 is recommended);
+- npm, installed alongside Node.js.
 
-Pour vérifier l'installation :
+To check the installation:
 
 ```bash
 node --version
 npm --version
 ```
 
-Sur Ubuntu ou Debian, Node.js peut être installé avec :
+On Ubuntu or Debian, Node.js can be installed with:
 
 ```bash
 sudo apt update
 sudo apt install -y nodejs npm
 ```
 
-Pour utiliser une version récente de Node.js, l'installation via [NodeSource](https://github.com/nodesource/distributions) ou `nvm` est préférable.
+To use a recent version of Node.js, installing via [NodeSource](https://github.com/nodesource/distributions) or `nvm` is preferable.
 
-### Installation et démarrage
+### Installation and startup
 
-Depuis le dossier du projet :
+From the project folder:
 
 ```bash
 cd /home/anate/Documents/Menu_Bde
@@ -100,181 +100,181 @@ npm install
 npm run dev
 ```
 
-Ouvrir ensuite [http://localhost:3000](http://localhost:3000) dans un navigateur.
+Then open [http://localhost:3000](http://localhost:3000) in a browser.
 
-La commande `npm run dev` démarre le frontend et le backend en parallèle. Les messages du serveur indiquent notamment que l'API écoute sur `http://localhost:5001`. Pour arrêter les deux services, appuyer sur `Ctrl+C` dans le terminal.
+The `npm run dev` command starts the frontend and backend in parallel. The server logs indicate, among other things, that the API is listening on `http://localhost:5001`. To stop both services, press `Ctrl+C` in the terminal.
 
-### Base de données (MariaDB)
+### Database (MariaDB)
 
-Le projet utilise MariaDB (via Prisma). Il n'y a rien à installer nativement :
-une base jetable tourne dans Docker, propre à chaque machine.
+The project uses MariaDB (via Prisma). There's nothing to install natively:
+a disposable database runs in Docker, specific to each machine.
 
-1. [Installer Docker](https://docs.docker.com/get-docker/) si besoin.
-2. Depuis la racine du projet :
+1. [Install Docker](https://docs.docker.com/get-docker/) if needed.
+2. From the project root:
    ```bash
    docker compose up -d mariadb
    ```
-3. Dans `.env` (voir `.env.example`), garder tel quel :
+3. In `.env` (see `.env.example`), leave as is:
    ```env
    DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
    ```
-   (identifiants de développement local uniquement, définis dans `docker-compose.yml`.)
+   (local development credentials only, defined in `docker-compose.yml`.)
 
-Pour arrêter la base ou repartir de zéro :
+To stop the database or start fresh:
 ```bash
-docker compose down            # arrête
-docker compose down -v         # arrête ET efface les données locales
+docker compose down            # stops
+docker compose down -v         # stops AND wipes local data
 ```
 
-> Staging et production utilisent une instance MariaDB séparée sur le serveur —
-> détails dans [`infra/README.md`](infra/README.md#6-base-de-données-mariadb).
+> Staging and production use a separate MariaDB instance on the server —
+> details in [`infra/README.md`](infra/README.md#6-base-de-données-mariadb).
 
-### Commandes disponibles
+### Available commands
 
 ```bash
-npm run dev           # démarre le frontend et l'API en mode développement
-npm run client        # démarre uniquement Vite
-npm run server        # démarre uniquement l'API Express
-npm run build         # construit le frontend pour la production
-npm run preview       # prévisualise le build frontend
-npm run start:public  # build + serveur + URL HTTPS stable (Tailscale Funnel)
+npm run dev           # starts the frontend and API in development mode
+npm run client        # starts Vite only
+npm run server        # starts the Express API only
+npm run build         # builds the frontend for production
+npm run preview       # previews the frontend build
+npm run start:public  # build + server + stable HTTPS URL (Tailscale Funnel)
 ```
 
-## Configuration OAuth2 Intra 42
+## Intra 42 OAuth2 Configuration
 
-Pour activer la connexion avec un compte 42 :
+To enable login with a 42 account:
 
-1. Créer une application OAuth sur [profile.intra.42.fr/oauth/applications](https://profile.intra.42.fr/oauth/applications).
-2. Y déclarer **plusieurs Redirect URIs, une bonne fois pour toutes** (l'app 42 en accepte plusieurs) :
-   - `http://localhost:5001/api/auth/42/callback` (tests locaux) ;
-   - l'URL publique stable, ex. `https://bde-42.mon-tailnet.ts.net/api/auth/42/callback` (voir section suivante).
-3. Créer un fichier `.env` à la racine du projet :
+1. Create an OAuth application at [profile.intra.42.fr/oauth/applications](https://profile.intra.42.fr/oauth/applications).
+2. Declare **several Redirect URIs, once and for all** (the 42 app accepts multiple):
+   - `http://localhost:5001/api/auth/42/callback` (local testing);
+   - the stable public URL, e.g. `https://bde-42.mon-tailnet.ts.net/api/auth/42/callback` (see next section).
+3. Create a `.env` file at the project root:
 
 ```env
 NODE_ENV=production
 PORT=5001
-# Unique URL à renseigner. La Redirect URI OAuth en est déduite automatiquement
+# Single URL to fill in. The OAuth Redirect URI is derived from it automatically
 # (<PUBLIC_APP_URL>/api/auth/42/callback).
 PUBLIC_APP_URL=http://localhost:5001
-INTRA42_CLIENT_ID=votre_uid_intra
-INTRA42_CLIENT_SECRET=votre_secret_intra
-ADMIN_LOGINS=login_bde_1,login_bde_2
+INTRA42_CLIENT_ID=your_intra_uid
+INTRA42_CLIENT_SECRET=your_intra_secret
+ADMIN_LOGINS=bde_login_1,bde_login_2
 DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
 ```
 
-`ADMIN_LOGINS` contient, séparés par des virgules, les logins 42 autorisés à accéder à l'espace BDE. Seuls ces logins peuvent administrer les commandes, les produits et les menus.
+`ADMIN_LOGINS` contains, comma-separated, the 42 logins allowed to access the BDE admin space. Only these logins can manage orders, products, and meal deals.
 
-> `INTRA42_REDIRECT_URI` n'est plus nécessaire : elle est calculée depuis `PUBLIC_APP_URL`.
-> Ne la remets que si tu veux forcer une valeur différente. Au démarrage, le serveur
-> affiche l'URL publique et la Redirect URI effectivement utilisées.
+> `INTRA42_REDIRECT_URI` is no longer needed: it's computed from `PUBLIC_APP_URL`.
+> Only set it if you want to force a different value. On startup, the server
+> displays the public URL and the Redirect URI actually in use.
 
-## Accès public avec une URL stable (Tailscale Funnel)
+## Public access with a stable URL (Tailscale Funnel)
 
-[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) expose le serveur du PC derrière
-une **URL HTTPS fixe** du type `https://bde-42.mon-tailnet.ts.net`, gratuitement, sans
-acheter de nom de domaine, sans ouvrir de port sur la box, et **sans page d'avertissement**.
+[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) exposes the PC's server behind
+a **fixed HTTPS URL** like `https://bde-42.mon-tailnet.ts.net`, for free, without
+buying a domain name, without opening a port on the router, and **without a warning page**.
 
-L'URL ne change jamais tant que le nom de la machine (`--hostname`) et le tailnet restent
-identiques : `.env` et l'application OAuth 42 se configurent **une seule fois**.
+The URL never changes as long as the machine name (`--hostname`) and the tailnet stay
+the same: `.env` and the 42 OAuth application are configured **only once**.
 
-### Installation (une seule fois)
+### Installation (one time only)
 
-1. Créer un compte sur [tailscale.com](https://tailscale.com/) (connexion Google/GitHub possible).
-2. Installer Tailscale dans WSL :
+1. Create an account at [tailscale.com](https://tailscale.com/) (Google/GitHub login possible).
+2. Install Tailscale in WSL:
 
    ```bash
    curl -fsSL https://tailscale.com/install.sh | sh
    ```
 
-3. Activer **HTTPS** et **Funnel** pour le tailnet dans la console d'administration :
-   - <https://login.tailscale.com/admin/dns> → activer *HTTPS Certificates* ;
-   - <https://login.tailscale.com/admin/settings/funnel> → autoriser Funnel.
-   (Au premier `tailscale funnel`, un lien d'activation est affiché si ce n'est pas fait.)
+3. Enable **HTTPS** and **Funnel** for the tailnet in the admin console:
+   - <https://login.tailscale.com/admin/dns> → enable *HTTPS Certificates*;
+   - <https://login.tailscale.com/admin/settings/funnel> → allow Funnel.
+   (On the first `tailscale funnel`, an activation link is shown if this hasn't been done yet.)
 
-### Lancement (à chaque fois)
+### Startup (every time)
 
 ```bash
 cd /home/anate/Documents/Menu_Bde
-npm install        # la première fois seulement
+npm install        # first time only
 npm run start:public
 ```
 
-Le script `scripts/start-public.sh` :
+The `scripts/start-public.sh` script:
 
-1. démarre `tailscaled` en mode *userspace* (adapté à WSL2) si besoin ;
-2. connecte la machine au tailnet (lien d'authentification au tout premier lancement) ;
-3. affiche l'**URL publique stable** et la **Redirect URI** à déclarer ;
-4. construit le frontend (`npm run build`) ;
-5. ouvre le Funnel `443 → localhost:5001` ;
-6. démarre le serveur. `Ctrl+C` referme le Funnel et arrête tout.
+1. starts `tailscaled` in *userspace* mode (suited for WSL2) if needed;
+2. connects the machine to the tailnet (authentication link on the very first run);
+3. displays the **stable public URL** and the **Redirect URI** to declare;
+4. builds the frontend (`npm run build`);
+5. opens the Funnel `443 → localhost:5001`;
+6. starts the server. `Ctrl+C` closes the Funnel and stops everything.
 
-Après le tout premier lancement, renseigner dans `.env` :
+After the very first run, set in `.env`:
 
 ```env
 PUBLIC_APP_URL=https://bde-42.mon-tailnet.ts.net
 ```
 
-et ajouter `https://bde-42.mon-tailnet.ts.net/api/auth/42/callback` comme Redirect URI
-dans l'application OAuth 42. **Ces deux valeurs ne bougent plus ensuite.**
+and add `https://bde-42.mon-tailnet.ts.net/api/auth/42/callback` as a Redirect URI
+in the 42 OAuth application. **These two values won't need to change afterward.**
 
-> Variables utiles : `TS_HOSTNAME` (nom de la machine, défaut `bde-42`) et `PORT` (défaut `5001`).
-> Exemple : `TS_HOSTNAME=bde npm run start:public`.
+> Useful variables: `TS_HOSTNAME` (machine name, default `bde-42`) and `PORT` (default `5001`).
+> Example: `TS_HOSTNAME=bde npm run start:public`.
 
-### Ton propre nom de domaine (Cloudflare Tunnel)
+### Your own domain name (Cloudflare Tunnel)
 
-Le domaine utilisé est `bde42perpignan.fr` (chez IONOS), exposé sur
-`https://emporium.bde42perpignan.fr` via un tunnel Cloudflare nommé — gratuit, HTTPS
-automatique, aucun port à ouvrir sur la box.
+The domain used is `bde42perpignan.fr` (registered with IONOS), exposed at
+`https://emporium.bde42perpignan.fr` via a named Cloudflare tunnel — free, automatic
+HTTPS, no port to open on the router.
 
-**Configuration unique (une seule fois) :**
+**One-time setup:**
 
-1. Ajoute `bde42perpignan.fr` comme site sur [dash.cloudflare.com](https://dash.cloudflare.com)
-   (plan Free) : Cloudflare donne 2 nameservers à renseigner.
-2. Chez IONOS, dans la gestion du domaine, remplace les nameservers actuels par ceux de
-   Cloudflare. La propagation peut prendre de quelques minutes à 24-48h ; Cloudflare
-   envoie un mail quand le domaine est actif.
-3. Une fois le domaine actif sur Cloudflare :
+1. Add `bde42perpignan.fr` as a site on [dash.cloudflare.com](https://dash.cloudflare.com)
+   (Free plan): Cloudflare gives you 2 nameservers to set.
+2. At IONOS, in the domain management, replace the current nameservers with
+   Cloudflare's. Propagation can take anywhere from a few minutes to 24-48h; Cloudflare
+   sends an email once the domain is active.
+3. Once the domain is active on Cloudflare:
    ```bash
-   cloudflared tunnel login                                      # ouvre le navigateur, autorise le domaine
-   cloudflared tunnel create bde42-emporium                       # crée le tunnel + son fichier de credentials
-   cloudflared tunnel route dns bde42-emporium emporium.bde42perpignan.fr   # crée le DNS automatiquement
+   cloudflared tunnel login                                      # opens the browser, authorizes the domain
+   cloudflared tunnel create bde42-emporium                       # creates the tunnel + its credentials file
+   cloudflared tunnel route dns bde42-emporium emporium.bde42perpignan.fr   # creates the DNS record automatically
    ```
-4. Lance tout avec :
+4. Start everything with:
    ```bash
    npm run start:domain
    ```
-   Le script `scripts/start-domain.sh` génère `~/.cloudflared/config.yml` au premier
-   lancement, build le frontend, ouvre le tunnel puis démarre le serveur.
-5. À faire une fois affiché par le script :
-   - dans `.env` → `PUBLIC_APP_URL=https://emporium.bde42perpignan.fr` (supprime
-     `INTRA42_REDIRECT_URI` s'il était défini) ;
-   - dans l'app OAuth 42 → ajoute `https://emporium.bde42perpignan.fr/api/auth/42/callback`
-     comme Redirect URI (garde l'ancienne le temps de la transition).
+   The `scripts/start-domain.sh` script generates `~/.cloudflared/config.yml` on the first
+   run, builds the frontend, opens the tunnel, then starts the server.
+5. Once shown by the script, do this once:
+   - in `.env` → `PUBLIC_APP_URL=https://emporium.bde42perpignan.fr` (remove
+     `INTRA42_REDIRECT_URI` if it was set);
+   - in the 42 OAuth app → add `https://emporium.bde42perpignan.fr/api/auth/42/callback`
+     as a Redirect URI (keep the old one during the transition).
 
-> Variables utiles : `TUNNEL_NAME` (défaut `bde42-emporium`), `HOSTNAME` (défaut
-> `emporium.bde42perpignan.fr`), `PORT` (défaut `5001`).
+> Useful variables: `TUNNEL_NAME` (default `bde42-emporium`), `HOSTNAME` (default
+> `emporium.bde42perpignan.fr`), `PORT` (default `5001`).
 
-Le code n'a pas à changer : seule `PUBLIC_APP_URL` est modifiée. Pour changer de
-sous-domaine plus tard, relance simplement `cloudflared tunnel route dns` avec le nouveau
-nom et adapte `HOSTNAME` + `.env`.
+The code doesn't need to change: only `PUBLIC_APP_URL` is modified. To change
+subdomain later, simply rerun `cloudflared tunnel route dns` with the new
+name and update `HOSTNAME` + `.env`.
 
-### Dépannage rapide
+### Quick troubleshooting
 
-- `client_id=undefined` : `INTRA42_CLIENT_ID` manque dans `.env` ou le serveur n'a pas été redémarré.
-- `redirect_uri mismatch` : la Redirect URI déclarée dans l'app 42 et celle affichée au
-  démarrage du serveur ne sont pas **strictement** identiques (schéma, sous-domaine, `/api/...`).
-- `EADDRINUSE` sur le port `5001` : un ancien serveur tourne déjà ; `Ctrl+C` avant de relancer.
-- `tailscale: command not found` : réouvrir le terminal WSL après l'installation.
-- Funnel refusé : HTTPS/Funnel pas encore activés dans la console d'administration Tailscale.
+- `client_id=undefined`: `INTRA42_CLIENT_ID` is missing from `.env` or the server hasn't been restarted.
+- `redirect_uri mismatch`: the Redirect URI declared in the 42 app and the one shown at
+  server startup are not **strictly** identical (scheme, subdomain, `/api/...`).
+- `EADDRINUSE` on port `5001`: an old server is already running; `Ctrl+C` before relaunching.
+- `tailscale: command not found`: reopen the WSL terminal after installation.
+- Funnel refused: HTTPS/Funnel not yet enabled in the Tailscale admin console.
 
 ## Docker
 
-Le projet peut être hébergé sur un PC du réseau local avec Docker (app + base MariaDB) :
+The project can be hosted on a local network PC with Docker (app + MariaDB database):
 
 ```bash
 docker compose up --build -d
 ```
 
-L'application sera accessible depuis ce PC sur `http://localhost:5001` et depuis un autre appareil sur `http://ADRESSE_IP_DU_PC:5001`. Dans `.env`, utilisez cette même adresse pour `INTRA42_REDIRECT_URI`, et déclarez exactement cette URL comme Redirect URI dans l'application OAuth 42. Les données MariaDB sont conservées par le volume Docker `mariadb_data`.
+The application will be accessible from this PC at `http://localhost:5001` and from another device at `http://PC_IP_ADDRESS:5001`. In `.env`, use this same address for `INTRA42_REDIRECT_URI`, and declare exactly this URL as the Redirect URI in the 42 OAuth application. MariaDB data is preserved by the `mariadb_data` Docker volume.
 
-Pour ne lancer que la base (développement avec `npm run dev` en dehors de Docker), voir [Base de données (MariaDB)](#base-de-données-mariadb) plus haut.
+To run only the database (development with `npm run dev` outside of Docker), see [Database (MariaDB)](#database-mariadb) above.
