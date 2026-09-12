@@ -42,7 +42,7 @@ Le projet est composé de deux parties lancées ensemble par `npm run dev` :
 - **Frontend** : interface React servie par Vite sur `http://localhost:3000`.
 - **Backend** : API Express sur le port `5001`. Vite redirige automatiquement les requêtes `/api` vers cette API.
 
-Les données sont stockées localement dans `server/data/db.json`. Le fichier est créé avec les produits et menus par défaut s'il n'existe pas, puis mis à jour lors des modifications ou des commandes.
+Les données (produits, formules, commandes) sont stockées dans une base MariaDB — voir [Base de données (MariaDB)](#base-de-données-mariadb) plus bas pour la lancer en local.
 
 ### Parcours étudiant
 
@@ -55,7 +55,7 @@ Les données sont stockées localement dans `server/data/db.json`. Le fichier es
 
 L'authentification se fait avec OAuth2 via l'API Intra 42. Une connexion 42 est obligatoire pour passer une commande.
 
-Les sessions sont conservées en mémoire par le serveur. Un redémarrage du serveur déconnecte donc les utilisateurs, mais ne supprime pas les produits ni les commandes enregistrés dans `server/data/db.json`.
+Les sessions sont conservées en mémoire par le serveur. Un redémarrage du serveur déconnecte donc les utilisateurs, mais ne supprime pas les produits ni les commandes enregistrés en base.
 
 ### Espace administrateur BDE
 

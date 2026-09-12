@@ -59,9 +59,8 @@ prod, on ouvre une PR `dev → main`, et on déploie avec `infra/deploy-prod.sh`
   ```
   Ça fait apparaître les conflits éventuels tout de suite, sur sa propre
   machine, plutôt que de laisser GitHub bloquer la fusion plus tard.
-- On garde `server/data/db.json` **hors Git** (déjà dans `.gitignore`) : chaque
-  environnement (ton PC, staging, prod) a ses propres données, donc pas de
-  conflit possible sur "qui a quelles commandes/produits" pendant le dev.
+- Chaque environnement (ton PC, staging, prod) a sa propre base MariaDB : pas
+  de conflit possible sur "qui a quelles commandes/produits" pendant le dev.
 
 ## Tester en local (comme en entreprise)
 

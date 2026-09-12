@@ -8,6 +8,8 @@ echo "▶ git pull (main)…"
 sudo -u bde-app git pull origin main
 echo "▶ npm install…"
 sudo -u bde-app npm install --no-audit --no-fund
+echo "▶ migrations Prisma (base MariaDB)…"
+sudo -u bde-app npx prisma migrate deploy
 echo "▶ build…"
 sudo -u bde-app npm run build
 echo "▶ redémarrage du service prod…"

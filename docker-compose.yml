@@ -4,8 +4,6 @@ services:
     ports:
       - "3000:3000"
       - "5001:5001"
-    volumes:
-      - ./server/data:/app/server/data
     environment:
       - NODE_ENV=production
       - PORT=5001

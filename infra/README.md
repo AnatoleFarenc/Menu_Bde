@@ -114,6 +114,18 @@ règle `ufw` à ouvrir), crée les deux bases et leurs utilisateurs, puis affich
 - `/opt/Menu_Bde/.env` (prod)
 - `/opt/Menu_Bde-staging/.env` (staging)
 
+Les migrations (création des tables) sont appliquées automatiquement à chaque
+déploiement par `deploy-prod.sh`/`deploy-staging.sh` (`npx prisma migrate deploy`).
+
+**Une seule fois, pour reprendre les données existantes** de
+`server/data/db.json` (produits, formules, commandes, templates) :
+```bash
+sudo -u bde-app node prisma/import-from-json.mjs        # prod
+sudo -u bde-app-staging node prisma/import-from-json.mjs # staging
+```
+À lancer juste après le tout premier déploiement (une fois les tables créées),
+jamais après — il duplique les données s'il est relancé sur une base déjà peuplée.
+
 ### En local (chaque développeur, sur sa propre machine)
 
 Pas d'installation native : MariaDB tourne dans Docker, une base jetable propre à
