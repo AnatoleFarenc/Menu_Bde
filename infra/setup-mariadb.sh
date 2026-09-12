@@ -7,15 +7,15 @@
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
-  echo "Ce script doit être lancé en root (sudo)." >&2
+  echo "This script must be run as root (sudo)." >&2
   exit 1
 fi
 
-echo "▶ Installation de mariadb-server..."
+echo "▶ Installing mariadb-server..."
 apt-get update -qq
 apt-get install -y mariadb-server
 
-echo "▶ Restriction de l'écoute réseau à localhost uniquement..."
+echo "▶ Restricting network listening to localhost only..."
 CONF="/etc/mysql/mariadb.conf.d/50-server.cnf"
 if grep -q '^bind-address' "$CONF"; then
   sed -i 's/^bind-address.*/bind-address = 127.0.0.1/' "$CONF"
@@ -26,7 +26,7 @@ fi
 systemctl enable --now mariadb
 systemctl restart mariadb
 
-echo "▶ Sécurisation de l'installation (équivalent mysql_secure_installation)..."
+echo "▶ Securing the installation (equivalent of mysql_secure_installation)..."
 mysql -u root <<'SQL'
 DELETE FROM mysql.global_priv WHERE User='';
 DELETE FROM mysql.global_priv WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
@@ -37,7 +37,7 @@ SQL
 PROD_PW=$(openssl rand -base64 24)
 STAGING_PW=$(openssl rand -base64 24)
 
-echo "▶ Création des bases et des utilisateurs dédiés (prod / staging)..."
+echo "▶ Creating the dedicated databases and users (prod / staging)..."
 mysql -u root <<SQL
 CREATE DATABASE IF NOT EXISTS bde_sandwich CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS bde_sandwich_staging CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -52,12 +52,12 @@ FLUSH PRIVILEGES;
 SQL
 
 echo ""
-echo "✅ MariaDB installé et configuré (écoute localhost uniquement)."
+echo "✅ MariaDB installed and configured (listening on localhost only)."
 echo ""
-echo "Ajoute cette ligne dans /opt/Menu_Bde/.env (PRODUCTION) :"
+echo "Add this line to /opt/Menu_Bde/.env (PRODUCTION):"
 echo "DATABASE_URL=\"mysql://bde_app:${PROD_PW}@localhost:3306/bde_sandwich\""
 echo ""
-echo "Ajoute cette ligne dans /opt/Menu_Bde-staging/.env (STAGING) :"
+echo "Add this line to /opt/Menu_Bde-staging/.env (STAGING):"
 echo "DATABASE_URL=\"mysql://bde_app_staging:${STAGING_PW}@localhost:3306/bde_sandwich_staging\""
 echo ""
-echo "⚠️  Ces mots de passe ne sont affichés qu'une seule fois : copie-les maintenant."
+echo "⚠️  These passwords are only shown once: copy them now."
