@@ -34,8 +34,10 @@ DROP DATABASE IF EXISTS test;
 FLUSH PRIVILEGES;
 SQL
 
-PROD_PW=$(openssl rand -base64 24)
-STAGING_PW=$(openssl rand -base64 24)
+# Hex only (no +, /, = like base64 would produce): safe to drop straight into
+# a mysql:// connection string with no URL-encoding needed.
+PROD_PW=$(openssl rand -hex 24)
+STAGING_PW=$(openssl rand -hex 24)
 
 echo "▶ Creating the dedicated databases and users (prod / staging)..."
 mysql -u root <<SQL
