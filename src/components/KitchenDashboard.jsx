@@ -3,6 +3,8 @@ import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, 
 import ProductCard from './ProductCard';
 import AdminCatalogTools from './AdminCatalogTools';
 import AdminOrderEditModal from './AdminOrderEditModal';
+import EventSidebar from './EventSidebar';
+import EventHeader from './EventHeader';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
 
@@ -27,12 +29,16 @@ export default function KitchenDashboard({
   menus,
   categories,
   events,
+  selectedEvent,
+  onSelectEvent,
+  onCreateEvent,
+  onDuplicateEvent,
+  onActivateEvent,
+  onDeleteEvent,
+  onUpdateEvent,
   onAddCategory,
   onDeleteCategory,
   onToggleCategory,
-  onCreateEvent,
-  onActivateEvent,
-  onDeleteEvent,
   onUpdateOrderStatus,
   onClearOrderHistory,
   onUpdateOrder,
@@ -142,48 +148,49 @@ export default function KitchenDashboard({
   };
 
   return (
-    <div className="fade-in">
-      {/* HEADER BANNER */}
-      <div className="hero-banner">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-            <ChefHat size={28} color="var(--color-primary)" />
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Espace Administration & Cuisine BDE</h1>
+    <div className="admin-workspace">
+      <EventSidebar
+        events={events}
+        selectedEventId={selectedEvent?.id}
+        onSelectEvent={onSelectEvent}
+        onCreateEvent={onCreateEvent}
+        onDuplicateEvent={onDuplicateEvent}
+        onDeleteEvent={onDeleteEvent}
+      />
+      <div className="admin-workspace-main fade-in">
+        <EventHeader event={selectedEvent} onUpdateEvent={onUpdateEvent} onActivateEvent={onActivateEvent} />
+
+        {/* HEADER BANNER */}
+        <div className="hero-banner">
+          <div className="admin-tabs-scroll">
+            <button
+              className={`btn ${adminTab === 'kitchen' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAdminTab('kitchen')}
+            >
+              <ChefHat size={16} /> Cuisine & Préparation
+            </button>
+            <button
+              className={`btn ${adminTab === 'vitrine' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAdminTab('vitrine')}
+            >
+              <Package size={16} /> Gestion Vitrine & Stocks
+            </button>
+            <button
+              className={`btn ${adminTab === 'bilan' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAdminTab('bilan')}
+            >
+              <BarChart3 size={16} /> Bilan de l'événement
+            </button>
+            <button
+              className={`btn ${adminTab === 'avis' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAdminTab('avis')}
+            >
+              <Star size={16} /> Avis Clients
+            </button>
           </div>
-          <p style={{ color: 'var(--text-muted)' }}>
-            Préparation en avance des commandes par créneau horaire & gestion en direct de la vitrine 42.
-          </p>
         </div>
 
-        <div className="admin-tabs-scroll">
-          <button
-            className={`btn ${adminTab === 'kitchen' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setAdminTab('kitchen')}
-          >
-            <ChefHat size={16} /> Cuisine & Préparation
-          </button>
-          <button
-            className={`btn ${adminTab === 'vitrine' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setAdminTab('vitrine')}
-          >
-            <Package size={16} /> Gestion Vitrine & Stocks
-          </button>
-          <button
-            className={`btn ${adminTab === 'bilan' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setAdminTab('bilan')}
-          >
-            <BarChart3 size={16} /> Bilan du jour
-          </button>
-          <button
-            className={`btn ${adminTab === 'avis' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setAdminTab('avis')}
-          >
-            <Star size={16} /> Avis Clients
-          </button>
-        </div>
-      </div>
-
-      {/* ---------------------------------------------------- */}
+        {/* ---------------------------------------------------- */}
       {/* TAB 1: KITCHEN PREPARATION BOARD                    */}
       {/* ---------------------------------------------------- */}
       {adminTab === 'kitchen' && (
@@ -508,13 +515,9 @@ export default function KitchenDashboard({
         <>
           <AdminCatalogTools
             categories={categories}
-            events={events}
             onAddCategory={onAddCategory}
             onDeleteCategory={onDeleteCategory}
             onToggleCategory={onToggleCategory}
-            onCreateEvent={onCreateEvent}
-            onActivateEvent={onActivateEvent}
-            onDeleteEvent={onDeleteEvent}
           />
           <div className="admin-catalog-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2>Gestion des Produits & Menus en Vitrine</h2>
@@ -746,14 +749,15 @@ export default function KitchenDashboard({
         </div>
       )}
 
-      {editingOrder && (
-        <AdminOrderEditModal
-          order={editingOrder}
-          products={products}
-          onClose={() => setEditingOrder(null)}
-          onSave={onUpdateOrder}
-        />
-      )}
+        {editingOrder && (
+          <AdminOrderEditModal
+            order={editingOrder}
+            products={products}
+            onClose={() => setEditingOrder(null)}
+            onSave={onUpdateOrder}
+          />
+        )}
+      </div>
     </div>
   );
 }

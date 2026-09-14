@@ -454,6 +454,146 @@ main h3 {
   white-space: nowrap;
 }
 
+/* Event workspace: VSCode-explorer-style sidebar + per-event content area. */
+.admin-workspace {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.admin-workspace-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-sidebar {
+  flex-shrink: 0;
+  width: 230px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: sticky;
+  top: 1rem;
+}
+
+.event-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.event-sidebar-new-form {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.event-sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.event-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.event-sidebar-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.event-sidebar-item.is-selected {
+  background: var(--color-primary-glow);
+  border: 1px solid var(--color-primary);
+}
+
+.event-sidebar-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.event-sidebar-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.event-sidebar-active-star {
+  color: var(--color-primary);
+  fill: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.event-sidebar-item-date {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.event-sidebar-item-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.event-sidebar-item-actions button {
+  background: transparent;
+  border: none;
+  padding: 0.15rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.event-sidebar-item-actions button:hover {
+  color: var(--color-primary-text);
+  background: var(--color-primary-glow);
+}
+
+.event-header {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.event-header-editing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .hero-text h1 {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.6rem);
@@ -1167,6 +1307,19 @@ main h3 {
   .hero-banner {
     align-items: flex-start;
     padding: 1.25rem 0 1rem;
+  }
+
+  .admin-workspace {
+    flex-direction: column;
+  }
+
+  .event-sidebar {
+    width: 100%;
+    position: static;
+  }
+
+  .event-sidebar-list {
+    max-height: 40vh;
   }
 
   .hero-text h1 {

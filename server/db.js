@@ -200,6 +200,11 @@ class DB {
     return products.map(serializeProduct);
   }
 
+  async getPublicMenus() {
+    const activeEvent = await this._getActiveEvent();
+    return this.getMenus(activeEvent.id);
+  }
+
   async addCategory(category) {
     const id = category.id || slugify(category.name);
     if (!id) return null;
@@ -233,6 +238,10 @@ class DB {
   // Each event owns its own products/meal deals/orders. Exactly one event is
   // active at a time -- the storefront and the admin product/menu tools only
   // ever show the active event's catalog.
+  async getActiveEvent() {
+    return serializeEvent(await this._getActiveEvent());
+  }
+
   async getEvents() {
     const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
     return events.map(serializeEvent);
@@ -308,6 +317,18 @@ class DB {
     return serializeEvent(created);
   }
 
+  async updateEvent(id, updates) {
+    const existing = await prisma.event.findUnique({ where: { id } });
+    if (!existing) return null;
+    const data = {};
+    if (updates.name !== undefined) data.name = updates.name.trim();
+    if (updates.description !== undefined) data.description = updates.description;
+    if (updates.startDate !== undefined) data.startDate = updates.startDate ? new Date(updates.startDate) : null;
+    if (updates.endDate !== undefined) data.endDate = updates.endDate ? new Date(updates.endDate) : null;
+    const updated = await prisma.event.update({ where: { id }, data });
+    return serializeEvent(updated);
+  }
+
   // Switches the live catalog to the given event. Nothing is destroyed: the
   // previously active event and its full order history stay intact, just
   // no longer shown on the storefront.
@@ -332,10 +353,10 @@ class DB {
     return !stillExists;
   }
 
-  // PRODUCTS
-  async getProducts() {
-    const activeEvent = await this._getActiveEvent();
-    const products = await prisma.product.findMany({ where: { eventId: activeEvent.id } });
+  // PRODUCTS -- eventId is explicit: any event's catalog can be browsed and
+  // edited from its own page, not just the active (live) one.
+  async getProducts(eventId) {
+    const products = await prisma.product.findMany({ where: { eventId } });
     return products.map(serializeProduct);
   }
 
@@ -344,14 +365,13 @@ class DB {
     return serializeProduct(product);
   }
 
-  async addProduct(product) {
-    const activeEvent = await this._getActiveEvent();
+  async addProduct(product, eventId) {
     const stock = (product.stock === '' || product.stock === undefined || product.stock === null)
       ? null
       : parseInt(product.stock, 10);
     const created = await prisma.product.create({
       data: {
-        eventId: activeEvent.id,
+        eventId,
         name: product.name,
         categoryId: product.category,
         price: parseFloat(product.price) || 0,
@@ -407,19 +427,17 @@ class DB {
     return serializeProduct(updated);
   }
 
-  // MENUS
-  async getMenus() {
-    const activeEvent = await this._getActiveEvent();
-    const menus = await prisma.menu.findMany({ where: { eventId: activeEvent.id }, include: menuInclude });
+  // MENUS -- same explicit eventId as products.
+  async getMenus(eventId) {
+    const menus = await prisma.menu.findMany({ where: { eventId }, include: menuInclude });
     return menus.map(serializeMenu);
   }
 
-  async addMenu(menu) {
-    const activeEvent = await this._getActiveEvent();
+  async addMenu(menu, eventId) {
     const groups = normalizeGroups(menu.groups);
     const created = await prisma.menu.create({
       data: {
-        eventId: activeEvent.id,
+        eventId,
         name: menu.name,
         price: parseFloat(menu.price) || 0,
         description: menu.description || '',
@@ -482,14 +500,15 @@ class DB {
     return serializeMenu(updated);
   }
 
-  // ORDERS
-  async getOrders() {
-    const orders = await prisma.order.findMany({ include: orderInclude, orderBy: { createdAt: 'asc' } });
+  // ORDERS -- always scoped to one event: the kitchen board, bilan and
+  // reviews all operate within the event currently open in the admin.
+  async getOrders(eventId) {
+    const orders = await prisma.order.findMany({ where: { eventId }, include: orderInclude, orderBy: { createdAt: 'asc' } });
     return orders.map(serializeOrder);
   }
 
-  async clearOrders() {
-    await prisma.order.deleteMany();
+  async clearOrders(eventId) {
+    await prisma.order.deleteMany({ where: { eventId } });
   }
 
   async deleteOrder(id) {
@@ -526,12 +545,16 @@ class DB {
     }
   }
 
+  // eventId defaults to the active event (student checkout, kiosk): an
+  // order placed on the live storefront always belongs to whatever is
+  // currently active. Admin flows (e.g. a gifted order) can pass an explicit
+  // eventId to attach the order to whichever event they're currently viewing.
   async addOrder(orderData) {
-    const activeEvent = await this._getActiveEvent();
+    const eventId = orderData.eventId || (await this._getActiveEvent()).id;
     const orderNumber = await this._generateUniqueOrderNumber();
     const created = await prisma.order.create({
       data: {
-        eventId: activeEvent.id,
+        eventId,
         orderNumber,
         status: 'pending',
         isPaid: false,

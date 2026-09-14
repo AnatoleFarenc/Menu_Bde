@@ -213,8 +213,8 @@ const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch
 // ----------------------------------------------------
 app.get('/api/products', ah(async (req, res) => {
   const [products, menus, categories] = await Promise.all([
-    db.getProducts(),
-    db.getMenus(),
+    db.getPublicProducts(),
+    db.getPublicMenus(),
     db.getCategories()
   ]);
   res.json({ products, menus, categories });
@@ -229,11 +229,27 @@ app.post('/api/admin/events', ah(async (req, res) => {
   res.status(201).json({ event: await db.createEvent(req.body) });
 }));
 
+app.patch('/api/admin/events/:id', ah(async (req, res) => {
+  const updated = await db.updateEvent(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Événement introuvable' });
+  res.json({ event: updated });
+}));
+
+// Full catalog (products + meal deals + categories) of one specific event --
+// used by the per-event admin page, whether or not that event is active.
+app.get('/api/admin/events/:id/catalog', ah(async (req, res) => {
+  const [products, menus, categories] = await Promise.all([
+    db.getProducts(req.params.id),
+    db.getMenus(req.params.id),
+    db.getCategories()
+  ]);
+  res.json({ products, menus, categories });
+}));
+
 app.post('/api/admin/events/:id/activate', ah(async (req, res) => {
   const event = await db.setActiveEvent(req.params.id);
   if (!event) return res.status(404).json({ error: 'Événement introuvable' });
-  const [products, menus, categories] = await Promise.all([db.getProducts(), db.getMenus(), db.getCategories()]);
-  res.json({ event, products, menus, categories });
+  res.json({ event });
 }));
 
 app.delete('/api/admin/events/:id', ah(async (req, res) => {
@@ -265,7 +281,8 @@ app.patch('/api/admin/categories/:id/visibility', ah(async (req, res) => {
 
 // Admin product routes
 app.post('/api/admin/products', ah(async (req, res) => {
-  const newProduct = await db.addProduct(req.body);
+  if (!req.body.eventId) return res.status(400).json({ error: 'eventId manquant' });
+  const newProduct = await db.addProduct(req.body, req.body.eventId);
   res.status(201).json({ product: newProduct });
 }));
 
@@ -288,7 +305,8 @@ app.patch('/api/admin/products/:id/toggle-stock', ah(async (req, res) => {
 
 // Admin menu routes
 app.post('/api/admin/menus', ah(async (req, res) => {
-  const newMenu = await db.addMenu(req.body);
+  if (!req.body.eventId) return res.status(400).json({ error: 'eventId manquant' });
+  const newMenu = await db.addMenu(req.body, req.body.eventId);
   res.status(201).json({ menu: newMenu });
 }));
 
@@ -348,6 +366,7 @@ app.post('/api/admin/orders/free', ah(async (req, res) => {
   const label = (beneficiary || '').trim() || 'Don BDE';
 
   const newOrder = await db.addOrder({
+    eventId: req.body.eventId,
     userId: 'free_' + Date.now(),
     userLogin: label,
     userDisplayName: label,
@@ -389,9 +408,10 @@ app.post('/api/orders/:id/review', ah(async (req, res) => {
   res.json({ order: result.order });
 }));
 
-// Get all orders for Admin / Kitchen Board with synthesis computation
+// Get all orders for Admin / Kitchen Board with synthesis computation, scoped
+// to whichever event is currently open in the admin.
 app.get('/api/admin/orders', ah(async (req, res) => {
-  const orders = await db.getOrders();
+  const orders = await db.getOrders(req.query.eventId);
 
   // Compute kitchen synthesis per pickup time and product count
   const synthesisByTime = {};
@@ -455,7 +475,7 @@ app.patch('/api/admin/orders/:id/paid', ah(async (req, res) => {
 }));
 
 app.delete('/api/admin/orders', ah(async (req, res) => {
-  await db.clearOrders();
+  await db.clearOrders(req.query.eventId);
   res.json({ success: true });
 }));
 
@@ -465,9 +485,9 @@ app.delete('/api/admin/orders/:id', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
-// All customer reviews left on orders, most recent first.
+// All customer reviews left on orders, most recent first (scoped to one event).
 app.get('/api/admin/reviews', ah(async (req, res) => {
-  const orders = await db.getOrders();
+  const orders = await db.getOrders(req.query.eventId);
   const reviews = orders
     .filter(order => order.review)
     .map(order => ({
@@ -494,7 +514,7 @@ app.get('/api/admin/report', ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || req.query.date || today).slice(0, 10);
   const to = (req.query.to || from).slice(0, 10);
-  const allOrders = await db.getOrders();
+  const allOrders = await db.getOrders(req.query.eventId);
   const periodOrders = allOrders.filter(order => {
     if (order.status !== 'completed') return false;
     const day = (order.createdAt || '').slice(0, 10);

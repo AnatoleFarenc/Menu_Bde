@@ -7,7 +7,6 @@ import CartDrawer from './components/CartDrawer';
 import AdminProductModal from './components/AdminProductModal';
 import KitchenDashboard from './components/KitchenDashboard';
 import OrderStatus from './components/OrderStatus';
-import AdminCatalogTools from './components/AdminCatalogTools';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
 
@@ -31,6 +30,9 @@ export default function App() {
   const [menus, setMenus] = useState([]);
   const [categories, setCategories] = useState([]);
   const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [adminProducts, setAdminProducts] = useState([]);
+  const [adminMenus, setAdminMenus] = useState([]);
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
@@ -117,13 +119,29 @@ export default function App() {
 
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
-      fetchAdminOrders();
       fetchAdminEvents();
-      const refreshTimer = setInterval(fetchAdminOrders, 5000);
+      const refreshTimer = setInterval(() => fetchAdminOrders(selectedEventId), 5000);
       return () => clearInterval(refreshTimer);
     }
     return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
+
+  // Once the events list loads, default to viewing the active event.
+  useEffect(() => {
+    if (!selectedEventId && events.length > 0) {
+      const active = events.find(ev => ev.isActive);
+      setSelectedEventId(active ? active.id : events[0].id);
+    }
+  }, [events, selectedEventId]);
+
+  // Whichever event is selected in the admin, keep its catalog/orders/bilan in sync.
+  useEffect(() => {
+    if (!selectedEventId || activeTab !== 'admin') return;
+    fetchAdminCatalog(selectedEventId);
+    fetchAdminOrders(selectedEventId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId, activeTab]);
 
   useEffect(() => {
     if (!user || activeTab !== 'orders') return undefined;
@@ -170,9 +188,25 @@ export default function App() {
     }
   };
 
-  const fetchAdminOrders = async () => {
+  // Products/menus of whichever event is open in the admin -- independent
+  // from the public storefront's `products`/`menus`, which always reflect
+  // the active event only.
+  const fetchAdminCatalog = async (eventId) => {
+    if (!eventId) return;
+    try {
+      const res = await axios.get(`/api/admin/events/${eventId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
+      setAdminProducts(res.data.products || []);
+      setAdminMenus(res.data.menus || []);
+    } catch (e) {
+      console.error('Error fetching admin catalog:', e);
+    }
+  };
+
+  const fetchAdminOrders = async (eventId = selectedEventId) => {
+    if (!eventId) return;
     try {
       const res = await axios.get('/api/admin/orders', {
+        params: { eventId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setAdminOrders(res.data.orders || []);
@@ -185,7 +219,7 @@ export default function App() {
   const fetchDailyReport = async (from, to) => {
     try {
       const res = await axios.get('/api/admin/report', {
-        params: { from, to: to || from },
+        params: { from, to: to || from, eventId: selectedEventId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setDailyReport(res.data);
@@ -196,7 +230,10 @@ export default function App() {
 
   const fetchReviews = async () => {
     try {
-      const res = await axios.get('/api/admin/reviews', { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get('/api/admin/reviews', {
+        params: { eventId: selectedEventId },
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       setReviews(res.data.reviews || []);
     } catch (e) {
       console.error('Error fetching reviews:', e);
@@ -340,12 +377,13 @@ export default function App() {
     }
   };
 
-  // Admin Stock & Product Handlers
+  // Admin Stock & Product Handlers (always operate on the event currently
+  // open in the admin -- see EventSidebar/EventHeader).
   const handleToggleStock = async (id, type) => {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
       await axios.patch(url, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchProducts();
+      fetchAdminCatalog(selectedEventId);
     } catch (e) {
       alert('Erreur lors de la modification du stock.');
     }
@@ -357,16 +395,16 @@ export default function App() {
         if (editingId) {
           await axios.put(`/api/admin/menus/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
         } else {
-          await axios.post('/api/admin/menus', formData, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.post('/api/admin/menus', { ...formData, eventId: selectedEventId }, { headers: { Authorization: `Bearer ${authToken}` } });
         }
       } else {
         if (editingId) {
           await axios.put(`/api/admin/products/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
         } else {
-          await axios.post('/api/admin/products', formData, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.post('/api/admin/products', { ...formData, eventId: selectedEventId }, { headers: { Authorization: `Bearer ${authToken}` } });
         }
       }
-      fetchProducts();
+      fetchAdminCatalog(selectedEventId);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
@@ -379,7 +417,7 @@ export default function App() {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
       await axios.delete(url, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchProducts();
+      fetchAdminCatalog(selectedEventId);
     } catch (e) {
       alert('Erreur lors de la suppression.');
     }
@@ -415,15 +453,16 @@ export default function App() {
     }
   };
 
+  const handleSelectEvent = id => {
+    setSelectedEventId(id);
+  };
+
+  // "+" in the sidebar: a genuinely new, empty event.
   const handleCreateEvent = async eventData => {
     try {
-      const activeEvent = events.find(ev => ev.isActive);
-      await axios.post(
-        '/api/admin/events',
-        { ...eventData, copyFromEventId: activeEvent?.id },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
+      const res = await axios.post('/api/admin/events', eventData, { headers: { Authorization: `Bearer ${authToken}` } });
       await fetchAdminEvents();
+      setSelectedEventId(res.data.event.id);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la création de l\'événement.');
@@ -431,14 +470,41 @@ export default function App() {
     }
   };
 
+  // Per-event "copy" action: duplicates that specific event's catalog under a new name.
+  const handleDuplicateEvent = async id => {
+    const source = events.find(ev => ev.id === id);
+    const name = prompt('Nom du nouvel événement :', source ? `${source.name} (copie)` : '');
+    if (!name || !name.trim()) return;
+    try {
+      const res = await axios.post(
+        '/api/admin/events',
+        { name, copyFromEventId: id },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      await fetchAdminEvents();
+      setSelectedEventId(res.data.event.id);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la duplication de l\'événement.');
+    }
+  };
+
+  const handleUpdateEvent = async (id, updates) => {
+    try {
+      await axios.patch(`/api/admin/events/${id}`, updates, { headers: { Authorization: `Bearer ${authToken}` } });
+      await fetchAdminEvents();
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la modification de l\'événement.');
+      return false;
+    }
+  };
+
   const handleActivateEvent = async id => {
     if (!confirm('Basculer la vitrine sur cet événement ?')) return;
     try {
-      const res = await axios.post(`/api/admin/events/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      setProducts(res.data.products || []);
-      setMenus(res.data.menus || []);
-      setCategories(res.data.categories || []);
+      await axios.post(`/api/admin/events/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
       await fetchAdminEvents();
+      fetchProducts(); // refresh the public storefront, now serving this event
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors du changement d\'événement.');
     }
@@ -448,6 +514,7 @@ export default function App() {
     if (!confirm('Supprimer cet événement enregistré ?')) return;
     try {
       await axios.delete(`/api/admin/events/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (selectedEventId === id) setSelectedEventId(null);
       fetchAdminEvents();
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'événement.');
@@ -460,16 +527,17 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
-      fetchProducts();
+      fetchAdminCatalog(selectedEventId);
     } catch (e) {
       alert('Erreur lors de la mise à jour du statut.');
     }
   };
 
   const handleClearOrderHistory = async () => {
-    if (!confirm('Supprimer définitivement tout l\'historique des commandes ? Cette action est irréversible.')) return;
+    if (!confirm('Supprimer définitivement tout l\'historique des commandes de cet événement ? Cette action est irréversible.')) return;
     try {
       await axios.delete('/api/admin/orders', {
+        params: { eventId: selectedEventId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
@@ -493,11 +561,11 @@ export default function App() {
 
   const handleCreateFreeOrder = async (payload) => {
     try {
-      await axios.post('/api/admin/orders/free', payload, {
+      await axios.post('/api/admin/orders/free', { ...payload, eventId: selectedEventId }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
-      fetchProducts();
+      fetchAdminCatalog(selectedEventId);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la création du don.');
@@ -512,7 +580,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
-      fetchProducts();
+      fetchAdminCatalog(selectedEventId);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
     }
@@ -686,16 +754,20 @@ export default function App() {
         <KitchenDashboard
           orders={adminOrders}
           synthesisByTime={synthesisByTime}
-          products={products}
-          menus={menus}
+          products={adminProducts}
+          menus={adminMenus}
           categories={categories}
           events={events}
+          selectedEvent={events.find(ev => ev.id === selectedEventId)}
+          onSelectEvent={handleSelectEvent}
+          onCreateEvent={handleCreateEvent}
+          onDuplicateEvent={handleDuplicateEvent}
+          onActivateEvent={handleActivateEvent}
+          onDeleteEvent={handleDeleteEvent}
+          onUpdateEvent={handleUpdateEvent}
           onAddCategory={handleAddCategory}
           onDeleteCategory={handleDeleteCategory}
           onToggleCategory={handleToggleCategory}
-          onCreateEvent={handleCreateEvent}
-          onActivateEvent={handleActivateEvent}
-          onDeleteEvent={handleDeleteEvent}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onClearOrderHistory={handleClearOrderHistory}
           onUpdateOrder={handleUpdateOrder}
@@ -764,7 +836,7 @@ export default function App() {
         editingItem={adminModalState.item}
         type={adminModalState.type}
         categories={categories}
-        products={products}
+        products={adminProducts}
       />
     </div>
   );
