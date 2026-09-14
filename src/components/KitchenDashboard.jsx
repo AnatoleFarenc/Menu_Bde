@@ -26,13 +26,13 @@ export default function KitchenDashboard({
   products,
   menus,
   categories,
-  templates,
+  events,
   onAddCategory,
   onDeleteCategory,
   onToggleCategory,
-  onSaveTemplate,
-  onApplyTemplate,
-  onDeleteTemplate,
+  onCreateEvent,
+  onActivateEvent,
+  onDeleteEvent,
   onUpdateOrderStatus,
   onClearOrderHistory,
   onUpdateOrder,
@@ -508,13 +508,13 @@ export default function KitchenDashboard({
         <>
           <AdminCatalogTools
             categories={categories}
-            templates={templates}
+            events={events}
             onAddCategory={onAddCategory}
             onDeleteCategory={onDeleteCategory}
             onToggleCategory={onToggleCategory}
-            onSaveTemplate={onSaveTemplate}
-            onApplyTemplate={onApplyTemplate}
-            onDeleteTemplate={onDeleteTemplate}
+            onCreateEvent={onCreateEvent}
+            onActivateEvent={onActivateEvent}
+            onDeleteEvent={onDeleteEvent}
           />
           <div className="admin-catalog-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2>Gestion des Produits & Menus en Vitrine</h2>

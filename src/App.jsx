@@ -30,7 +30,7 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [templates, setTemplates] = useState([]);
+  const [events, setEvents] = useState([]);
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
@@ -118,7 +118,7 @@ export default function App() {
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
       fetchAdminOrders();
-      fetchAdminTemplates();
+      fetchAdminEvents();
       const refreshTimer = setInterval(fetchAdminOrders, 5000);
       return () => clearInterval(refreshTimer);
     }
@@ -226,12 +226,12 @@ export default function App() {
     }
   };
 
-  const fetchAdminTemplates = async () => {
+  const fetchAdminEvents = async () => {
     try {
-      const res = await axios.get('/api/admin/templates', { headers: { Authorization: `Bearer ${authToken}` } });
-      setTemplates(res.data.templates || []);
+      const res = await axios.get('/api/admin/events', { headers: { Authorization: `Bearer ${authToken}` } });
+      setEvents(res.data.events || []);
     } catch (e) {
-      console.error('Error fetching templates:', e);
+      console.error('Error fetching events:', e);
     }
   };
 
@@ -415,36 +415,42 @@ export default function App() {
     }
   };
 
-  const handleSaveTemplate = async template => {
+  const handleCreateEvent = async eventData => {
     try {
-      await axios.post('/api/admin/templates', template, { headers: { Authorization: `Bearer ${authToken}` } });
-      await fetchAdminTemplates();
+      const activeEvent = events.find(ev => ev.isActive);
+      await axios.post(
+        '/api/admin/events',
+        { ...eventData, copyFromEventId: activeEvent?.id },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      await fetchAdminEvents();
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la sauvegarde de la carte.');
+      alert(e.response?.data?.error || 'Erreur lors de la création de l\'événement.');
       return false;
     }
   };
 
-  const handleApplyTemplate = async id => {
-    if (!confirm('Appliquer cette carte et remplacer la carte actuelle ?')) return;
+  const handleActivateEvent = async id => {
+    if (!confirm('Basculer la vitrine sur cet événement ?')) return;
     try {
-      const res = await axios.post(`/api/admin/templates/${id}/apply`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.post(`/api/admin/events/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
       setProducts(res.data.products || []);
       setMenus(res.data.menus || []);
       setCategories(res.data.categories || []);
+      await fetchAdminEvents();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l’application de la carte.');
+      alert(e.response?.data?.error || 'Erreur lors du changement d\'événement.');
     }
   };
 
-  const handleDeleteTemplate = async id => {
-    if (!confirm('Supprimer cette carte enregistrée ?')) return;
+  const handleDeleteEvent = async id => {
+    if (!confirm('Supprimer cet événement enregistré ?')) return;
     try {
-      await axios.delete(`/api/admin/templates/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchAdminTemplates();
+      await axios.delete(`/api/admin/events/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      fetchAdminEvents();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la carte.');
+      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'événement.');
     }
   };
 
@@ -683,13 +689,13 @@ export default function App() {
           products={products}
           menus={menus}
           categories={categories}
-          templates={templates}
+          events={events}
           onAddCategory={handleAddCategory}
           onDeleteCategory={handleDeleteCategory}
           onToggleCategory={handleToggleCategory}
-          onSaveTemplate={handleSaveTemplate}
-          onApplyTemplate={handleApplyTemplate}
-          onDeleteTemplate={handleDeleteTemplate}
+          onCreateEvent={handleCreateEvent}
+          onActivateEvent={handleActivateEvent}
+          onDeleteEvent={handleDeleteEvent}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onClearOrderHistory={handleClearOrderHistory}
           onUpdateOrder={handleUpdateOrder}

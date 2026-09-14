@@ -220,24 +220,26 @@ app.get('/api/products', ah(async (req, res) => {
   res.json({ products, menus, categories });
 }));
 
-app.get('/api/admin/templates', ah(async (req, res) => {
-  res.json({ templates: await db.getTemplates() });
+app.get('/api/admin/events', ah(async (req, res) => {
+  res.json({ events: await db.getEvents() });
 }));
 
-app.post('/api/admin/templates', ah(async (req, res) => {
-  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom du template est obligatoire' });
-  res.status(201).json({ template: await db.addTemplate(req.body) });
+app.post('/api/admin/events', ah(async (req, res) => {
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'événement est obligatoire' });
+  res.status(201).json({ event: await db.createEvent(req.body) });
 }));
 
-app.post('/api/admin/templates/:id/apply', ah(async (req, res) => {
-  const template = await db.applyTemplate(req.params.id);
-  if (!template) return res.status(404).json({ error: 'Template introuvable' });
+app.post('/api/admin/events/:id/activate', ah(async (req, res) => {
+  const event = await db.setActiveEvent(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Événement introuvable' });
   const [products, menus, categories] = await Promise.all([db.getProducts(), db.getMenus(), db.getCategories()]);
-  res.json({ template, products, menus, categories });
+  res.json({ event, products, menus, categories });
 }));
 
-app.delete('/api/admin/templates/:id', ah(async (req, res) => {
-  await db.deleteTemplate(req.params.id);
+app.delete('/api/admin/events/:id', ah(async (req, res) => {
+  if (!(await db.deleteEvent(req.params.id))) {
+    return res.status(400).json({ error: 'Événement actif ou encore lié à des commandes : impossible à supprimer' });
+  }
   res.json({ success: true });
 }));
 

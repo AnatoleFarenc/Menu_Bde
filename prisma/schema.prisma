@@ -18,8 +18,30 @@ model Category {
   products  Product[]
 }
 
+// A dated sale (a "piscine", a midterm, a party...). Each event owns its own
+// catalog (products/meal deals) and its own orders -- switching the active
+// event never destroys the previous one, unlike the old Template
+// "apply = overwrite" model. Exactly one event is active at a time.
+model Event {
+  id          String    @id @default(cuid())
+  name        String
+  description String    @default("")
+  isActive    Boolean   @default(false)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  products Product[]
+  menus    Menu[]
+  orders   Order[]
+
+  @@index([isActive])
+}
+
 model Product {
   id             String   @id @default(cuid())
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   name           String
   categoryId     String
   category       Category @relation(fields: [categoryId], references: [id])
@@ -36,10 +58,13 @@ model Product {
   menuGroups MenuGroupProduct[]
 
   @@index([categoryId])
+  @@index([eventId])
 }
 
 model Menu {
   id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   name        String
   price       Float
   description String?  @db.Text
@@ -48,6 +73,8 @@ model Menu {
   icon        String   @default("🍱")
   createdAt   DateTime @default(now())
   groups      MenuGroup[]
+
+  @@index([eventId])
 }
 
 // A meal-deal choice group (e.g. "Main", "Drink").
@@ -73,25 +100,14 @@ model MenuGroupProduct {
   @@id([menuGroupId, productId])
 }
 
-// Saved catalog snapshot (products + meal deals + categories), replayable as-is.
-// Stored as JSON: these are frozen snapshots, not live data to query
-// relationally.
-model Template {
-  id          String   @id @default(cuid())
-  name        String
-  description String   @default("")
-  createdAt   DateTime @default(now())
-  products    Json
-  menus       Json
-  categories  Json
-}
-
 // ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
 
 model Order {
   id              String    @id @default(cuid())
+  eventId         String
+  event           Event     @relation(fields: [eventId], references: [id])
   orderNumber     String    @unique
   status          String    @default("pending") // pending | preparing | ready | completed | cancelled
   isPaid          Boolean   @default(false)
@@ -113,6 +129,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([eventId])
 }
 
 // An order line. Name/price/cost are duplicated here at order time

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Layers, Plus, Save, Trash2, WandSparkles } from 'lucide-react';
+import { CalendarClock, Eye, EyeOff, Layers, Plus, Save, Trash2, WandSparkles } from 'lucide-react';
 
-export default function AdminCatalogTools({ categories, templates, onAddCategory, onDeleteCategory, onToggleCategory, onSaveTemplate, onApplyTemplate, onDeleteTemplate }) {
+export default function AdminCatalogTools({ categories, events, onAddCategory, onDeleteCategory, onToggleCategory, onCreateEvent, onActivateEvent, onDeleteEvent }) {
   const [categoryName, setCategoryName] = useState('');
-  const [templateName, setTemplateName] = useState('');
-  const [templateDescription, setTemplateDescription] = useState('');
+  const [eventName, setEventName] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventStartDate, setEventStartDate] = useState('');
+  const [eventEndDate, setEventEndDate] = useState('');
 
   const handleCategorySubmit = async event => {
     event.preventDefault();
@@ -13,18 +15,26 @@ export default function AdminCatalogTools({ categories, templates, onAddCategory
     }
   };
 
-  const handleTemplateSubmit = async event => {
+  const handleEventSubmit = async event => {
     event.preventDefault();
-    if (await onSaveTemplate({ name: templateName, description: templateDescription })) {
-      setTemplateName('');
-      setTemplateDescription('');
+    const saved = await onCreateEvent({
+      name: eventName,
+      description: eventDescription,
+      startDate: eventStartDate || undefined,
+      endDate: eventEndDate || undefined
+    });
+    if (saved) {
+      setEventName('');
+      setEventDescription('');
+      setEventStartDate('');
+      setEventEndDate('');
     }
   };
 
   return (
     <section style={{ marginBottom: '2rem' }}>
       <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-        <Layers size={20} color="var(--color-primary)" /> Cartes et catégories
+        <Layers size={20} color="var(--color-primary)" /> Événements et catégories
       </h2>
       <div className="admin-tools-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
         <div className="synthesis-card">
@@ -49,22 +59,50 @@ export default function AdminCatalogTools({ categories, templates, onAddCategory
         </div>
 
         <div className="synthesis-card">
-          <h3 style={{ marginBottom: '0.75rem' }}>Enregistrer la carte actuelle</h3>
-          <form onSubmit={handleTemplateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <input className="form-input" placeholder="Nom de l'événement (ex: Tournoi)" value={templateName} onChange={event => setTemplateName(event.target.value)} required />
-            <input className="form-input" placeholder="Description (optionnel)" value={templateDescription} onChange={event => setTemplateDescription(event.target.value)} />
-            <button className="btn btn-primary" type="submit"><Save size={16} /> Enregistrer cette carte</button>
+          <h3 style={{ marginBottom: '0.75rem' }}>Créer un nouvel événement</h3>
+          <p className="formule-slot-hint" style={{ marginBottom: '0.6rem' }}>
+            Part d'une copie du catalogue actuel (produits et formules), sous un nouveau nom — l'événement actuel n'est pas modifié.
+          </p>
+          <form onSubmit={handleEventSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <input className="form-input" placeholder="Nom de l'événement (ex: Tournoi)" value={eventName} onChange={event => setEventName(event.target.value)} required />
+            <input className="form-input" placeholder="Description (optionnel)" value={eventDescription} onChange={event => setEventDescription(event.target.value)} />
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <label style={{ flex: 1, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Début (optionnel)
+                <input className="form-input" type="date" value={eventStartDate} onChange={event => setEventStartDate(event.target.value)} />
+              </label>
+              <label style={{ flex: 1, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Fin (optionnel)
+                <input className="form-input" type="date" value={eventEndDate} onChange={event => setEventEndDate(event.target.value)} />
+              </label>
+            </div>
+            <button className="btn btn-primary" type="submit"><Save size={16} /> Créer cet événement</button>
           </form>
         </div>
 
         <div className="synthesis-card">
-          <h3 style={{ marginBottom: '0.75rem' }}>Cartes enregistrées</h3>
-          {templates.length === 0 ? <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Aucune carte enregistrée.</p> : templates.map(template => (
-            <div key={template.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0', borderBottom: '1px solid var(--border-color)' }}>
-              <span style={{ fontSize: '0.85rem' }}><strong>{template.name}</strong>{template.description && <small style={{ display: 'block', color: 'var(--text-muted)' }}>{template.description}</small>}</span>
+          <h3 style={{ marginBottom: '0.75rem' }}>Événements enregistrés</h3>
+          {events.length === 0 ? <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Aucun événement enregistré.</p> : events.map(event => (
+            <div key={event.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0', borderBottom: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: '0.85rem' }}>
+                <strong>{event.name}</strong>
+                {event.isActive && <span className="badge badge-best" style={{ marginLeft: '0.4rem' }}>Actif</span>}
+                {event.description && <small style={{ display: 'block', color: 'var(--text-muted)' }}>{event.description}</small>}
+                {(event.startDate || event.endDate) && (
+                  <small style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)' }}>
+                    <CalendarClock size={11} />
+                    {event.startDate ? new Date(event.startDate).toLocaleDateString('fr-FR') : '?'}
+                    {event.endDate ? ` → ${new Date(event.endDate).toLocaleDateString('fr-FR')}` : ''}
+                  </small>
+                )}
+              </span>
               <span style={{ display: 'flex', gap: '0.3rem' }}>
-                <button className="btn btn-primary" type="button" onClick={() => onApplyTemplate(template.id)} title="Appliquer cette carte"><WandSparkles size={14} /></button>
-                <button className="btn btn-danger" type="button" onClick={() => onDeleteTemplate(template.id)} title="Supprimer cette carte"><Trash2 size={14} /></button>
+                {!event.isActive && (
+                  <button className="btn btn-primary" type="button" onClick={() => onActivateEvent(event.id)} title="Basculer la vitrine sur cet événement"><WandSparkles size={14} /></button>
+                )}
+                {!event.isActive && (
+                  <button className="btn btn-danger" type="button" onClick={() => onDeleteEvent(event.id)} title="Supprimer cet événement"><Trash2 size={14} /></button>
+                )}
               </span>
             </div>
           ))}

@@ -30,6 +30,18 @@ function serializeCategory(c) {
   return { id: c.id, name: c.name, icon: c.icon, isVisible: c.isVisible };
 }
 
+function serializeEvent(e) {
+  return {
+    id: e.id,
+    name: e.name,
+    description: e.description,
+    isActive: e.isActive,
+    startDate: e.startDate ? e.startDate.toISOString() : null,
+    endDate: e.endDate ? e.endDate.toISOString() : null,
+    createdAt: e.createdAt.toISOString()
+  };
+}
+
 function serializeProduct(p) {
   if (!p) return null;
   return {
@@ -148,7 +160,7 @@ const menuInclude = { groups: { include: { products: true } } };
 
 class DB {
   constructor() {
-    this.ready = this._ensureDefaultCategories();
+    this.ready = Promise.all([this._ensureDefaultCategories(), this._ensureActiveEvent()]);
   }
 
   async _ensureDefaultCategories() {
@@ -159,6 +171,21 @@ class DB {
     }
   }
 
+  // A brand new install has no events yet, but every product/menu/order
+  // needs one to attach to. Create a starter active event so the app never
+  // gets stuck with nowhere to put a new product.
+  async _ensureActiveEvent() {
+    const count = await prisma.event.count();
+    if (count > 0) return;
+    await prisma.event.create({ data: { name: 'New event', isActive: true } });
+  }
+
+  async _getActiveEvent() {
+    const event = await prisma.event.findFirst({ where: { isActive: true } });
+    if (!event) throw new Error('No active event: this should never happen after _ensureActiveEvent().');
+    return event;
+  }
+
   // CATEGORIES
   async getCategories() {
     const categories = await prisma.category.findMany();
@@ -166,8 +193,9 @@ class DB {
   }
 
   async getPublicProducts() {
+    const activeEvent = await this._getActiveEvent();
     const products = await prisma.product.findMany({
-      where: { category: { isVisible: true } }
+      where: { eventId: activeEvent.id, category: { isVisible: true } }
     });
     return products.map(serializeProduct);
   }
@@ -201,130 +229,113 @@ class DB {
     return serializeCategory(updated);
   }
 
-  // TEMPLATES
-  async getTemplates() {
-    const templates = await prisma.template.findMany({ orderBy: { createdAt: 'desc' } });
-    return templates.map(t => ({
-      id: t.id,
-      name: t.name,
-      description: t.description,
-      createdAt: t.createdAt.toISOString(),
-      products: t.products,
-      menus: t.menus,
-      categories: t.categories
-    }));
+  // EVENTS
+  // Each event owns its own products/meal deals/orders. Exactly one event is
+  // active at a time -- the storefront and the admin product/menu tools only
+  // ever show the active event's catalog.
+  async getEvents() {
+    const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+    return events.map(serializeEvent);
   }
 
-  async addTemplate(templateData) {
-    const [products, menus, categories] = await Promise.all([
-      this.getProducts(),
-      this.getMenus(),
-      this.getCategories()
-    ]);
-    const created = await prisma.template.create({
+  // Creates a new, inactive event. If copyFromEventId is given, its
+  // products/meal deals are duplicated into the new event as a starting
+  // point (fresh ids -- an independent copy, not a live link).
+  async createEvent(eventData) {
+    const created = await prisma.event.create({
       data: {
-        name: templateData.name.trim(),
-        description: templateData.description || '',
-        products,
-        menus,
-        categories
+        name: eventData.name.trim(),
+        description: eventData.description || '',
+        startDate: eventData.startDate ? new Date(eventData.startDate) : null,
+        endDate: eventData.endDate ? new Date(eventData.endDate) : null,
+        isActive: false
       }
     });
-    return {
-      id: created.id,
-      name: created.name,
-      description: created.description,
-      createdAt: created.createdAt.toISOString(),
-      products: created.products,
-      menus: created.menus,
-      categories: created.categories
-    };
-  }
 
-  // Fully replaces the active catalog (categories/products/meal deals)
-  // with the given snapshot. Used to replay a saved template.
-  async applyTemplate(id) {
-    const template = await prisma.template.findUnique({ where: { id } });
-    if (!template) return null;
-
-    await prisma.$transaction([
-      prisma.menu.deleteMany(),
-      prisma.product.deleteMany(),
-      prisma.category.deleteMany()
-    ]);
-
-    for (const category of template.categories || []) {
-      await prisma.category.create({
-        data: {
-          id: category.id,
-          name: category.name,
-          icon: category.icon || '📦',
-          isVisible: category.isVisible !== false
-        }
-      });
-    }
-    for (const product of template.products || []) {
-      await prisma.product.create({
-        data: {
-          id: product.id,
-          name: product.name,
-          categoryId: product.category,
-          price: parseFloat(product.price) || 0,
-          extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
-          costPrice: product.costPrice ?? null,
-          stock: product.stock ?? null,
-          description: product.description || '',
-          badge: product.badge || '',
-          available: product.available !== false,
-          icon: product.icon || '🥪'
-        }
-      });
-    }
-    const knownProductIds = new Set((template.products || []).map(p => p.id));
-    for (const menu of template.menus || []) {
-      await prisma.menu.create({
-        data: {
-          id: menu.id,
-          name: menu.name,
-          price: parseFloat(menu.price) || 0,
-          description: menu.description || '',
-          badge: menu.badge || '',
-          available: menu.available !== false,
-          icon: menu.icon || '🍱'
-        }
-      });
-      for (const [index, group] of (menu.groups || []).entries()) {
-        const validProductIds = (group.productIds || []).filter(pid => knownProductIds.has(pid));
-        await prisma.menuGroup.create({
+    if (eventData.copyFromEventId) {
+      const [sourceProducts, sourceMenus] = await Promise.all([
+        prisma.product.findMany({ where: { eventId: eventData.copyFromEventId } }),
+        prisma.menu.findMany({ where: { eventId: eventData.copyFromEventId }, include: menuInclude })
+      ]);
+      const idMap = new Map(); // source product id -> new product id
+      for (const product of sourceProducts) {
+        const copy = await prisma.product.create({
           data: {
-            id: group.id,
-            menuId: menu.id,
-            name: group.name || '',
-            position: index,
-            products: { create: validProductIds.map(productId => ({ productId })) }
+            eventId: created.id,
+            name: product.name,
+            categoryId: product.categoryId,
+            price: product.price,
+            extraMenuPrice: product.extraMenuPrice,
+            costPrice: product.costPrice,
+            stock: product.stock,
+            description: product.description,
+            badge: product.badge,
+            available: product.available,
+            icon: product.icon
           }
         });
+        idMap.set(product.id, copy.id);
+      }
+      for (const menu of sourceMenus) {
+        const menuCopy = await prisma.menu.create({
+          data: {
+            eventId: created.id,
+            name: menu.name,
+            price: menu.price,
+            description: menu.description,
+            badge: menu.badge,
+            available: menu.available,
+            icon: menu.icon
+          }
+        });
+        const groups = (menu.groups || []).slice().sort((a, b) => a.position - b.position);
+        for (const [index, group] of groups.entries()) {
+          const remappedProductIds = (group.products || [])
+            .map(link => idMap.get(link.productId))
+            .filter(Boolean);
+          await prisma.menuGroup.create({
+            data: {
+              menuId: menuCopy.id,
+              name: group.name,
+              position: index,
+              products: { create: remappedProductIds.map(productId => ({ productId })) }
+            }
+          });
+        }
       }
     }
 
-    return {
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      createdAt: template.createdAt.toISOString(),
-      products: template.products,
-      menus: template.menus,
-      categories: template.categories
-    };
+    return serializeEvent(created);
   }
 
-  async deleteTemplate(id) {
-    await prisma.template.delete({ where: { id } }).catch(() => null);
+  // Switches the live catalog to the given event. Nothing is destroyed: the
+  // previously active event and its full order history stay intact, just
+  // no longer shown on the storefront.
+  async setActiveEvent(id) {
+    const target = await prisma.event.findUnique({ where: { id } });
+    if (!target) return null;
+    await prisma.$transaction([
+      prisma.event.updateMany({ where: { isActive: true }, data: { isActive: false } }),
+      prisma.event.update({ where: { id }, data: { isActive: true } })
+    ]);
+    return serializeEvent({ ...target, isActive: true });
+  }
+
+  // Refuses to delete the active event, or one that still has orders
+  // (protected at the database level too via the Order.eventId FK).
+  async deleteEvent(id) {
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return false;
+    if (event.isActive) return false;
+    await prisma.event.delete({ where: { id } }).catch(() => null);
+    const stillExists = await prisma.event.findUnique({ where: { id } });
+    return !stillExists;
   }
 
   // PRODUCTS
   async getProducts() {
-    const products = await prisma.product.findMany();
+    const activeEvent = await this._getActiveEvent();
+    const products = await prisma.product.findMany({ where: { eventId: activeEvent.id } });
     return products.map(serializeProduct);
   }
 
@@ -334,11 +345,13 @@ class DB {
   }
 
   async addProduct(product) {
+    const activeEvent = await this._getActiveEvent();
     const stock = (product.stock === '' || product.stock === undefined || product.stock === null)
       ? null
       : parseInt(product.stock, 10);
     const created = await prisma.product.create({
       data: {
+        eventId: activeEvent.id,
         name: product.name,
         categoryId: product.category,
         price: parseFloat(product.price) || 0,
@@ -396,14 +409,17 @@ class DB {
 
   // MENUS
   async getMenus() {
-    const menus = await prisma.menu.findMany({ include: menuInclude });
+    const activeEvent = await this._getActiveEvent();
+    const menus = await prisma.menu.findMany({ where: { eventId: activeEvent.id }, include: menuInclude });
     return menus.map(serializeMenu);
   }
 
   async addMenu(menu) {
+    const activeEvent = await this._getActiveEvent();
     const groups = normalizeGroups(menu.groups);
     const created = await prisma.menu.create({
       data: {
+        eventId: activeEvent.id,
         name: menu.name,
         price: parseFloat(menu.price) || 0,
         description: menu.description || '',
@@ -511,9 +527,11 @@ class DB {
   }
 
   async addOrder(orderData) {
+    const activeEvent = await this._getActiveEvent();
     const orderNumber = await this._generateUniqueOrderNumber();
     const created = await prisma.order.create({
       data: {
+        eventId: activeEvent.id,
         orderNumber,
         status: 'pending',
         isPaid: false,
