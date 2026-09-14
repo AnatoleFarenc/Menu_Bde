@@ -153,7 +153,7 @@ export default function KitchenDashboard({
   };
 
   return (
-    <div className="admin-workspace">
+    <div className="admin-workspace admin-modern">
       <EventSidebar
         events={events}
         selectedEventId={selectedEvent?.id}
@@ -213,7 +213,7 @@ export default function KitchenDashboard({
             </h2>
 
             {slotsList.length === 0 ? (
-              <div style={{ padding: '1.5rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+              <div style={{ padding: '1.5rem', background: 'var(--bg-inset, rgba(255, 255, 255, 0.02))', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
                 Aucune commande active pour le moment.
               </div>
             ) : (

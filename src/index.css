@@ -1549,3 +1549,362 @@ main h3 {
     text-align: left;
   }
 }
+
+/* =============================================================================
+   ADMIN MODERN THEME
+   Scoped under .admin-modern: the management/admin panel (event workspace,
+   product & menu editing, order dashboard) gets its own light, dense,
+   neutral look -- independent from the storefront's warm/artisanal style,
+   which stays untouched everywhere outside this scope.
+   ============================================================================= */
+
+.admin-modern {
+  --bg-page: #f6f7f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f3f4f6;
+  --bg-inset: #f4f5f7;
+  --border-color: #e4e7ec;
+  --border-color-glow: rgba(79, 70, 229, 0.35);
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-primary-glow: rgba(79, 70, 229, 0.1);
+  --color-primary-text: #4338ca;
+  --color-accent: #e11d48;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-glow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-glow-strong: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  background: var(--bg-page);
+  color: var(--text-main);
+  font-family: var(--font-family);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.admin-modern h1,
+.admin-modern h2,
+.admin-modern h3 {
+  font-family: var(--font-family);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+/* Layout shell */
+.admin-modern.admin-workspace {
+  gap: 1.5rem;
+}
+
+.admin-modern .event-sidebar {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .event-sidebar-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.admin-modern .event-sidebar-item.is-selected {
+  background: var(--color-primary-glow);
+  border: 1px solid var(--color-primary);
+}
+
+.admin-modern .event-sidebar-active-star {
+  color: var(--color-primary);
+  fill: var(--color-primary);
+}
+
+.admin-modern .event-header {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tab bar: flat underline tabs instead of the storefront's glowing pill buttons */
+.admin-modern .hero-banner {
+  padding: 0 0 0.75rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .admin-tabs-scroll {
+  gap: 0.25rem;
+}
+
+.admin-modern .admin-tabs-scroll .btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  padding: 0.5rem 0.85rem;
+  font-weight: 600;
+}
+
+.admin-modern .admin-tabs-scroll .btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  transform: none;
+}
+
+.admin-modern .admin-tabs-scroll .btn.btn-primary {
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  box-shadow: none;
+}
+
+/* Buttons */
+.admin-modern .btn {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.9rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-modern .btn-primary {
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.admin-modern .btn-primary:hover {
+  background: var(--color-primary-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-modern .btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+}
+
+.admin-modern .btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color);
+  transform: none;
+}
+
+.admin-modern .btn-secondary.active {
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+  box-shadow: none;
+}
+
+.admin-modern .btn-complete {
+  color: var(--color-success);
+  border-color: #bbf7d0;
+}
+
+.admin-modern .btn-complete:hover {
+  color: #15803d;
+  border-color: var(--color-success);
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.admin-modern .btn-admin,
+.admin-modern .btn-danger {
+  background: #fff1f2;
+  color: var(--color-danger);
+  border: 1px solid #fecdd3;
+}
+
+.admin-modern .btn-admin:hover,
+.admin-modern .btn-danger:hover {
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+/* Badges / status chips: soft tinted pills instead of flat italic text */
+.admin-modern .badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-style: normal;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-inset);
+  color: var(--text-muted);
+}
+
+.admin-modern .badge-best {
+  font-style: normal;
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+}
+
+.admin-modern .badge-stock-out {
+  font-style: normal;
+  background: #fff1f2;
+  color: var(--color-danger);
+}
+
+.admin-modern .status-badge {
+  font-style: normal;
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.6rem;
+}
+
+.admin-modern .status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-modern .status-preparing {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.admin-modern .status-ready {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.admin-modern .status-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-modern .status-cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Cards */
+.admin-modern .synthesis-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .synthesis-title {
+  color: var(--text-main);
+}
+
+.admin-modern .synthesis-item {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .order-card,
+.admin-modern .order-card[style] {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .order-card > div[style*="rgba(0,0,0"] {
+  background: var(--bg-inset) !important;
+  border-color: var(--border-color) !important;
+}
+
+.admin-modern .order-card span[style*="rgba(255,255,255"],
+.admin-modern .order-card span[style*="rgba(255, 255, 255"] {
+  background: var(--bg-inset) !important;
+}
+
+/* Forms */
+.admin-modern .form-input,
+.admin-modern .form-select,
+.admin-modern .form-textarea {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+.admin-modern .form-select {
+  color-scheme: light;
+}
+
+.admin-modern .form-select option {
+  background: #ffffff;
+  color: var(--text-main);
+}
+
+.admin-modern .form-input:focus,
+.admin-modern .form-select:focus,
+.admin-modern .form-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.admin-modern .formule-item {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-color);
+}
+
+.admin-modern .formule-item.is-checked {
+  background: var(--color-primary-glow);
+  border-color: var(--color-primary);
+}
+
+.admin-modern .formule-config {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-color);
+}
+
+/* Product/meal-deal cards reused from the storefront: strip the vintage
+   italic-serif treatment for a cleaner catalog-management look. */
+.admin-modern .product-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .product-card:hover {
+  background: var(--bg-card);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .card-title {
+  font-family: var(--font-family);
+  font-weight: 700;
+}
+
+.admin-modern .card-desc {
+  font-style: normal;
+}
+
+.admin-modern .card-price {
+  font-family: var(--font-family);
+  color: var(--text-main);
+}
+
+/* Modal (product/menu add-edit) */
+.admin-modern.modal-overlay {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.admin-modern .modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+}
+
+/* Tables */
+.admin-modern table thead tr {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.admin-modern table tbody tr {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.admin-modern table tbody tr:hover {
+  background: var(--bg-card-hover);
+}
+
+/* Sidebar "new event" quick form + history cards inherit the tokens above
+   automatically since they're written with var(...) throughout. */

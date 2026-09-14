@@ -168,7 +168,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay admin-modern" onClick={onClose}>
       <div className="modal-content fade-in" onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>
