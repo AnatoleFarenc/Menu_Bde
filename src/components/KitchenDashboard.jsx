@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles, Layers, MapPin, Utensils, Trash2, Edit3, Undo2, Gift, BarChart3, Star, MessageSquare, Download } from 'lucide-react';
+import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles, Layers, MapPin, Utensils, Trash2, Edit3, Undo2, Gift, BarChart3, Star, MessageSquare, Download, History } from 'lucide-react';
 import ProductCard from './ProductCard';
 import AdminCatalogTools from './AdminCatalogTools';
 import AdminOrderEditModal from './AdminOrderEditModal';
 import EventSidebar from './EventSidebar';
 import EventHeader from './EventHeader';
+import EventHistoryTab from './EventHistoryTab';
+import ShoppingListManager from './ShoppingListManager';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
 
@@ -53,9 +55,12 @@ export default function KitchenDashboard({
   onFetchDailyReport,
   reviews,
   onFetchReviews,
-  onDeleteReview
+  onDeleteReview,
+  shoppingList,
+  onAddShoppingListItem,
+  onDeleteShoppingListItem
 }) {
-  const [adminTab, setAdminTab] = useState('kitchen'); // 'kitchen' | 'vitrine' | 'bilan' | 'avis'
+  const [adminTab, setAdminTab] = useState('kitchen'); // 'kitchen' | 'vitrine' | 'bilan' | 'avis' | 'historique'
   const [selectedSlot, setSelectedSlot] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'all'
   const [editingOrder, setEditingOrder] = useState(null);
@@ -186,6 +191,12 @@ export default function KitchenDashboard({
               onClick={() => setAdminTab('avis')}
             >
               <Star size={16} /> Avis Clients
+            </button>
+            <button
+              className={`btn ${adminTab === 'historique' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAdminTab('historique')}
+            >
+              <History size={16} /> Historique
             </button>
           </div>
         </div>
@@ -570,6 +581,13 @@ export default function KitchenDashboard({
               ))}
             </div>
           </div>
+
+          <ShoppingListManager
+            items={shoppingList}
+            products={products}
+            onAddItem={onAddShoppingListItem}
+            onDeleteItem={onDeleteShoppingListItem}
+          />
         </>
       )}
 
@@ -747,6 +765,18 @@ export default function KitchenDashboard({
             </div>
           )}
         </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB 5: EVENT HISTORY                                 */}
+      {/* ---------------------------------------------------- */}
+      {adminTab === 'historique' && (
+        <EventHistoryTab
+          events={events}
+          selectedEventId={selectedEvent?.id}
+          onSelectEvent={onSelectEvent}
+          onDuplicateEvent={onDuplicateEvent}
+        />
       )}
 
         {editingOrder && (

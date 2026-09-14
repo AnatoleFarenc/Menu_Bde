@@ -259,6 +259,29 @@ app.delete('/api/admin/events/:id', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
+// Shopping/resource list of one event -- what was bought to run it, so
+// another team can rebuild it later.
+app.get('/api/admin/events/:id/shopping-list', ah(async (req, res) => {
+  res.json({ items: await db.getShoppingList(req.params.id) });
+}));
+
+app.post('/api/admin/events/:id/shopping-list', ah(async (req, res) => {
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'article est obligatoire' });
+  const item = await db.addShoppingListItem(req.params.id, req.body);
+  res.status(201).json({ item });
+}));
+
+app.put('/api/admin/shopping-list/:id', ah(async (req, res) => {
+  const updated = await db.updateShoppingListItem(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Article introuvable' });
+  res.json({ item: updated });
+}));
+
+app.delete('/api/admin/shopping-list/:id', ah(async (req, res) => {
+  await db.deleteShoppingListItem(req.params.id);
+  res.json({ success: true });
+}));
+
 app.post('/api/admin/categories', ah(async (req, res) => {
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la catégorie est obligatoire' });
   const category = await db.addCategory(req.body);

@@ -27,15 +27,52 @@ model Event {
   name        String
   description String    @default("")
   isActive    Boolean   @default(false)
+  status      String    @default("upcoming") // upcoming | ongoing | completed
   startDate   DateTime?
   endDate     DateTime?
   createdAt   DateTime  @default(now())
 
-  products Product[]
-  menus    Menu[]
-  orders   Order[]
+  products     Product[]
+  menus        Menu[]
+  orders       Order[]
+  shoppingList ShoppingListItem[]
 
   @@index([isActive])
+  @@index([status])
+}
+
+// One line of an event's shopping/resource list: what was bought to run it,
+// so another team can rebuild the same event later. Every field but name is
+// optional -- the info isn't always known or tracked.
+model ShoppingListItem {
+  id               String   @id @default(cuid())
+  eventId          String
+  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name             String
+  quantity         Float?
+  unit             String?
+  forDays          Int?
+  forPeople        Int?
+  unitCost         Float?
+  totalCost        Float?
+  purchaseLocation String?
+  note             String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  products ShoppingListItemProduct[]
+
+  @@index([eventId])
+}
+
+// A shopping list line can be destined for several catalog products (e.g.
+// "20 baguettes" feeds several different sandwiches).
+model ShoppingListItemProduct {
+  shoppingListItemId String
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([shoppingListItemId, productId])
 }
 
 model Product {
@@ -55,7 +92,8 @@ model Product {
   icon           String   @default("🥪")
   createdAt      DateTime @default(now())
 
-  menuGroups MenuGroupProduct[]
+  menuGroups        MenuGroupProduct[]
+  shoppingListLinks ShoppingListItemProduct[]
 
   @@index([categoryId])
   @@index([eventId])

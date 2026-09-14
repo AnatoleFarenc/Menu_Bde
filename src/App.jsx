@@ -33,6 +33,7 @@ export default function App() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
+  const [shoppingList, setShoppingList] = useState([]);
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
@@ -135,11 +136,12 @@ export default function App() {
     }
   }, [events, selectedEventId]);
 
-  // Whichever event is selected in the admin, keep its catalog/orders/bilan in sync.
+  // Whichever event is selected in the admin, keep its catalog/orders/bilan/shopping list in sync.
   useEffect(() => {
     if (!selectedEventId || activeTab !== 'admin') return;
     fetchAdminCatalog(selectedEventId);
     fetchAdminOrders(selectedEventId);
+    fetchShoppingList(selectedEventId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId, activeTab]);
 
@@ -199,6 +201,36 @@ export default function App() {
       setAdminMenus(res.data.menus || []);
     } catch (e) {
       console.error('Error fetching admin catalog:', e);
+    }
+  };
+
+  const fetchShoppingList = async (eventId) => {
+    if (!eventId) return;
+    try {
+      const res = await axios.get(`/api/admin/events/${eventId}/shopping-list`, { headers: { Authorization: `Bearer ${authToken}` } });
+      setShoppingList(res.data.items || []);
+    } catch (e) {
+      console.error('Error fetching shopping list:', e);
+    }
+  };
+
+  const handleAddShoppingListItem = async item => {
+    try {
+      await axios.post(`/api/admin/events/${selectedEventId}/shopping-list`, item, { headers: { Authorization: `Bearer ${authToken}` } });
+      fetchShoppingList(selectedEventId);
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de l\'ajout à la liste de courses.');
+      return false;
+    }
+  };
+
+  const handleDeleteShoppingListItem = async id => {
+    try {
+      await axios.delete(`/api/admin/shopping-list/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      fetchShoppingList(selectedEventId);
+    } catch (e) {
+      alert('Erreur lors de la suppression.');
     }
   };
 
@@ -783,6 +815,9 @@ export default function App() {
           onToggleStock={handleToggleStock}
           onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
           onDeleteItem={handleDeleteAdminItem}
+          shoppingList={shoppingList}
+          onAddShoppingListItem={handleAddShoppingListItem}
+          onDeleteShoppingListItem={handleDeleteShoppingListItem}
         />
       )}
 

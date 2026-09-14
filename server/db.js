@@ -36,9 +36,26 @@ function serializeEvent(e) {
     name: e.name,
     description: e.description,
     isActive: e.isActive,
+    status: e.status,
     startDate: e.startDate ? e.startDate.toISOString() : null,
     endDate: e.endDate ? e.endDate.toISOString() : null,
     createdAt: e.createdAt.toISOString()
+  };
+}
+
+function serializeShoppingListItem(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    forDays: item.forDays,
+    forPeople: item.forPeople,
+    unitCost: item.unitCost,
+    totalCost: item.totalCost,
+    purchaseLocation: item.purchaseLocation,
+    note: item.note,
+    productIds: (item.products || []).map(link => link.productId)
   };
 }
 
@@ -312,6 +329,29 @@ class DB {
           });
         }
       }
+
+      const sourceShoppingList = await prisma.shoppingListItem.findMany({
+        where: { eventId: eventData.copyFromEventId },
+        include: { products: true }
+      });
+      for (const item of sourceShoppingList) {
+        const remappedProductIds = item.products.map(link => idMap.get(link.productId)).filter(Boolean);
+        await prisma.shoppingListItem.create({
+          data: {
+            eventId: created.id,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            forDays: item.forDays,
+            forPeople: item.forPeople,
+            unitCost: item.unitCost,
+            totalCost: item.totalCost,
+            purchaseLocation: item.purchaseLocation,
+            note: item.note,
+            products: { create: remappedProductIds.map(productId => ({ productId })) }
+          }
+        });
+      }
     }
 
     return serializeEvent(created);
@@ -323,6 +363,7 @@ class DB {
     const data = {};
     if (updates.name !== undefined) data.name = updates.name.trim();
     if (updates.description !== undefined) data.description = updates.description;
+    if (updates.status !== undefined) data.status = updates.status;
     if (updates.startDate !== undefined) data.startDate = updates.startDate ? new Date(updates.startDate) : null;
     if (updates.endDate !== undefined) data.endDate = updates.endDate ? new Date(updates.endDate) : null;
     const updated = await prisma.event.update({ where: { id }, data });
@@ -331,15 +372,17 @@ class DB {
 
   // Switches the live catalog to the given event. Nothing is destroyed: the
   // previously active event and its full order history stay intact, just
-  // no longer shown on the storefront.
+  // no longer shown on the storefront. Bumps a still-"upcoming" event to
+  // "ongoing" -- going live means it's actually happening now.
   async setActiveEvent(id) {
     const target = await prisma.event.findUnique({ where: { id } });
     if (!target) return null;
+    const nextStatus = target.status === 'upcoming' ? 'ongoing' : target.status;
     await prisma.$transaction([
       prisma.event.updateMany({ where: { isActive: true }, data: { isActive: false } }),
-      prisma.event.update({ where: { id }, data: { isActive: true } })
+      prisma.event.update({ where: { id }, data: { isActive: true, status: nextStatus } })
     ]);
-    return serializeEvent({ ...target, isActive: true });
+    return serializeEvent({ ...target, isActive: true, status: nextStatus });
   }
 
   // Refuses to delete the active event, or one that still has orders
@@ -351,6 +394,66 @@ class DB {
     await prisma.event.delete({ where: { id } }).catch(() => null);
     const stillExists = await prisma.event.findUnique({ where: { id } });
     return !stillExists;
+  }
+
+  // SHOPPING LIST -- one event's resource list ("what we bought to run
+  // this"), so another team can rebuild it later. Every field but name is
+  // optional: the info isn't always known.
+  async getShoppingList(eventId) {
+    const items = await prisma.shoppingListItem.findMany({
+      where: { eventId },
+      include: { products: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    return items.map(serializeShoppingListItem);
+  }
+
+  async addShoppingListItem(eventId, item) {
+    const created = await prisma.shoppingListItem.create({
+      data: {
+        eventId,
+        name: item.name.trim(),
+        quantity: item.quantity === '' || item.quantity === undefined || item.quantity === null ? null : parseFloat(item.quantity),
+        unit: item.unit || null,
+        forDays: item.forDays === '' || item.forDays === undefined || item.forDays === null ? null : parseInt(item.forDays, 10),
+        forPeople: item.forPeople === '' || item.forPeople === undefined || item.forPeople === null ? null : parseInt(item.forPeople, 10),
+        unitCost: item.unitCost === '' || item.unitCost === undefined || item.unitCost === null ? null : parseFloat(item.unitCost),
+        totalCost: item.totalCost === '' || item.totalCost === undefined || item.totalCost === null ? null : parseFloat(item.totalCost),
+        purchaseLocation: item.purchaseLocation || null,
+        note: item.note || null,
+        products: { create: (item.productIds || []).map(productId => ({ productId })) }
+      },
+      include: { products: true }
+    });
+    return serializeShoppingListItem(created);
+  }
+
+  async updateShoppingListItem(id, updates) {
+    const existing = await prisma.shoppingListItem.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    const data = {};
+    if (updates.name !== undefined) data.name = updates.name.trim();
+    if (updates.quantity !== undefined) data.quantity = (updates.quantity === '' || updates.quantity === null) ? null : parseFloat(updates.quantity);
+    if (updates.unit !== undefined) data.unit = updates.unit || null;
+    if (updates.forDays !== undefined) data.forDays = (updates.forDays === '' || updates.forDays === null) ? null : parseInt(updates.forDays, 10);
+    if (updates.forPeople !== undefined) data.forPeople = (updates.forPeople === '' || updates.forPeople === null) ? null : parseInt(updates.forPeople, 10);
+    if (updates.unitCost !== undefined) data.unitCost = (updates.unitCost === '' || updates.unitCost === null) ? null : parseFloat(updates.unitCost);
+    if (updates.totalCost !== undefined) data.totalCost = (updates.totalCost === '' || updates.totalCost === null) ? null : parseFloat(updates.totalCost);
+    if (updates.purchaseLocation !== undefined) data.purchaseLocation = updates.purchaseLocation || null;
+    if (updates.note !== undefined) data.note = updates.note || null;
+
+    if (updates.productIds !== undefined) {
+      await prisma.shoppingListItemProduct.deleteMany({ where: { shoppingListItemId: id } });
+      data.products = { create: (updates.productIds || []).map(productId => ({ productId })) };
+    }
+
+    const updated = await prisma.shoppingListItem.update({ where: { id }, data, include: { products: true } });
+    return serializeShoppingListItem(updated);
+  }
+
+  async deleteShoppingListItem(id) {
+    await prisma.shoppingListItem.delete({ where: { id } }).catch(() => null);
   }
 
   // PRODUCTS -- eventId is explicit: any event's catalog can be browsed and
