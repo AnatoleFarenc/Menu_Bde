@@ -1,8 +1,7 @@
 import React from 'react';
-import { BarChart3, ChefHat, History, Package, Star } from 'lucide-react';
+import { BarChart3, History, Package, Star } from 'lucide-react';
 
 const SECTIONS = [
-  { id: 'kitchen', label: 'Commandes', icon: ChefHat },
   { id: 'vitrine', label: 'Catalogue', icon: Package },
   { id: 'bilan', label: 'Bilan', icon: BarChart3 },
   { id: 'historique', label: 'Historique', icon: History },

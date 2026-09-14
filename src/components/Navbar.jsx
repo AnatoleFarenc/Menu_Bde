@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles } from 'lucide-react';
+import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles, Settings } from 'lucide-react';
 
 function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
   return (
@@ -30,6 +30,17 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
           <ShieldCheck size={16} />
           <span className="tab-text-long">Espace Admin BDE</span>
           <span className="tab-text-short">Admin</span>
+        </button>
+      )}
+
+      {isAdmin && (
+        <button
+          className={`tab-btn tab-btn-admin ${activeTab === 'management' ? 'active' : ''}`}
+          onClick={() => setActiveTab('management')}
+        >
+          <Settings size={16} />
+          <span className="tab-text-long">Gestion événements</span>
+          <span className="tab-text-short">Gestion</span>
         </button>
       )}
     </nav>

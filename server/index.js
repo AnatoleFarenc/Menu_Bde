@@ -220,6 +220,13 @@ app.get('/api/products', ah(async (req, res) => {
   res.json({ products, menus, categories });
 }));
 
+// The single storefront currently live for students -- used by the
+// (warm-themed) kitchen/order-tracking board, which always follows whatever
+// is active rather than letting staff browse other events while on shift.
+app.get('/api/admin/active-storefront', ah(async (req, res) => {
+  res.json({ storefront: await db.getActiveStorefront() });
+}));
+
 app.get('/api/admin/events', ah(async (req, res) => {
   res.json({ events: await db.getEvents() });
 }));

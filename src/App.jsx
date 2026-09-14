@@ -6,6 +6,7 @@ import MenuBuilderModal from './components/MenuBuilderModal';
 import CartDrawer from './components/CartDrawer';
 import AdminProductModal from './components/AdminProductModal';
 import AdminShell from './components/AdminShell';
+import AdminKitchenBoard from './components/AdminKitchenBoard';
 import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
@@ -33,16 +34,21 @@ export default function App() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [storefronts, setStorefronts] = useState([]);
   const [selectedStorefrontId, setSelectedStorefrontId] = useState(null);
-  const [adminSection, setAdminSection] = useState('kitchen'); // 'kitchen' | 'vitrine' | 'bilan' | 'avis' | 'historique'
+  const [adminSection, setAdminSection] = useState('vitrine'); // 'vitrine' | 'bilan' | 'avis' | 'historique'
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
-  // Admin Kitchen state
-  const [adminOrders, setAdminOrders] = useState([]);
-  const [synthesisByTime, setSynthesisByTime] = useState({});
+  // Live order tracking (site-themed "Admin" tab): always follows whichever
+  // storefront is currently active, independent of whatever event/storefront
+  // is open in the management tool.
+  const [activeStorefront, setActiveStorefront] = useState(null);
+  const [kitchenOrders, setKitchenOrders] = useState([]);
+  const [kitchenSynthesis, setKitchenSynthesis] = useState({});
+  const [kitchenProducts, setKitchenProducts] = useState([]);
+
   const [dailyReport, setDailyReport] = useState(null);
   const [reviews, setReviews] = useState([]);
 
@@ -121,14 +127,31 @@ export default function App() {
     }
   }, [authToken]);
 
+  // "Admin" tab (site-themed order tracking) always follows the live
+  // storefront, refreshed regularly in case staff switch it while open.
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
-      fetchAdminEvents();
-      const refreshTimer = setInterval(() => fetchAdminOrders(selectedStorefrontId), 5000);
+      (async () => {
+        const sf = await fetchActiveStorefront();
+        if (sf) {
+          fetchKitchenOrders(sf.id);
+          fetchKitchenProducts(sf.id);
+        }
+      })();
+      const refreshTimer = setInterval(async () => {
+        const sf = await fetchActiveStorefront();
+        if (sf) fetchKitchenOrders(sf.id);
+      }, 5000);
       return () => clearInterval(refreshTimer);
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, activeTab]);
+
+  useEffect(() => {
+    if (user && user.isAdmin && activeTab === 'management') {
+      fetchAdminEvents();
+    }
   }, [user, activeTab]);
 
   // Once the events list loads, default to viewing the active event.
@@ -150,11 +173,10 @@ export default function App() {
     })();
   }, [selectedEventId]);
 
-  // Whichever storefront is selected in the admin, keep its catalog/orders/bilan/shopping list in sync.
+  // Whichever storefront is selected in the management tool, keep its catalog/shopping list in sync.
   useEffect(() => {
-    if (!selectedStorefrontId || activeTab !== 'admin') return;
+    if (!selectedStorefrontId || activeTab !== 'management') return;
     fetchAdminCatalog(selectedStorefrontId);
-    fetchAdminOrders(selectedStorefrontId);
     fetchShoppingList(selectedStorefrontId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStorefrontId, activeTab]);
@@ -263,17 +285,40 @@ export default function App() {
     }
   };
 
-  const fetchAdminOrders = async (storefrontId = selectedStorefrontId) => {
+  // Whichever storefront is currently live for students -- the site-themed
+  // "Admin" order tracking tab always follows this, not a manually browsed one.
+  const fetchActiveStorefront = async () => {
+    try {
+      const res = await axios.get('/api/admin/active-storefront', { headers: { Authorization: `Bearer ${authToken}` } });
+      setActiveStorefront(res.data.storefront);
+      return res.data.storefront;
+    } catch (e) {
+      console.error('Error fetching active storefront:', e);
+      return null;
+    }
+  };
+
+  const fetchKitchenOrders = async (storefrontId) => {
     if (!storefrontId) return;
     try {
       const res = await axios.get('/api/admin/orders', {
         params: { storefrontId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      setAdminOrders(res.data.orders || []);
-      setSynthesisByTime(res.data.synthesisByTime || {});
+      setKitchenOrders(res.data.orders || []);
+      setKitchenSynthesis(res.data.synthesisByTime || {});
     } catch (e) {
-      console.error('Error fetching admin orders:', e);
+      console.error('Error fetching kitchen orders:', e);
+    }
+  };
+
+  const fetchKitchenProducts = async (storefrontId) => {
+    if (!storefrontId) return;
+    try {
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
+      setKitchenProducts(res.data.products || []);
+    } catch (e) {
+      console.error('Error fetching kitchen products:', e);
     }
   };
 
@@ -424,8 +469,8 @@ export default function App() {
       });
       fetchUserOrders();
       fetchProducts();
-      if (user && user.isAdmin) {
-        fetchAdminOrders();
+      if (user && user.isAdmin && activeStorefront) {
+        fetchKitchenOrders(activeStorefront.id);
       }
       setActiveTab('orders');
       if (isKioskMode) {
@@ -625,26 +670,29 @@ export default function App() {
     }
   };
 
+  // Order-tracking handlers below all operate on the currently ACTIVE
+  // storefront (the site-themed "Admin" tab), not the one browsed in the
+  // management tool.
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       await axios.patch(`/api/admin/orders/${orderId}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
-      fetchAdminCatalog(selectedStorefrontId);
+      fetchKitchenOrders(activeStorefront?.id);
+      fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
       alert('Erreur lors de la mise à jour du statut.');
     }
   };
 
   const handleClearOrderHistory = async () => {
-    if (!confirm('Supprimer définitivement tout l\'historique des commandes de cet événement ? Cette action est irréversible.')) return;
+    if (!confirm('Supprimer définitivement tout l\'historique des commandes de cette vitrine ? Cette action est irréversible.')) return;
     try {
       await axios.delete('/api/admin/orders', {
-        params: { storefrontId: selectedStorefrontId },
+        params: { storefrontId: activeStorefront?.id },
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
+      fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
       alert('Erreur lors de la suppression de l\'historique.');
     }
@@ -655,7 +703,7 @@ export default function App() {
       await axios.patch(`/api/admin/orders/${orderId}`, updates, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
+      fetchKitchenOrders(activeStorefront?.id);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la modification de la commande.');
@@ -665,11 +713,11 @@ export default function App() {
 
   const handleCreateFreeOrder = async (payload) => {
     try {
-      await axios.post('/api/admin/orders/free', { ...payload, storefrontId: selectedStorefrontId }, {
+      await axios.post('/api/admin/orders/free', { ...payload, storefrontId: activeStorefront?.id }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
-      fetchAdminCatalog(selectedStorefrontId);
+      fetchKitchenOrders(activeStorefront?.id);
+      fetchKitchenProducts(activeStorefront?.id);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la création du don.');
@@ -683,8 +731,8 @@ export default function App() {
       await axios.delete(`/api/admin/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
-      fetchAdminCatalog(selectedStorefrontId);
+      fetchKitchenOrders(activeStorefront?.id);
+      fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
     }
@@ -695,7 +743,7 @@ export default function App() {
       await axios.patch(`/api/admin/orders/${orderId}/paid`, { isPaid }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
+      fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
     }
@@ -853,8 +901,25 @@ export default function App() {
         <OrderStatus orders={userOrders} onSubmitReview={handleSubmitReview} />
       )}
 
-      {/* TAB 3: ADMIN BDE DASHBOARD */}
+      {/* TAB 3: LIVE ORDER TRACKING (site-themed, follows the active storefront) */}
       {activeTab === 'admin' && user && user.isAdmin && (
+        <AdminKitchenBoard
+          activeStorefront={activeStorefront}
+          orders={kitchenOrders}
+          synthesisByTime={kitchenSynthesis}
+          products={kitchenProducts}
+          onUpdateOrderStatus={handleUpdateOrderStatus}
+          onClearOrderHistory={handleClearOrderHistory}
+          onUpdateOrder={handleUpdateOrder}
+          onCreateFreeOrder={handleCreateFreeOrder}
+          onDeleteOrder={handleDeleteOrder}
+          onTogglePaid={handleTogglePaid}
+          onGoToManagement={() => setActiveTab('management')}
+        />
+      )}
+
+      {/* TAB 4: MANAGEMENT TOOL (event/storefront/catalog/stock/bilan/historique) */}
+      {activeTab === 'management' && user && user.isAdmin && (
         <AdminShell
           activeSection={adminSection}
           onSelectSection={setAdminSection}
@@ -872,25 +937,17 @@ export default function App() {
           onDuplicateStorefront={handleDuplicateStorefront}
           onActivateStorefront={handleActivateStorefront}
           onDeleteStorefront={handleDeleteStorefront}
-          orders={adminOrders}
-          synthesisByTime={synthesisByTime}
           products={adminProducts}
           menus={adminMenus}
           categories={categories}
           onAddCategory={handleAddCategory}
           onDeleteCategory={handleDeleteCategory}
           onToggleCategory={handleToggleCategory}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onClearOrderHistory={handleClearOrderHistory}
-          onUpdateOrder={handleUpdateOrder}
-          onCreateFreeOrder={handleCreateFreeOrder}
           dailyReport={dailyReport}
           onFetchDailyReport={fetchDailyReport}
           reviews={reviews}
           onFetchReviews={fetchReviews}
           onDeleteReview={handleDeleteReview}
-          onDeleteOrder={handleDeleteOrder}
-          onTogglePaid={handleTogglePaid}
           onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
           onToggleStock={handleToggleStock}
           onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
