@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Layers, Utensils, Trash2, BarChart3, Star, MessageSquare, Download } from 'lucide-react';
-import ProductCard from './ProductCard';
+import { BarChart3, Star, MessageSquare, Trash2, Download } from 'lucide-react';
 import AdminCatalogTools from './AdminCatalogTools';
+import CatalogTable from './CatalogTable';
 import EventHistoryTab from './EventHistoryTab';
 import ShoppingListManager from './ShoppingListManager';
 
-export default function KitchenDashboard({
+export default function ManagementPanels({
   activeSection,
   products,
   menus,
@@ -84,57 +84,15 @@ export default function KitchenDashboard({
             onDeleteCategory={onDeleteCategory}
             onToggleCategory={onToggleCategory}
           />
-          <div className="admin-catalog-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2>Gestion des Produits & Menus en Vitrine</h2>
-            <div style={{ display: 'flex', gap: '0.6rem' }}>
-              <button className="btn btn-primary" onClick={() => onOpenAddModal('product')}>
-                <Plus size={16} /> Ajouter un Produit
-              </button>
-              <button className="btn btn-admin" onClick={() => onOpenAddModal('menu')}>
-                <Plus size={16} /> Ajouter une Formule Menu
-              </button>
-            </div>
-          </div>
-
-          {/* MENUS SECTION */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-primary-text)' }}>
-              <Layers size={16} /> Formules Menus ({menus.length})
-            </h3>
-            <div className="grid-container">
-              {menus.map(menu => (
-                <ProductCard
-                  key={menu.id}
-                  item={menu}
-                  type="menu"
-                  isAdminView={true}
-                  onToggleStock={onToggleStock}
-                  onEdit={onEditItem}
-                  onDelete={onDeleteItem}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* PRODUCTS SECTION */}
-          <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-main)' }}>
-              <Utensils size={16} /> Produits à l'unité ({products.length})
-            </h3>
-            <div className="grid-container">
-              {products.map(prod => (
-                <ProductCard
-                  key={prod.id}
-                  item={prod}
-                  type="product"
-                  isAdminView={true}
-                  onToggleStock={onToggleStock}
-                  onEdit={onEditItem}
-                  onDelete={onDeleteItem}
-                />
-              ))}
-            </div>
-          </div>
+          <CatalogTable
+            products={products}
+            menus={menus}
+            categories={categories}
+            onOpenAddModal={onOpenAddModal}
+            onToggleStock={onToggleStock}
+            onEditItem={onEditItem}
+            onDeleteItem={onDeleteItem}
+          />
 
           <ShoppingListManager
             items={shoppingList}

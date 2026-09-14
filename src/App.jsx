@@ -4,12 +4,10 @@ import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import MenuBuilderModal from './components/MenuBuilderModal';
 import CartDrawer from './components/CartDrawer';
-import AdminProductModal from './components/AdminProductModal';
-import AdminShell from './components/AdminShell';
 import AdminKitchenBoard from './components/AdminKitchenBoard';
 import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
-import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
+import { Layers, LogIn, Sparkles } from 'lucide-react';
 
 // Kiosk mode: hidden activation via the URL, specific to this browser only.
 // To activate on a kiosk: open the URL once with ?kiosk=1 (then ?kiosk=0 to deactivate).
@@ -30,38 +28,20 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState(null);
-  const [storefronts, setStorefronts] = useState([]);
-  const [selectedStorefrontId, setSelectedStorefrontId] = useState(null);
-  const [adminSection, setAdminSection] = useState('vitrine'); // 'vitrine' | 'bilan' | 'avis' | 'historique'
-  const [adminProducts, setAdminProducts] = useState([]);
-  const [adminMenus, setAdminMenus] = useState([]);
-  const [shoppingList, setShoppingList] = useState([]);
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
   // Live order tracking (site-themed "Admin" tab): always follows whichever
-  // storefront is currently active, independent of whatever event/storefront
-  // is open in the management tool.
+  // storefront is currently active. Event/storefront creation, catalog and
+  // stock management live entirely on the separate /gestion page instead.
   const [activeStorefront, setActiveStorefront] = useState(null);
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [kitchenSynthesis, setKitchenSynthesis] = useState({});
   const [kitchenProducts, setKitchenProducts] = useState([]);
 
-  const [dailyReport, setDailyReport] = useState(null);
-  const [reviews, setReviews] = useState([]);
-
   // Modals & Drawers state
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [builderMenu, setBuilderMenu] = useState(null);
-  const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
-
-  // Axios config with token
-  const api = axios.create({
-    baseURL: '',
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
-  });
 
   // 1. Initial Load & Auth Check
   useEffect(() => {
@@ -149,39 +129,6 @@ export default function App() {
   }, [user, activeTab]);
 
   useEffect(() => {
-    if (user && user.isAdmin && activeTab === 'management') {
-      fetchAdminEvents();
-    }
-  }, [user, activeTab]);
-
-  // Once the events list loads, default to viewing the active event.
-  useEffect(() => {
-    if (!selectedEventId && events.length > 0) {
-      const active = events.find(ev => ev.isActive);
-      setSelectedEventId(active ? active.id : events[0].id);
-    }
-  }, [events, selectedEventId]);
-
-  // Whichever event is selected, load its storefronts and default to
-  // whichever one is live (or the first one otherwise).
-  useEffect(() => {
-    if (!selectedEventId) return;
-    (async () => {
-      const list = await fetchStorefronts(selectedEventId);
-      const active = list.find(sf => sf.isActive);
-      setSelectedStorefrontId(active ? active.id : (list[0]?.id || null));
-    })();
-  }, [selectedEventId]);
-
-  // Whichever storefront is selected in the management tool, keep its catalog/shopping list in sync.
-  useEffect(() => {
-    if (!selectedStorefrontId || activeTab !== 'management') return;
-    fetchAdminCatalog(selectedStorefrontId);
-    fetchShoppingList(selectedStorefrontId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStorefrontId, activeTab]);
-
-  useEffect(() => {
     if (!user || activeTab !== 'orders') return undefined;
 
     fetchUserOrders();
@@ -226,65 +173,6 @@ export default function App() {
     }
   };
 
-  // A single event can hold several storefronts (e.g. "Petit-déjeuner" and
-  // "Déjeuner"). Returns the list so callers can pick a default right away.
-  const fetchStorefronts = async (eventId) => {
-    if (!eventId) return [];
-    try {
-      const res = await axios.get(`/api/admin/events/${eventId}/storefronts`, { headers: { Authorization: `Bearer ${authToken}` } });
-      const list = res.data.storefronts || [];
-      setStorefronts(list);
-      return list;
-    } catch (e) {
-      console.error('Error fetching storefronts:', e);
-      return [];
-    }
-  };
-
-  // Products/menus of whichever storefront is open in the admin --
-  // independent from the public storefront's `products`/`menus`, which
-  // always reflect the active storefront only.
-  const fetchAdminCatalog = async (storefrontId) => {
-    if (!storefrontId) return;
-    try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
-      setAdminProducts(res.data.products || []);
-      setAdminMenus(res.data.menus || []);
-    } catch (e) {
-      console.error('Error fetching admin catalog:', e);
-    }
-  };
-
-  const fetchShoppingList = async (storefrontId) => {
-    if (!storefrontId) return;
-    try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/shopping-list`, { headers: { Authorization: `Bearer ${authToken}` } });
-      setShoppingList(res.data.items || []);
-    } catch (e) {
-      console.error('Error fetching shopping list:', e);
-    }
-  };
-
-  const handleAddShoppingListItem = async item => {
-    try {
-      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list`, item, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchShoppingList(selectedStorefrontId);
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'ajout à la liste de courses.');
-      return false;
-    }
-  };
-
-  const handleDeleteShoppingListItem = async id => {
-    try {
-      await axios.delete(`/api/admin/shopping-list/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchShoppingList(selectedStorefrontId);
-    } catch (e) {
-      alert('Erreur lors de la suppression.');
-    }
-  };
-
   // Whichever storefront is currently live for students -- the site-themed
   // "Admin" order tracking tab always follows this, not a manually browsed one.
   const fetchActiveStorefront = async () => {
@@ -322,42 +210,6 @@ export default function App() {
     }
   };
 
-  const fetchDailyReport = async (from, to) => {
-    try {
-      const res = await axios.get('/api/admin/report', {
-        params: { from, to: to || from, storefrontId: selectedStorefrontId },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      setDailyReport(res.data);
-    } catch (e) {
-      console.error('Error fetching daily report:', e);
-    }
-  };
-
-  const fetchReviews = async () => {
-    try {
-      const res = await axios.get('/api/admin/reviews', {
-        params: { storefrontId: selectedStorefrontId },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      setReviews(res.data.reviews || []);
-    } catch (e) {
-      console.error('Error fetching reviews:', e);
-    }
-  };
-
-  const handleDeleteReview = async (orderId) => {
-    if (!confirm('Supprimer définitivement cet avis ?')) return;
-    try {
-      await axios.delete(`/api/admin/reviews/${orderId}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      fetchReviews();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
-    }
-  };
-
   const handleSubmitReview = async (orderId, rating, comment) => {
     try {
       await axios.post(`/api/orders/${orderId}/review`, { rating, comment }, {
@@ -366,15 +218,6 @@ export default function App() {
       fetchUserOrders();
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
-    }
-  };
-
-  const fetchAdminEvents = async () => {
-    try {
-      const res = await axios.get('/api/admin/events', { headers: { Authorization: `Bearer ${authToken}` } });
-      setEvents(res.data.events || []);
-    } catch (e) {
-      console.error('Error fetching events:', e);
     }
   };
 
@@ -480,193 +323,6 @@ export default function App() {
       }
     } catch (e) {
       alert('Erreur lors de la validation de la commande.');
-    }
-  };
-
-  // Admin Stock & Product Handlers (always operate on the event currently
-  // open in the admin -- see EventSidebar/EventHeader).
-  const handleToggleStock = async (id, type) => {
-    try {
-      const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
-      await axios.patch(url, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchAdminCatalog(selectedStorefrontId);
-    } catch (e) {
-      alert('Erreur lors de la modification du stock.');
-    }
-  };
-
-  const handleSaveAdminProduct = async (formData, editingId, type) => {
-    try {
-      if (type === 'menu') {
-        if (editingId) {
-          await axios.put(`/api/admin/menus/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
-        } else {
-          await axios.post('/api/admin/menus', { ...formData, storefrontId: selectedStorefrontId }, { headers: { Authorization: `Bearer ${authToken}` } });
-        }
-      } else {
-        if (editingId) {
-          await axios.put(`/api/admin/products/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
-        } else {
-          await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId }, { headers: { Authorization: `Bearer ${authToken}` } });
-        }
-      }
-      fetchAdminCatalog(selectedStorefrontId);
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
-      return false;
-    }
-  };
-
-  const handleDeleteAdminItem = async (id, type) => {
-    if (!confirm('Voulez-vous vraiment supprimer cet élément ?')) return;
-    try {
-      const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
-      await axios.delete(url, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchAdminCatalog(selectedStorefrontId);
-    } catch (e) {
-      alert('Erreur lors de la suppression.');
-    }
-  };
-
-  const handleAddCategory = async category => {
-    try {
-      const res = await axios.post('/api/admin/categories', category, { headers: { Authorization: `Bearer ${authToken}` } });
-      setCategories(res.data.categories || []);
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de la catégorie.');
-      return false;
-    }
-  };
-
-  const handleDeleteCategory = async id => {
-    if (!confirm('Supprimer cette catégorie ?')) return;
-    try {
-      const res = await axios.delete(`/api/admin/categories/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      setCategories(res.data.categories || []);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
-    }
-  };
-
-  const handleToggleCategory = async id => {
-    try {
-      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      setCategories(res.data.categories || []);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
-    }
-  };
-
-  const handleSelectEvent = id => {
-    setSelectedEventId(id);
-  };
-
-  // "+" in the sidebar: a genuinely new, empty event.
-  const handleCreateEvent = async eventData => {
-    try {
-      const res = await axios.post('/api/admin/events', eventData, { headers: { Authorization: `Bearer ${authToken}` } });
-      await fetchAdminEvents();
-      setSelectedEventId(res.data.event.id);
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de l\'événement.');
-      return false;
-    }
-  };
-
-  // Per-event "copy" action: duplicates that specific event's catalog under a new name.
-  const handleDuplicateEvent = async id => {
-    const source = events.find(ev => ev.id === id);
-    const name = prompt('Nom du nouvel événement :', source ? `${source.name} (copie)` : '');
-    if (!name || !name.trim()) return;
-    try {
-      const res = await axios.post(
-        '/api/admin/events',
-        { name, copyFromEventId: id },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
-      await fetchAdminEvents();
-      setSelectedEventId(res.data.event.id);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la duplication de l\'événement.');
-    }
-  };
-
-  const handleUpdateEvent = async (id, updates) => {
-    try {
-      await axios.patch(`/api/admin/events/${id}`, updates, { headers: { Authorization: `Bearer ${authToken}` } });
-      await fetchAdminEvents();
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de l\'événement.');
-      return false;
-    }
-  };
-
-  const handleDeleteEvent = async id => {
-    if (!confirm('Supprimer cet événement enregistré ?')) return;
-    try {
-      await axios.delete(`/api/admin/events/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      if (selectedEventId === id) setSelectedEventId(null);
-      fetchAdminEvents();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'événement.');
-    }
-  };
-
-  const handleSelectStorefront = id => {
-    setSelectedStorefrontId(id);
-  };
-
-  const handleCreateStorefront = async name => {
-    try {
-      const res = await axios.post(
-        `/api/admin/events/${selectedEventId}/storefronts`,
-        { name },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
-      await fetchStorefronts(selectedEventId);
-      setSelectedStorefrontId(res.data.storefront.id);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de la vitrine.');
-    }
-  };
-
-  const handleDuplicateStorefront = async (id, name) => {
-    try {
-      const res = await axios.post(
-        `/api/admin/storefronts/${id}/duplicate`,
-        { name },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
-      await fetchStorefronts(selectedEventId);
-      setSelectedStorefrontId(res.data.storefront.id);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la duplication de la vitrine.');
-    }
-  };
-
-  const handleActivateStorefront = async id => {
-    if (!confirm('Mettre cette vitrine en ligne pour les étudiants ?')) return;
-    try {
-      await axios.post(`/api/admin/storefronts/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      await Promise.all([fetchAdminEvents(), fetchStorefronts(selectedEventId)]);
-      fetchProducts(); // refresh the public storefront, now serving this one
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors du changement de vitrine.');
-    }
-  };
-
-  const handleDeleteStorefront = async id => {
-    if (!confirm('Supprimer cette vitrine ?')) return;
-    try {
-      await axios.delete(`/api/admin/storefronts/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      if (selectedStorefrontId === id) setSelectedStorefrontId(null);
-      fetchStorefronts(selectedEventId);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la vitrine.');
     }
   };
 
@@ -914,47 +570,7 @@ export default function App() {
           onCreateFreeOrder={handleCreateFreeOrder}
           onDeleteOrder={handleDeleteOrder}
           onTogglePaid={handleTogglePaid}
-          onGoToManagement={() => setActiveTab('management')}
-        />
-      )}
-
-      {/* TAB 4: MANAGEMENT TOOL (event/storefront/catalog/stock/bilan/historique) */}
-      {activeTab === 'management' && user && user.isAdmin && (
-        <AdminShell
-          activeSection={adminSection}
-          onSelectSection={setAdminSection}
-          events={events}
-          selectedEvent={events.find(ev => ev.id === selectedEventId)}
-          onSelectEvent={handleSelectEvent}
-          onCreateEvent={handleCreateEvent}
-          onDuplicateEvent={handleDuplicateEvent}
-          onDeleteEvent={handleDeleteEvent}
-          onUpdateEvent={handleUpdateEvent}
-          storefronts={storefronts}
-          selectedStorefront={storefronts.find(sf => sf.id === selectedStorefrontId)}
-          onSelectStorefront={handleSelectStorefront}
-          onCreateStorefront={handleCreateStorefront}
-          onDuplicateStorefront={handleDuplicateStorefront}
-          onActivateStorefront={handleActivateStorefront}
-          onDeleteStorefront={handleDeleteStorefront}
-          products={adminProducts}
-          menus={adminMenus}
-          categories={categories}
-          onAddCategory={handleAddCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onToggleCategory={handleToggleCategory}
-          dailyReport={dailyReport}
-          onFetchDailyReport={fetchDailyReport}
-          reviews={reviews}
-          onFetchReviews={fetchReviews}
-          onDeleteReview={handleDeleteReview}
-          onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
-          onToggleStock={handleToggleStock}
-          onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
-          onDeleteItem={handleDeleteAdminItem}
-          shoppingList={shoppingList}
-          onAddShoppingListItem={handleAddShoppingListItem}
-          onDeleteShoppingListItem={handleDeleteShoppingListItem}
+          onGoToManagement={() => { window.location.href = '/gestion'; }}
         />
       )}
 
@@ -998,17 +614,6 @@ export default function App() {
         clearCart={() => setCart([])}
         onSubmitOrder={handleSubmitOrder}
         user={user}
-      />
-
-      {/* ADMIN ADD/EDIT MODAL */}
-      <AdminProductModal
-        isOpen={adminModalState.isOpen}
-        onClose={() => setAdminModalState({ isOpen: false, item: null, type: 'product' })}
-        onSave={handleSaveAdminProduct}
-        editingItem={adminModalState.item}
-        type={adminModalState.type}
-        categories={categories}
-        products={adminProducts}
       />
     </div>
   );

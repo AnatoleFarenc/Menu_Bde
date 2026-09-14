@@ -34,14 +34,11 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
       )}
 
       {isAdmin && (
-        <button
-          className={`tab-btn tab-btn-admin ${activeTab === 'management' ? 'active' : ''}`}
-          onClick={() => setActiveTab('management')}
-        >
+        <a className="tab-btn tab-btn-admin" href="/gestion">
           <Settings size={16} />
           <span className="tab-text-long">Gestion événements</span>
           <span className="tab-text-short">Gestion</span>
-        </button>
+        </a>
       )}
     </nav>
   );

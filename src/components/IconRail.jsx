@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, History, Package, Star } from 'lucide-react';
+import { BarChart3, History, Home, LogOut, Package, Star } from 'lucide-react';
 
 const SECTIONS = [
   { id: 'vitrine', label: 'Catalogue', icon: Package },
@@ -8,9 +8,15 @@ const SECTIONS = [
   { id: 'avis', label: 'Avis', icon: Star }
 ];
 
+function initialsFor(name) {
+  return (name || '?').trim().slice(0, 2).toUpperCase();
+}
+
 // Narrow, persistent icon strip for the admin tool's main sections --
-// replaces the old horizontal pill tab bar.
-export default function IconRail({ activeSection, onSelectSection }) {
+// replaces the old horizontal pill tab bar. The bottom of the rail always
+// carries a way back to the site and out of the tool (see /gestion), since
+// this page has no other trace of the site's own navigation.
+export default function IconRail({ activeSection, onSelectSection, user, onLogout }) {
   return (
     <nav className="icon-rail">
       <div className="icon-rail-logo">42</div>
@@ -28,6 +34,15 @@ export default function IconRail({ activeSection, onSelectSection }) {
           </button>
         );
       })}
+      <div className="icon-rail-spacer" />
+      <div className="icon-rail-divider" />
+      <a className="icon-rail-btn" href="/" title="Retour au site">
+        <Home size={18} />
+      </a>
+      <button type="button" className="icon-rail-btn" onClick={onLogout} title="Se déconnecter">
+        <LogOut size={18} />
+      </button>
+      {user && <div className="icon-rail-avatar" title={user.displayName || user.login}>{initialsFor(user.displayName || user.login)}</div>}
     </nav>
   );
 }

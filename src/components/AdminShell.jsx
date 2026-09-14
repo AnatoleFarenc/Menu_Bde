@@ -3,7 +3,7 @@ import IconRail from './IconRail';
 import EventSidebar from './EventSidebar';
 import EventHeader from './EventHeader';
 import StorefrontTabs from './StorefrontTabs';
-import KitchenDashboard from './KitchenDashboard';
+import ManagementPanels from './ManagementPanels';
 
 // The management tool's shell: icon rail (sections) + event list + the
 // selected event's header and storefront tabs, wrapping whichever section
@@ -13,6 +13,8 @@ import KitchenDashboard from './KitchenDashboard';
 export default function AdminShell({
   activeSection,
   onSelectSection,
+  user,
+  onLogout,
   events,
   selectedEvent,
   onSelectEvent,
@@ -31,7 +33,7 @@ export default function AdminShell({
 }) {
   return (
     <div className="admin-modern admin-shell">
-      <IconRail activeSection={activeSection} onSelectSection={onSelectSection} />
+      <IconRail activeSection={activeSection} onSelectSection={onSelectSection} user={user} onLogout={onLogout} />
       <EventSidebar
         events={events}
         selectedEventId={selectedEvent?.id}
@@ -52,7 +54,7 @@ export default function AdminShell({
           onDelete={onDeleteStorefront}
         />
         <div className="admin-shell-content">
-          <KitchenDashboard
+          <ManagementPanels
             activeSection={activeSection}
             events={events}
             selectedEvent={selectedEvent}

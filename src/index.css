@@ -1650,31 +1650,38 @@ main h3 {
    ============================================================================= */
 
 .admin-modern {
-  --bg-page: #f6f7f9;
+  --bg-page: #f7f6f2;
   --bg-card: #ffffff;
-  --bg-card-hover: #f3f4f6;
-  --bg-inset: #f4f5f7;
-  --border-color: #e4e7ec;
-  --border-color-glow: rgba(79, 70, 229, 0.35);
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-glow: rgba(79, 70, 229, 0.1);
-  --color-primary-text: #4338ca;
-  --color-accent: #e11d48;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-dim: #94a3b8;
+  --bg-card-hover: #f1efe8;
+  --bg-inset: #f2f0e9;
+  --border-color: #e6e1d6;
+  --border-color-glow: rgba(53, 97, 143, 0.35);
+  --color-primary: #35618f;
+  --color-primary-hover: #2b4f76;
+  --color-primary-glow: rgba(53, 97, 143, 0.1);
+  --color-primary-text: #2b4f76;
+  --color-accent: #b3492f;
+  --color-warning: #b4790f;
+  --color-danger: #b3402e;
+  --color-success: #4c7a3f;
+  --text-main: #262220;
+  --text-muted: #7a7269;
+  --text-dim: #a39a8d;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-glow: 0 4px 16px rgba(15, 23, 42, 0.08);
-  --shadow-glow-strong: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 2px rgba(38, 34, 32, 0.06);
+  --shadow-glow: 0 4px 16px rgba(38, 34, 32, 0.08);
+  --shadow-glow-strong: 0 4px 16px rgba(38, 34, 32, 0.08);
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Muted, warm-compatible tag colors for category dots / item-avatar tiles
+     in the catalog table -- cycled by category, never used as large fills. */
+  --tag-1: #35618f;
+  --tag-2: #a3652c;
+  --tag-3: #8a5a7a;
+  --tag-4: #8a6d1f;
 
   background: var(--bg-page);
   color: var(--text-main);
@@ -1690,18 +1697,35 @@ main h3 {
   color: var(--text-main);
 }
 
-/* Full-bleed: breaks out of .app-container's centered max-width so the tool
-   reads as a clearly separate space from the storefront, edge to edge. */
-.admin-modern.admin-shell {
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  margin-left: -50vw;
+.admin-modern .icon-rail {
+  background: #211d19;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.admin-modern .icon-rail {
-  background: #14161a;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+.admin-modern .icon-rail-spacer {
+  flex: 1;
+}
+
+.admin-modern .icon-rail-divider {
+  width: 26px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 6px 0;
+}
+
+.admin-modern .icon-rail-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(53, 97, 143, 0.25);
+  color: #b9cfe3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
 .admin-modern .icon-rail-logo {
@@ -2029,7 +2053,7 @@ main h3 {
 
 /* Modal (product/menu add-edit) */
 .admin-modern.modal-overlay {
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(38, 34, 32, 0.55);
 }
 
 .admin-modern .modal-content {
@@ -2053,3 +2077,292 @@ main h3 {
 
 /* Sidebar "new event" quick form + history cards inherit the tokens above
    automatically since they're written with var(...) throughout. */
+
+/* -----------------------------------------------------------------------
+   Catalog table (CatalogTable.jsx): replaces the product/menu card grid
+   with a dense data table -- filters/search, initials avatars instead of
+   emoji, and per-category muted tag colors (--tag-1..4).
+   ----------------------------------------------------------------------- */
+.admin-modern .catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.admin-modern .catalog-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.65rem;
+  width: 240px;
+  color: var(--text-dim);
+}
+
+.admin-modern .catalog-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  width: 100%;
+  font-family: var(--font-family);
+}
+
+.admin-modern .chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-modern .chip.active {
+  background: var(--color-primary-glow);
+  border-color: transparent;
+  color: var(--color-primary-text);
+}
+
+.admin-modern .catalog-toolbar-spacer {
+  flex: 1;
+}
+
+.admin-modern .catalog-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  margin: 1.6rem 0 0.6rem;
+}
+
+.admin-modern .catalog-section-label:first-of-type {
+  margin-top: 0;
+}
+
+.admin-modern .catalog-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-full);
+}
+
+.admin-modern .data-table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.admin-modern .data-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-modern .data-table-wrap thead th {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-inset);
+  white-space: nowrap;
+}
+
+.admin-modern .data-table-wrap th.num,
+.admin-modern .data-table-wrap td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-modern .data-table-wrap td {
+  padding: 0.6rem 0.85rem;
+  vertical-align: middle;
+}
+
+.admin-modern .catalog-empty-row {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem;
+}
+
+.admin-modern .item-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.admin-modern .item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.admin-modern .item-icon.tag-1 { background: rgba(53, 97, 143, 0.12); color: var(--tag-1); }
+.admin-modern .item-icon.tag-2 { background: rgba(163, 101, 44, 0.12); color: var(--tag-2); }
+.admin-modern .item-icon.tag-3 { background: rgba(138, 90, 122, 0.12); color: var(--tag-3); }
+.admin-modern .item-icon.tag-4 { background: rgba(138, 109, 31, 0.12); color: var(--tag-4); }
+
+.admin-modern .item-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.admin-modern .item-desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-modern .cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-modern .cat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-modern .cat-dot.tag-1 { background: var(--tag-1); }
+.admin-modern .cat-dot.tag-2 { background: var(--tag-2); }
+.admin-modern .cat-dot.tag-3 { background: var(--tag-3); }
+.admin-modern .cat-dot.tag-4 { background: var(--tag-4); }
+
+.admin-modern .badge-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(180, 121, 15, 0.1);
+  color: var(--color-warning);
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+}
+
+.admin-modern .margin-pos { color: var(--color-success); font-weight: 700; }
+.admin-modern .margin-neg { color: var(--color-danger); font-weight: 700; }
+.admin-modern .dim { color: var(--text-dim); }
+.admin-modern .stock-low { color: var(--color-warning); font-weight: 700; }
+.admin-modern .stock-out { color: var(--color-danger); font-weight: 700; }
+
+.admin-modern .switch {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: var(--radius-full);
+  background: var(--border-color);
+  display: inline-block;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.admin-modern .switch.on {
+  background: var(--color-success);
+}
+
+.admin-modern .switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(38, 34, 32, 0.3);
+  transition: left 0.15s;
+}
+
+.admin-modern .switch.on::after {
+  left: 17px;
+}
+
+.admin-modern .row-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.4;
+  transition: opacity 0.1s;
+}
+
+.admin-modern tr:hover .row-actions,
+.admin-modern tr:focus-within .row-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .admin-modern .row-actions {
+    opacity: 1;
+  }
+}
+
+.admin-modern .icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.admin-modern .icon-btn:hover {
+  background: var(--bg-inset);
+  color: var(--text-main);
+}
+
+.admin-modern .icon-btn.danger:hover {
+  background: rgba(179, 64, 46, 0.1);
+  color: var(--color-danger);
+}
+
+@media (max-width: 640px) {
+  .admin-modern .data-table-wrap {
+    overflow-x: auto;
+  }
+  .admin-modern .data-table-wrap table {
+    min-width: 720px;
+  }
+  .admin-modern .item-desc {
+    max-width: 140px;
+  }
+}
