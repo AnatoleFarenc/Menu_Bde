@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Settings, Eye, EyeOff, Edit3, Trash2, Layers } from 'lucide-react';
+import { Plus, Eye, EyeOff, Edit3, Trash2, Layers } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 
 export default function ProductCard({ item, type = 'product', onAddToCart, onOpenMenuBuilder, isAdminView, onToggleStock, onEdit, onDelete }) {
@@ -8,38 +8,38 @@ export default function ProductCard({ item, type = 'product', onAddToCart, onOpe
 
   return (
     <div className={`product-card ${!isAvailable ? 'out-of-stock' : ''}`}>
-      <div>
-        <div className="card-header">
-          <div className="card-icon"><ItemIcon item={item} type={type} /></div>
-        </div>
+      <div className="card-main">
+        <div className="card-icon"><ItemIcon item={item} type={type} /></div>
 
-        <div className="card-title-row">
-          <h3 className="card-title">{item.name}</h3>
-          <div className="card-badges">
-            {item.badge && <span className="badge badge-best">{item.badge}</span>}
-            {!isAvailable && <span className="badge badge-stock-out">Rupture de stock</span>}
+        <div className="card-body">
+          <div className="card-title-row">
+            <h3 className="card-title">{item.name}</h3>
+            <div className="card-badges">
+              {item.badge && <span className="badge badge-best">{item.badge}</span>}
+              {!isAvailable && <span className="badge badge-stock-out">Rupture de stock</span>}
+            </div>
           </div>
+          {type === 'menu' ? (
+            <>
+              <button
+                type="button"
+                className="menu-details-toggle"
+                aria-expanded={isExpanded}
+                onClick={() => setIsExpanded(value => !value)}
+              >
+                {isExpanded ? 'Masquer les détails' : 'Voir les détails'}
+              </button>
+              {isExpanded && <p className="card-desc menu-details">{item.description}</p>}
+            </>
+          ) : (
+            <>
+              <p className="card-desc">{item.description}</p>
+              {item.extraMenuPrice > 0 && (
+                <span className="card-extra">Option formule +{item.extraMenuPrice.toFixed(2)} €</span>
+              )}
+            </>
+          )}
         </div>
-        {type === 'menu' ? (
-          <>
-            <button
-              type="button"
-              className="menu-details-toggle"
-              aria-expanded={isExpanded}
-              onClick={() => setIsExpanded(value => !value)}
-            >
-              {isExpanded ? 'Masquer les détails' : 'Voir les détails'}
-            </button>
-            {isExpanded && <p className="card-desc menu-details">{item.description}</p>}
-          </>
-        ) : (
-          <>
-            <p className="card-desc">{item.description}</p>
-            {item.extraMenuPrice > 0 && (
-              <span className="card-extra">Option formule +{item.extraMenuPrice.toFixed(2)} €</span>
-            )}
-          </>
-        )}
       </div>
 
       <div className="card-footer">
