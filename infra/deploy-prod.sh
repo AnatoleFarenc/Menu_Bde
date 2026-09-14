@@ -4,14 +4,20 @@
 # run under its identity (sudo -u bde-app).
 set -euo pipefail
 cd /opt/Menu_Bde
+
+# bde-app is a --no-create-home system account: it has no writable $HOME, so
+# npm (cache) and other tools need one pointed elsewhere. Use the app
+# directory it already owns.
+APP_HOME=/opt/Menu_Bde
+
 echo "▶ git pull (main)..."
-sudo -u bde-app git pull origin main
+sudo -u bde-app HOME="$APP_HOME" git pull origin main
 echo "▶ npm install..."
-sudo -u bde-app npm install --no-audit --no-fund
+sudo -u bde-app HOME="$APP_HOME" npm install --no-audit --no-fund
 echo "▶ Prisma migrations (MariaDB)..."
-sudo -u bde-app npx prisma migrate deploy
+sudo -u bde-app HOME="$APP_HOME" npx prisma migrate deploy
 echo "▶ build..."
-sudo -u bde-app npm run build
+sudo -u bde-app HOME="$APP_HOME" npm run build
 echo "▶ Restarting prod service..."
 sudo systemctl restart bde-menu
 sleep 2
