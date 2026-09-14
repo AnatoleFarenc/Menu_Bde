@@ -1,0 +1,699 @@
+<title>Gestion — Catalogue</title>
+<style>
+  :root {
+    --bg-page: #f7f6f2;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f1efe8;
+    --bg-inset: #f2f0e9;
+    --border-color: #e6e1d6;
+    --color-primary: #35618f;
+    --color-primary-hover: #2b4f76;
+    --color-primary-glow: rgba(53, 97, 143, 0.1);
+    --color-primary-text: #2b4f76;
+    --color-accent: #b3492f;
+    --color-warning: #b4790f;
+    --color-danger: #b3402e;
+    --color-success: #4c7a3f;
+    --text-main: #262220;
+    --text-muted: #7a7269;
+    --text-dim: #a39a8d;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+
+    /* Muted, warm-compatible tag colors for category dots / item avatars --
+       cycled by category, never used for large fills so the page stays calm. */
+    --tag-1: #35618f; /* boisson - denim blue */
+    --tag-2: #a3652c; /* plat - terracotta */
+    --tag-3: #8a5a7a; /* dessert - muted plum */
+    --tag-4: #8a6d1f; /* supplement - olive/mustard */
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--text-main);
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  button { font-family: inherit; cursor: pointer; }
+  input { font-family: inherit; }
+
+  .shell {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ---------------- ICON RAIL ---------------- */
+  .rail {
+    width: 60px;
+    flex-shrink: 0;
+    background: #211d19;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 0;
+    gap: 6px;
+  }
+  .rail-logo {
+    width: 34px; height: 34px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .rail-btn {
+    width: 40px; height: 40px;
+    border: none; background: transparent;
+    color: #9aa1ad;
+    border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rail-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .rail-btn.active { background: rgba(255,255,255,0.12); color: #fff; }
+  .rail-spacer { flex: 1; }
+  .rail-divider { width: 26px; height: 1px; background: rgba(255,255,255,0.1); margin: 6px 0; }
+  .rail-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(53, 97, 143, 0.25); color: #b9cfe3;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  /* ---------------- EVENT SIDEBAR ---------------- */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    padding: 16px 10px;
+    overflow-y: auto;
+  }
+  .sidebar-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    padding: 0 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-add {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sidebar-group-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    padding: 12px 8px 5px;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    cursor: pointer;
+  }
+  .sidebar-item:hover { background: var(--bg-card-hover); }
+  .sidebar-item.selected {
+    background: var(--color-primary-glow);
+  }
+  .sidebar-item.selected .sidebar-item-name {
+    color: var(--color-primary-text);
+    font-weight: 600;
+  }
+  .sidebar-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
+  .sidebar-item-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-dot-completed { background: var(--text-dim); }
+
+  /* ---------------- MAIN ---------------- */
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    padding: 18px 28px 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .topbar-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .topbar-row h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .pill-ongoing { background: rgba(22,163,74,0.1); color: var(--color-success); }
+  .pill-available { background: rgba(22,163,74,0.1); color: var(--color-success); }
+  .pill-unavailable { background: rgba(100,116,139,0.12); color: var(--text-muted); }
+
+  .storefront-tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .sf-tab {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+  }
+  .sf-tab.active {
+    color: var(--color-primary-text);
+    border-bottom-color: var(--color-primary);
+  }
+
+  .content {
+    padding: 22px 28px 40px;
+    overflow-y: auto;
+  }
+
+  /* ---------------- TOOLBAR ---------------- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .search-box {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 7px 10px;
+    width: 220px;
+    color: var(--text-dim);
+  }
+  .search-box input {
+    border: none; outline: none; background: transparent;
+    font-size: 13px; color: var(--text-main); width: 100%;
+  }
+  .chip {
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 99px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .chip.active { background: var(--color-primary-glow); border-color: transparent; color: var(--color-primary-text); }
+  .toolbar-spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    font-size: 13px; font-weight: 700;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-main);
+  }
+  .btn-primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+
+  /* ---------------- TABLE SECTIONS ---------------- */
+  .section-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--text-dim);
+    margin: 26px 0 10px;
+  }
+  .section-label:first-child { margin-top: 0; }
+  .section-count {
+    font-size: 11px; font-weight: 700;
+    background: var(--bg-inset); color: var(--text-muted);
+    padding: 1px 7px; border-radius: 99px;
+  }
+
+  .data-table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-dim);
+    padding: 10px 14px;
+    background: var(--bg-inset);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+  }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr { border-bottom: 1px solid var(--border-color); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-card-hover); }
+  tbody tr:hover .row-actions { opacity: 1; }
+  td { padding: 10px 14px; vertical-align: middle; }
+
+  .item-cell { display: flex; align-items: center; gap: 10px; }
+  .item-icon {
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    background: var(--bg-inset);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .item-icon.tag-1 { background: rgba(53, 97, 143, 0.12); color: var(--tag-1); }
+  .item-icon.tag-2 { background: rgba(163, 101, 44, 0.12); color: var(--tag-2); }
+  .item-icon.tag-3 { background: rgba(138, 90, 122, 0.12); color: var(--tag-3); }
+  .item-icon.tag-4 { background: rgba(138, 109, 31, 0.12); color: var(--tag-4); }
+  .item-name { font-weight: 700; font-size: 13.5px; }
+  .item-desc { font-size: 12px; color: var(--text-muted); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .cat-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-muted);
+  }
+  .cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .cat-dot.tag-1 { background: var(--tag-1); }
+  .cat-dot.tag-2 { background: var(--tag-2); }
+  .cat-dot.tag-3 { background: var(--tag-3); }
+  .cat-dot.tag-4 { background: var(--tag-4); }
+
+  .badge-chip {
+    font-size: 11px; font-weight: 700;
+    background: rgba(180,121,15,0.1); color: var(--color-warning);
+    padding: 2px 8px; border-radius: 6px;
+  }
+
+  .margin-pos { color: var(--color-success); font-weight: 700; }
+  .margin-neg { color: var(--color-danger); font-weight: 700; }
+  .dim { color: var(--text-dim); }
+
+  .switch {
+    position: relative;
+    width: 34px; height: 19px;
+    border-radius: 99px;
+    background: var(--border-color);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .switch.on { background: var(--color-success); }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: left .15s;
+  }
+  .switch.on::after { left: 17px; }
+
+  .row-actions {
+    display: flex; gap: 4px;
+    opacity: 0;
+    transition: opacity .1s;
+  }
+  .icon-btn {
+    width: 28px; height: 28px;
+    border: none; background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: var(--bg-inset); color: var(--text-main); }
+  .icon-btn.danger:hover { background: rgba(220,38,38,0.08); color: var(--color-danger); }
+
+  .stock-num { font-weight: 700; }
+  .stock-low { color: var(--color-warning); }
+  .stock-out { color: var(--color-danger); }
+
+  .groups-note { font-size: 12px; color: var(--text-muted); }
+
+  svg { display: block; }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+  }
+  @media (max-width: 640px) {
+    .shell { flex-direction: column; }
+    .rail {
+      width: 100%; flex-direction: row; padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .rail-logo { margin: 0 8px 0 0; }
+    .rail-spacer { display: none; }
+    .content { padding: 16px; }
+    .item-desc { max-width: 140px; }
+    .data-table-wrap { overflow-x: auto; }
+    table { min-width: 720px; }
+  }
+</style>
+
+<div class="shell">
+  <!-- ICON RAIL -->
+  <nav class="rail">
+    <div class="rail-logo">42</div>
+    <button class="rail-btn active" title="Catalogue">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+    </button>
+    <button class="rail-btn" title="Bilan">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    </button>
+    <button class="rail-btn" title="Historique">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+    </button>
+    <button class="rail-btn" title="Avis">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </button>
+    <div class="rail-spacer"></div>
+    <div class="rail-divider"></div>
+    <button class="rail-btn" title="Retour au site">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </button>
+    <div class="rail-avatar">AF</div>
+  </nav>
+
+  <!-- EVENT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Événements <button class="sidebar-add">+</button></div>
+
+    <div class="sidebar-group-label">En cours</div>
+    <div class="sidebar-item selected">
+      <span class="sidebar-dot"></span>
+      <span class="sidebar-item-name">Sandwich Piscine Septembre 2026</span>
+    </div>
+
+    <div class="sidebar-group-label">Terminés</div>
+    <div class="sidebar-item">
+      <span class="sidebar-dot status-dot-completed"></span>
+      <span class="sidebar-item-name">Boisson/Sucrée</span>
+    </div>
+    <div class="sidebar-item">
+      <span class="sidebar-dot status-dot-completed"></span>
+      <span class="sidebar-item-name">Petit-Dej</span>
+    </div>
+    <div class="sidebar-item">
+      <span class="sidebar-dot status-dot-completed"></span>
+      <span class="sidebar-item-name">Piscine septembre 2026</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-row">
+        <h1>Sandwich Piscine Septembre 2026</h1>
+        <span class="pill pill-ongoing">En cours</span>
+      </div>
+      <div class="storefront-tabs">
+        <button class="sf-tab active">Vitrine principale</button>
+        <button class="sf-tab">+ Ajouter une vitrine</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="toolbar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Rechercher un produit, une formule..." value="" />
+        </div>
+        <button class="chip active">Tout</button>
+        <button class="chip"><span class="cat-dot tag-2"></span>Plat</button>
+        <button class="chip"><span class="cat-dot tag-1"></span>Boisson</button>
+        <button class="chip"><span class="cat-dot tag-3"></span>Dessert</button>
+        <button class="chip">+ Catégorie</button>
+        <div class="toolbar-spacer"></div>
+        <button class="btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Formule
+        </button>
+        <button class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Produit
+        </button>
+      </div>
+
+      <!-- MENUS TABLE -->
+      <div class="section-label">Formules Menus <span class="section-count">2</span></div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Formule</th>
+              <th>Composition</th>
+              <th class="num">Prix</th>
+              <th>Badge</th>
+              <th>Statut</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="item-cell">
+                  <div class="item-icon">FP</div>
+                  <div>
+                    <div class="item-name">Formule Plouf</div>
+                    <div class="item-desc">Le snack parfait entre deux évaluations.</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="groups-note">Plat + Boisson + Accompagnements</span></td>
+              <td class="num">4,50 €</td>
+              <td><span class="badge-chip">Économique</span></td>
+              <td><span class="switch on"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="item-cell">
+                  <div class="item-icon">FJ</div>
+                  <div>
+                    <div class="item-name">Formule Jaws</div>
+                    <div class="item-desc">La formule incontournable du midi !</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="groups-note">Plat + Boisson + Dessert + Accompagnement</span></td>
+              <td class="num">5,50 €</td>
+              <td><span class="badge-chip">Le + Populaire</span></td>
+              <td><span class="switch on"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PRODUCTS TABLE -->
+      <div class="section-label">Produits à l'unité <span class="section-count">5</span></div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Catégorie</th>
+              <th class="num">Prix vente</th>
+              <th class="num">Suppl. menu</th>
+              <th class="num">Prix d'achat</th>
+              <th class="num">Marge</th>
+              <th class="num">Stock</th>
+              <th>Statut</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="item-cell"><div class="item-icon tag-1">CA</div><div class="item-name">Café/Thé</div></div></td>
+              <td><span class="cat-chip"><span class="cat-dot tag-1"></span>Boisson</span></td>
+              <td class="num">0,50 €</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">Illimité</td>
+              <td><span class="switch on"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="item-cell"><div class="item-icon tag-3">CR</div><div class="item-name">Croissant</div></div></td>
+              <td><span class="cat-chip"><span class="cat-dot tag-3"></span>Dessert</span></td>
+              <td class="num">0,80 €</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">Illimité</td>
+              <td><span class="switch"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="item-cell">
+                  <div class="item-icon tag-2">OE</div>
+                  <div>
+                    <div class="item-name">Œuf Mimosa</div>
+                    <div class="item-desc">Œuf, thon, mayonnaise, cornichon, échalotte</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="cat-chip"><span class="cat-dot tag-2"></span>Plat</span></td>
+              <td class="num">0,50 €</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">Illimité</td>
+              <td><span class="switch on"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="item-cell">
+                  <div class="item-icon tag-2">CH</div>
+                  <div>
+                    <div class="item-name">Chips</div>
+                    <div class="item-desc">Paquet de chips nature</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="cat-chip"><span class="cat-dot tag-2"></span>Plat</span></td>
+              <td class="num">0,50 €</td>
+              <td class="num dim">—</td>
+              <td class="num">0,82 €</td>
+              <td class="num margin-neg">-0,32 €</td>
+              <td class="num dim">Illimité</td>
+              <td><span class="switch on"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="item-cell">
+                  <div class="item-icon tag-2">CL</div>
+                  <div>
+                    <div class="item-name">Club sandwich thon</div>
+                    <div class="item-desc">Pain de mie, mélange thon, salade</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="cat-chip"><span class="cat-dot tag-2"></span>Plat</span></td>
+              <td class="num">2,00 €</td>
+              <td class="num margin-neg">-0,50 €</td>
+              <td class="num dim">—</td>
+              <td class="num dim">—</td>
+              <td class="num dim">Illimité</td>
+              <td><span class="switch on"></span></td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                  <button class="icon-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Demo-only interactivity so the mockup feels real: search filters rows,
+  // category chips filter the products table, switches toggle visually.
+  const search = document.querySelector('.search-box input');
+  const productRows = document.querySelectorAll('.content > .data-table-wrap:last-of-type tbody tr');
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    productRows.forEach(row => {
+      const name = row.querySelector('.item-name').textContent.toLowerCase();
+      row.style.display = name.includes(q) ? '' : 'none';
+    });
+  });
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.switch').forEach(sw => {
+    sw.addEventListener('click', () => sw.classList.toggle('on'));
+  });
+
+  document.querySelectorAll('.sf-tab, .sidebar-item, .rail-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.classList.contains('sf-tab')) {
+        document.querySelectorAll('.sf-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+      } else if (el.classList.contains('sidebar-item')) {
+        document.querySelectorAll('.sidebar-item').forEach(t => t.classList.remove('selected'));
+        el.classList.add('selected');
+      } else if (el.classList.contains('rail-btn') && el.title !== 'Retour au site') {
+        document.querySelectorAll('.rail-btn').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+      }
+    });
+  });
+</script>
