@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 import { getMenuGroups, makeGroupId } from '../lib/menuChoices';
 
-const ICONS = ['🥪', '🐟', '🥗', '🥤', '🦈', '💧', '⚡', '🍗', '🍩', '🥧', '🍎', '🍫', '🎣'];
-
 // Rebuilds a meal deal's editable groups (with migration of older ones).
 function initGroups(editingItem, products) {
   if (editingItem && Array.isArray(editingItem.groups) && editingItem.groups.length) {
@@ -76,7 +74,7 @@ function GroupEditor({ group, index, products, onRename, onToggleProduct, onRemo
             return (
               <label key={product.id} className={`formule-item ${checked ? 'is-checked' : ''}`}>
                 <input type="checkbox" checked={checked} onChange={() => onToggleProduct(product.id)} />
-                <span>{product.icon} {product.name}</span>
+                <span>{product.name}</span>
                 <span className="formule-item-cat">{product.category}</span>
                 {!product.available && <span className="formule-item-off">épuisé</span>}
               </label>
@@ -201,7 +199,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 onChange={e => setFormData({ ...formData, category: e.target.value })}
               >
                 {categories.map(category => (
-                  <option key={category.id} value={category.id}>{category.icon} {category.name}</option>
+                  <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
             </div>
@@ -296,28 +294,6 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
               </p>
             </div>
           )}
-
-          <div className="form-group">
-            <label className="form-label">Icône / Emoji</label>
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-              {ICONS.map(emoji => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, icon: emoji })}
-                  style={{
-                    fontSize: '1.2rem',
-                    padding: '0.35rem 0.5rem',
-                    borderRadius: 'var(--radius-sm)',
-                    background: formData.icon === emoji ? 'var(--color-primary-glow)' : 'rgba(255, 255, 255, 0.04)',
-                    border: `1px solid ${formData.icon === emoji ? 'var(--color-primary)' : 'var(--border-color)'}`
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div className="form-group">
             <label className="form-label">Description</label>

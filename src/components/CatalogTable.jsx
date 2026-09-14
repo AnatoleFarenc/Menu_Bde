@@ -75,7 +75,7 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
             <tr>
               <th>Formule</th>
               <th className="num">Prix</th>
-              <th>Badge</th>
+              <th className="col-optional">Badge</th>
               <th>Statut</th>
               <th></th>
             </tr>
@@ -96,7 +96,7 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
                   </div>
                 </td>
                 <td className="num">{formatMoney(menu.price)}</td>
-                <td>{menu.badge ? <span className="badge-chip">{menu.badge}</span> : <span className="dim">—</span>}</td>
+                <td className="col-optional">{menu.badge ? <span className="badge-chip">{menu.badge}</span> : <span className="dim">—</span>}</td>
                 <td>
                   <button
                     type="button"
@@ -127,11 +127,11 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
           <thead>
             <tr>
               <th>Produit</th>
-              <th>Catégorie</th>
+              <th className="col-category">Catégorie</th>
               <th className="num">Prix vente</th>
-              <th className="num">Suppl. menu</th>
-              <th className="num">Prix d'achat</th>
-              <th className="num">Marge</th>
+              <th className="num col-optional">Suppl. menu</th>
+              <th className="num col-optional">Prix d'achat</th>
+              <th className="num col-optional">Marge</th>
               <th className="num">Stock</th>
               <th>Statut</th>
               <th></th>
@@ -157,16 +157,16 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td className="col-category">
                     <span className="cat-chip">
                       <span className={`cat-dot ${tagClassFor(product.category, categories)}`} />
                       {category ? category.name : product.category}
                     </span>
                   </td>
                   <td className="num">{formatMoney(product.price)}</td>
-                  <td className={`num ${hasSupplement ? '' : 'dim'}`}>{hasSupplement ? formatMoney(product.extraMenuPrice) : '—'}</td>
-                  <td className={`num ${hasCost ? '' : 'dim'}`}>{hasCost ? formatMoney(product.costPrice) : '—'}</td>
-                  <td className={`num ${hasCost ? (margin >= 0 ? 'margin-pos' : 'margin-neg') : 'dim'}`}>{hasCost ? formatMoney(margin) : '—'}</td>
+                  <td className={`num col-optional ${hasSupplement ? '' : 'dim'}`}>{hasSupplement ? formatMoney(product.extraMenuPrice) : '—'}</td>
+                  <td className={`num col-optional ${hasCost ? '' : 'dim'}`}>{hasCost ? formatMoney(product.costPrice) : '—'}</td>
+                  <td className={`num col-optional ${hasCost ? (margin >= 0 ? 'margin-pos' : 'margin-neg') : 'dim'}`}>{hasCost ? formatMoney(margin) : '—'}</td>
                   <td className="num">
                     {product.stock === null || product.stock === undefined
                       ? <span className="dim">Illimité</span>

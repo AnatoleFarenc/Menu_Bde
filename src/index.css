@@ -177,6 +177,8 @@ main h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
   gap: 1rem;
 }
 
@@ -251,20 +253,10 @@ main h3 {
 .nav-tabs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.nav-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.nav-tabs .tab-btn {
-  flex-shrink: 0;
 }
 
 .nav-user {
@@ -2290,8 +2282,23 @@ main h3 {
 
 .admin-modern .data-table-wrap table {
   width: 100%;
-  min-width: 760px;
+  table-layout: auto;
   border-collapse: collapse;
+}
+
+/* Secondary bookkeeping columns (supplement, cost, margin, badge) step out
+   of the way before the table would ever need to scroll -- the row-actions
+   and primary columns (name, price, stock, status) always stay put. */
+@media (max-width: 900px) {
+  .admin-modern .col-optional {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-modern .col-category {
+    display: none;
+  }
 }
 
 .admin-modern .data-table-wrap thead th {

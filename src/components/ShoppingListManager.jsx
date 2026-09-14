@@ -70,7 +70,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onDele
                 {products.map(product => (
                   <label key={product.id} className={`formule-item ${form.productIds.includes(product.id) ? 'is-checked' : ''}`}>
                     <input type="checkbox" checked={form.productIds.includes(product.id)} onChange={() => toggleProduct(product.id)} />
-                    <span>{product.icon} {product.name}</span>
+                    <span>{product.name}</span>
                   </label>
                 ))}
               </div>
