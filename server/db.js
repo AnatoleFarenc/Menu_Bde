@@ -30,16 +30,27 @@ function serializeCategory(c) {
   return { id: c.id, name: c.name, icon: c.icon, isVisible: c.isVisible };
 }
 
+// isActive is derived: true if any of the event's storefronts is live.
 function serializeEvent(e) {
   return {
     id: e.id,
     name: e.name,
     description: e.description,
-    isActive: e.isActive,
     status: e.status,
+    isActive: (e.storefronts || []).some(sf => sf.isActive),
     startDate: e.startDate ? e.startDate.toISOString() : null,
     endDate: e.endDate ? e.endDate.toISOString() : null,
     createdAt: e.createdAt.toISOString()
+  };
+}
+
+function serializeStorefront(sf) {
+  return {
+    id: sf.id,
+    eventId: sf.eventId,
+    name: sf.name,
+    isActive: sf.isActive,
+    createdAt: sf.createdAt.toISOString()
   };
 }
 
@@ -175,9 +186,92 @@ function extractChoices(item) {
 const orderInclude = { items: { include: { choices: true } } };
 const menuInclude = { groups: { include: { products: true } } };
 
+// Copies one storefront's full catalog (products, meal deals, shopping list)
+// into a brand new storefront under targetEventId. Used both by "duplicate
+// this event" (once per source storefront) and, later, by a per-storefront
+// duplicate action.
+async function copyStorefront(sourceStorefrontId, targetEventId, name) {
+  const newStorefront = await prisma.storefront.create({
+    data: { eventId: targetEventId, name, isActive: false }
+  });
+
+  const [sourceProducts, sourceMenus, sourceShoppingList] = await Promise.all([
+    prisma.product.findMany({ where: { storefrontId: sourceStorefrontId } }),
+    prisma.menu.findMany({ where: { storefrontId: sourceStorefrontId }, include: menuInclude }),
+    prisma.shoppingListItem.findMany({ where: { storefrontId: sourceStorefrontId }, include: { products: true } })
+  ]);
+
+  const idMap = new Map(); // source product id -> new product id
+  for (const product of sourceProducts) {
+    const copy = await prisma.product.create({
+      data: {
+        storefrontId: newStorefront.id,
+        name: product.name,
+        categoryId: product.categoryId,
+        price: product.price,
+        extraMenuPrice: product.extraMenuPrice,
+        costPrice: product.costPrice,
+        stock: product.stock,
+        description: product.description,
+        badge: product.badge,
+        available: product.available,
+        icon: product.icon
+      }
+    });
+    idMap.set(product.id, copy.id);
+  }
+
+  for (const menu of sourceMenus) {
+    const menuCopy = await prisma.menu.create({
+      data: {
+        storefrontId: newStorefront.id,
+        name: menu.name,
+        price: menu.price,
+        description: menu.description,
+        badge: menu.badge,
+        available: menu.available,
+        icon: menu.icon
+      }
+    });
+    const groups = (menu.groups || []).slice().sort((a, b) => a.position - b.position);
+    for (const [index, group] of groups.entries()) {
+      const remappedProductIds = (group.products || []).map(link => idMap.get(link.productId)).filter(Boolean);
+      await prisma.menuGroup.create({
+        data: {
+          menuId: menuCopy.id,
+          name: group.name,
+          position: index,
+          products: { create: remappedProductIds.map(productId => ({ productId })) }
+        }
+      });
+    }
+  }
+
+  for (const item of sourceShoppingList) {
+    const remappedProductIds = item.products.map(link => idMap.get(link.productId)).filter(Boolean);
+    await prisma.shoppingListItem.create({
+      data: {
+        storefrontId: newStorefront.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        forDays: item.forDays,
+        forPeople: item.forPeople,
+        unitCost: item.unitCost,
+        totalCost: item.totalCost,
+        purchaseLocation: item.purchaseLocation,
+        note: item.note,
+        products: { create: remappedProductIds.map(productId => ({ productId })) }
+      }
+    });
+  }
+
+  return newStorefront;
+}
+
 class DB {
   constructor() {
-    this.ready = Promise.all([this._ensureDefaultCategories(), this._ensureActiveEvent()]);
+    this.ready = Promise.all([this._ensureDefaultCategories(), this._ensureActiveStorefront()]);
   }
 
   async _ensureDefaultCategories() {
@@ -189,18 +283,19 @@ class DB {
   }
 
   // A brand new install has no events yet, but every product/menu/order
-  // needs one to attach to. Create a starter active event so the app never
-  // gets stuck with nowhere to put a new product.
-  async _ensureActiveEvent() {
+  // needs a storefront to attach to. Create a starter event + active
+  // storefront so the app never gets stuck with nowhere to put a new product.
+  async _ensureActiveStorefront() {
     const count = await prisma.event.count();
     if (count > 0) return;
-    await prisma.event.create({ data: { name: 'New event', isActive: true } });
+    const event = await prisma.event.create({ data: { name: 'New event' } });
+    await prisma.storefront.create({ data: { eventId: event.id, name: 'Storefront', isActive: true } });
   }
 
-  async _getActiveEvent() {
-    const event = await prisma.event.findFirst({ where: { isActive: true } });
-    if (!event) throw new Error('No active event: this should never happen after _ensureActiveEvent().');
-    return event;
+  async _getActiveStorefront() {
+    const storefront = await prisma.storefront.findFirst({ where: { isActive: true } });
+    if (!storefront) throw new Error('No active storefront: this should never happen after _ensureActiveStorefront().');
+    return storefront;
   }
 
   // CATEGORIES
@@ -210,16 +305,16 @@ class DB {
   }
 
   async getPublicProducts() {
-    const activeEvent = await this._getActiveEvent();
+    const activeStorefront = await this._getActiveStorefront();
     const products = await prisma.product.findMany({
-      where: { eventId: activeEvent.id, category: { isVisible: true } }
+      where: { storefrontId: activeStorefront.id, category: { isVisible: true } }
     });
     return products.map(serializeProduct);
   }
 
   async getPublicMenus() {
-    const activeEvent = await this._getActiveEvent();
-    return this.getMenus(activeEvent.id);
+    const activeStorefront = await this._getActiveStorefront();
+    return this.getMenus(activeStorefront.id);
   }
 
   async addCategory(category) {
@@ -252,109 +347,49 @@ class DB {
   }
 
   // EVENTS
-  // Each event owns its own products/meal deals/orders. Exactly one event is
-  // active at a time -- the storefront and the admin product/menu tools only
-  // ever show the active event's catalog.
-  async getActiveEvent() {
-    return serializeEvent(await this._getActiveEvent());
+  // An event is a dated project; it holds one or more storefronts (see
+  // below). isActive on the serialized event is derived from its storefronts.
+  async getActiveStorefront() {
+    return serializeStorefront(await this._getActiveStorefront());
   }
 
   async getEvents() {
-    const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+    const events = await prisma.event.findMany({
+      include: { storefronts: { select: { isActive: true } } },
+      orderBy: { createdAt: 'desc' }
+    });
     return events.map(serializeEvent);
   }
 
-  // Creates a new, inactive event. If copyFromEventId is given, its
-  // products/meal deals are duplicated into the new event as a starting
-  // point (fresh ids -- an independent copy, not a live link).
+  async getEventById(id) {
+    const event = await prisma.event.findUnique({ where: { id }, include: { storefronts: { select: { isActive: true } } } });
+    return event ? serializeEvent(event) : null;
+  }
+
+  // Creates a new event. If copyFromEventId is given, every storefront of
+  // that source event is duplicated (fresh ids, full catalog + shopping
+  // list copy) into the new event; otherwise a single blank storefront is
+  // created so there's always somewhere to add products right away.
   async createEvent(eventData) {
     const created = await prisma.event.create({
       data: {
         name: eventData.name.trim(),
         description: eventData.description || '',
         startDate: eventData.startDate ? new Date(eventData.startDate) : null,
-        endDate: eventData.endDate ? new Date(eventData.endDate) : null,
-        isActive: false
+        endDate: eventData.endDate ? new Date(eventData.endDate) : null
       }
     });
 
     if (eventData.copyFromEventId) {
-      const [sourceProducts, sourceMenus] = await Promise.all([
-        prisma.product.findMany({ where: { eventId: eventData.copyFromEventId } }),
-        prisma.menu.findMany({ where: { eventId: eventData.copyFromEventId }, include: menuInclude })
-      ]);
-      const idMap = new Map(); // source product id -> new product id
-      for (const product of sourceProducts) {
-        const copy = await prisma.product.create({
-          data: {
-            eventId: created.id,
-            name: product.name,
-            categoryId: product.categoryId,
-            price: product.price,
-            extraMenuPrice: product.extraMenuPrice,
-            costPrice: product.costPrice,
-            stock: product.stock,
-            description: product.description,
-            badge: product.badge,
-            available: product.available,
-            icon: product.icon
-          }
-        });
-        idMap.set(product.id, copy.id);
+      const sourceStorefronts = await prisma.storefront.findMany({ where: { eventId: eventData.copyFromEventId } });
+      for (const source of sourceStorefronts) {
+        await copyStorefront(source.id, created.id, source.name);
       }
-      for (const menu of sourceMenus) {
-        const menuCopy = await prisma.menu.create({
-          data: {
-            eventId: created.id,
-            name: menu.name,
-            price: menu.price,
-            description: menu.description,
-            badge: menu.badge,
-            available: menu.available,
-            icon: menu.icon
-          }
-        });
-        const groups = (menu.groups || []).slice().sort((a, b) => a.position - b.position);
-        for (const [index, group] of groups.entries()) {
-          const remappedProductIds = (group.products || [])
-            .map(link => idMap.get(link.productId))
-            .filter(Boolean);
-          await prisma.menuGroup.create({
-            data: {
-              menuId: menuCopy.id,
-              name: group.name,
-              position: index,
-              products: { create: remappedProductIds.map(productId => ({ productId })) }
-            }
-          });
-        }
-      }
-
-      const sourceShoppingList = await prisma.shoppingListItem.findMany({
-        where: { eventId: eventData.copyFromEventId },
-        include: { products: true }
-      });
-      for (const item of sourceShoppingList) {
-        const remappedProductIds = item.products.map(link => idMap.get(link.productId)).filter(Boolean);
-        await prisma.shoppingListItem.create({
-          data: {
-            eventId: created.id,
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit,
-            forDays: item.forDays,
-            forPeople: item.forPeople,
-            unitCost: item.unitCost,
-            totalCost: item.totalCost,
-            purchaseLocation: item.purchaseLocation,
-            note: item.note,
-            products: { create: remappedProductIds.map(productId => ({ productId })) }
-          }
-        });
-      }
+    } else {
+      await prisma.storefront.create({ data: { eventId: created.id, name: 'Vitrine principale', isActive: false } });
     }
 
-    return serializeEvent(created);
+    return this.getEventById(created.id);
   }
 
   async updateEvent(id, updates) {
@@ -366,52 +401,104 @@ class DB {
     if (updates.status !== undefined) data.status = updates.status;
     if (updates.startDate !== undefined) data.startDate = updates.startDate ? new Date(updates.startDate) : null;
     if (updates.endDate !== undefined) data.endDate = updates.endDate ? new Date(updates.endDate) : null;
-    const updated = await prisma.event.update({ where: { id }, data });
-    return serializeEvent(updated);
+    await prisma.event.update({ where: { id }, data });
+    return this.getEventById(id);
   }
 
-  // Switches the live catalog to the given event. Nothing is destroyed: the
-  // previously active event and its full order history stay intact, just
-  // no longer shown on the storefront. Bumps a still-"upcoming" event to
-  // "ongoing" -- going live means it's actually happening now.
-  async setActiveEvent(id) {
-    const target = await prisma.event.findUnique({ where: { id } });
-    if (!target) return null;
-    const nextStatus = target.status === 'upcoming' ? 'ongoing' : target.status;
-    await prisma.$transaction([
-      prisma.event.updateMany({ where: { isActive: true }, data: { isActive: false } }),
-      prisma.event.update({ where: { id }, data: { isActive: true, status: nextStatus } })
-    ]);
-    return serializeEvent({ ...target, isActive: true, status: nextStatus });
-  }
-
-  // Refuses to delete the active event, or one that still has orders
-  // (protected at the database level too via the Order.eventId FK).
+  // Refuses to delete an event with a live storefront, or one that still has
+  // orders anywhere (protected at the database level too, via the
+  // Order.storefrontId FK -- deleting cascades to storefronts/products/menus
+  // but is blocked outright if any of them still has orders).
   async deleteEvent(id) {
-    const event = await prisma.event.findUnique({ where: { id } });
+    const event = await this.getEventById(id);
     if (!event) return false;
     if (event.isActive) return false;
     await prisma.event.delete({ where: { id } }).catch(() => null);
-    const stillExists = await prisma.event.findUnique({ where: { id } });
-    return !stillExists;
+    return !(await prisma.event.findUnique({ where: { id } }));
   }
 
-  // SHOPPING LIST -- one event's resource list ("what we bought to run
+  // STOREFRONTS
+  // One catalog + order stream within an event (e.g. "Petit-déjeuner" and
+  // "Déjeuner" for the same event). Exactly one storefront across the whole
+  // app is active at a time -- that's what students see and order from.
+  async getStorefronts(eventId) {
+    const storefronts = await prisma.storefront.findMany({ where: { eventId }, orderBy: { createdAt: 'asc' } });
+    return storefronts.map(serializeStorefront);
+  }
+
+  async getStorefrontById(id) {
+    const storefront = await prisma.storefront.findUnique({ where: { id } });
+    return storefront ? serializeStorefront(storefront) : null;
+  }
+
+  async createStorefront(eventId, data) {
+    const created = await prisma.storefront.create({
+      data: { eventId, name: data.name.trim(), isActive: false }
+    });
+    return serializeStorefront(created);
+  }
+
+  async updateStorefront(id, updates) {
+    const existing = await prisma.storefront.findUnique({ where: { id } });
+    if (!existing) return null;
+    const data = {};
+    if (updates.name !== undefined) data.name = updates.name.trim();
+    const updated = await prisma.storefront.update({ where: { id }, data });
+    return serializeStorefront(updated);
+  }
+
+  // Switches the live catalog to this storefront. Nothing is destroyed: the
+  // previously active storefront and its full order history stay intact,
+  // just no longer shown to students. Bumps the storefront's event from
+  // "upcoming" to "ongoing" -- going live means it's actually happening now.
+  async setActiveStorefront(id) {
+    const target = await prisma.storefront.findUnique({ where: { id }, include: { event: true } });
+    if (!target) return null;
+    const eventUpdates = target.event.status === 'upcoming' ? { status: 'ongoing' } : {};
+    await prisma.$transaction([
+      prisma.storefront.updateMany({ where: { isActive: true }, data: { isActive: false } }),
+      prisma.storefront.update({ where: { id }, data: { isActive: true } }),
+      ...(Object.keys(eventUpdates).length ? [prisma.event.update({ where: { id: target.eventId }, data: eventUpdates })] : [])
+    ]);
+    return serializeStorefront({ ...target, isActive: true });
+  }
+
+  // Refuses to delete the active storefront, the last remaining storefront
+  // of its event (an event must always keep at least one), or one that
+  // still has orders (protected at the database level via the FK too).
+  async deleteStorefront(id) {
+    const storefront = await prisma.storefront.findUnique({ where: { id } });
+    if (!storefront) return false;
+    if (storefront.isActive) return false;
+    const siblingCount = await prisma.storefront.count({ where: { eventId: storefront.eventId } });
+    if (siblingCount <= 1) return false;
+    await prisma.storefront.delete({ where: { id } }).catch(() => null);
+    return !(await prisma.storefront.findUnique({ where: { id } }));
+  }
+
+  async duplicateStorefront(id, name) {
+    const source = await prisma.storefront.findUnique({ where: { id } });
+    if (!source) return null;
+    const created = await copyStorefront(id, source.eventId, name);
+    return serializeStorefront(created);
+  }
+
+  // SHOPPING LIST -- one storefront's resource list ("what we bought to run
   // this"), so another team can rebuild it later. Every field but name is
   // optional: the info isn't always known.
-  async getShoppingList(eventId) {
+  async getShoppingList(storefrontId) {
     const items = await prisma.shoppingListItem.findMany({
-      where: { eventId },
+      where: { storefrontId },
       include: { products: true },
       orderBy: { createdAt: 'asc' }
     });
     return items.map(serializeShoppingListItem);
   }
 
-  async addShoppingListItem(eventId, item) {
+  async addShoppingListItem(storefrontId, item) {
     const created = await prisma.shoppingListItem.create({
       data: {
-        eventId,
+        storefrontId,
         name: item.name.trim(),
         quantity: item.quantity === '' || item.quantity === undefined || item.quantity === null ? null : parseFloat(item.quantity),
         unit: item.unit || null,
@@ -456,10 +543,10 @@ class DB {
     await prisma.shoppingListItem.delete({ where: { id } }).catch(() => null);
   }
 
-  // PRODUCTS -- eventId is explicit: any event's catalog can be browsed and
-  // edited from its own page, not just the active (live) one.
-  async getProducts(eventId) {
-    const products = await prisma.product.findMany({ where: { eventId } });
+  // PRODUCTS -- storefrontId is explicit: any storefront's catalog can be
+  // browsed and edited from its own page, not just the active (live) one.
+  async getProducts(storefrontId) {
+    const products = await prisma.product.findMany({ where: { storefrontId } });
     return products.map(serializeProduct);
   }
 
@@ -468,13 +555,13 @@ class DB {
     return serializeProduct(product);
   }
 
-  async addProduct(product, eventId) {
+  async addProduct(product, storefrontId) {
     const stock = (product.stock === '' || product.stock === undefined || product.stock === null)
       ? null
       : parseInt(product.stock, 10);
     const created = await prisma.product.create({
       data: {
-        eventId,
+        storefrontId,
         name: product.name,
         categoryId: product.category,
         price: parseFloat(product.price) || 0,
@@ -530,17 +617,17 @@ class DB {
     return serializeProduct(updated);
   }
 
-  // MENUS -- same explicit eventId as products.
-  async getMenus(eventId) {
-    const menus = await prisma.menu.findMany({ where: { eventId }, include: menuInclude });
+  // MENUS -- same explicit storefrontId as products.
+  async getMenus(storefrontId) {
+    const menus = await prisma.menu.findMany({ where: { storefrontId }, include: menuInclude });
     return menus.map(serializeMenu);
   }
 
-  async addMenu(menu, eventId) {
+  async addMenu(menu, storefrontId) {
     const groups = normalizeGroups(menu.groups);
     const created = await prisma.menu.create({
       data: {
-        eventId,
+        storefrontId,
         name: menu.name,
         price: parseFloat(menu.price) || 0,
         description: menu.description || '',
@@ -603,15 +690,15 @@ class DB {
     return serializeMenu(updated);
   }
 
-  // ORDERS -- always scoped to one event: the kitchen board, bilan and
-  // reviews all operate within the event currently open in the admin.
-  async getOrders(eventId) {
-    const orders = await prisma.order.findMany({ where: { eventId }, include: orderInclude, orderBy: { createdAt: 'asc' } });
+  // ORDERS -- always scoped to one storefront: the kitchen board, bilan and
+  // reviews all operate within the storefront currently open in the admin.
+  async getOrders(storefrontId) {
+    const orders = await prisma.order.findMany({ where: { storefrontId }, include: orderInclude, orderBy: { createdAt: 'asc' } });
     return orders.map(serializeOrder);
   }
 
-  async clearOrders(eventId) {
-    await prisma.order.deleteMany({ where: { eventId } });
+  async clearOrders(storefrontId) {
+    await prisma.order.deleteMany({ where: { storefrontId } });
   }
 
   async deleteOrder(id) {
@@ -648,16 +735,17 @@ class DB {
     }
   }
 
-  // eventId defaults to the active event (student checkout, kiosk): an
-  // order placed on the live storefront always belongs to whatever is
-  // currently active. Admin flows (e.g. a gifted order) can pass an explicit
-  // eventId to attach the order to whichever event they're currently viewing.
+  // storefrontId defaults to the active storefront (student checkout,
+  // kiosk): an order placed on the live storefront always belongs to
+  // whatever is currently active. Admin flows (e.g. a gifted order) can pass
+  // an explicit storefrontId to attach the order to whichever storefront
+  // they're currently viewing.
   async addOrder(orderData) {
-    const eventId = orderData.eventId || (await this._getActiveEvent()).id;
+    const storefrontId = orderData.storefrontId || (await this._getActiveStorefront()).id;
     const orderNumber = await this._generateUniqueOrderNumber();
     const created = await prisma.order.create({
       data: {
-        eventId,
+        storefrontId,
         orderNumber,
         status: 'pending',
         isPaid: false,

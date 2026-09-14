@@ -454,55 +454,105 @@ main h3 {
   white-space: nowrap;
 }
 
-/* Event workspace: VSCode-explorer-style sidebar + per-event content area. */
-.admin-workspace {
+/* Admin tool shell: icon rail + event list + event header/storefront tabs +
+   section content. See the .admin-modern block further down for the actual
+   (light, neutral) look -- these rules are pure layout/structure. */
+.admin-shell {
   display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
+  min-height: 100vh;
 }
 
-.admin-workspace-main {
+.admin-shell-main {
   flex: 1;
   min-width: 0;
+  padding: 1.25rem 1.75rem 3rem;
+  overflow-y: auto;
+}
+
+.admin-shell-content {
+  margin-top: 1.25rem;
+}
+
+.icon-rail {
+  flex-shrink: 0;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0;
+}
+
+.icon-rail-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-bottom: 0.6rem;
+}
+
+.icon-rail-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .event-sidebar {
   flex-shrink: 0;
-  width: 230px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  position: sticky;
-  top: 1rem;
+  width: 220px;
+  overflow-y: auto;
 }
 
 .event-sidebar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.65rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 1rem 0.9rem 0.5rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
+  letter-spacing: 0.05em;
 }
 
 .event-sidebar-new-form {
   display: flex;
   gap: 0.4rem;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem 0.9rem;
 }
 
 .event-sidebar-list {
+  padding: 0.4rem 0.6rem 1rem;
+}
+
+.event-sidebar-group {
+  margin-bottom: 0.9rem;
+}
+
+.event-sidebar-group-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 0.4rem 0.3rem;
+}
+
+.event-sidebar-group ul {
   list-style: none;
   margin: 0;
-  padding: 0.4rem;
-  max-height: 60vh;
-  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .event-sidebar-item {
@@ -510,23 +560,14 @@ main h3 {
   align-items: center;
   gap: 0.35rem;
   padding: 0.4rem 0.5rem;
-  border-radius: var(--radius-md);
+  border-radius: 7px;
   cursor: pointer;
-}
-
-.event-sidebar-item:hover {
-  background: var(--bg-card-hover);
-}
-
-.event-sidebar-item.is-selected {
-  background: var(--color-primary-glow);
-  border: 1px solid var(--color-primary);
 }
 
 .event-sidebar-item-main {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -542,27 +583,19 @@ main h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
 }
 
-.event-sidebar-active-star {
-  color: var(--color-primary);
-  fill: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.event-sidebar-item-date {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.7rem;
-  color: var(--text-muted);
+.event-sidebar-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
 .event-sidebar-item-actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.2rem;
   flex-shrink: 0;
 }
 
@@ -570,28 +603,74 @@ main h3 {
   background: transparent;
   border: none;
   padding: 0.15rem;
-  color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
 }
 
-.event-sidebar-item-actions button:hover {
-  color: var(--color-primary-text);
-  background: var(--color-primary-glow);
-}
-
 .event-header {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 1.25rem;
+  padding: 0 0 0.9rem;
+  margin-bottom: 0.5rem;
 }
 
 .event-header-editing {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding-bottom: 0.9rem;
+}
+
+.storefront-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e4e7ec);
+  overflow-x: auto;
+}
+
+.storefront-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.storefront-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.storefront-tab-actions {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.storefront-tab-actions button {
+  background: transparent;
+  border: none;
+  padding: 0.1rem;
+  cursor: pointer;
+  display: flex;
+  border-radius: 4px;
+}
+
+.storefront-tab-add {
+  background: transparent;
+  border: 1px dashed var(--border-color, #cfd4d9);
+  border-radius: 7px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .hero-text h1 {
@@ -1309,17 +1388,29 @@ main h3 {
     padding: 1.25rem 0 1rem;
   }
 
-  .admin-workspace {
+  .admin-shell {
     flex-direction: column;
+    width: 100%;
+    left: 0;
+    margin-left: 0;
+  }
+
+  .icon-rail {
+    flex-direction: row;
+    width: 100%;
+    padding: 0.5rem;
   }
 
   .event-sidebar {
     width: 100%;
-    position: static;
   }
 
   .event-sidebar-list {
     max-height: 40vh;
+  }
+
+  .admin-shell-main {
+    padding: 1rem;
   }
 
   .hero-text h1 {
@@ -1588,8 +1679,6 @@ main h3 {
   background: var(--bg-page);
   color: var(--text-main);
   font-family: var(--font-family);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
 }
 
 .admin-modern h1,
@@ -1601,14 +1690,47 @@ main h3 {
   color: var(--text-main);
 }
 
-/* Layout shell */
-.admin-modern.admin-workspace {
-  gap: 1.5rem;
+/* Full-bleed: breaks out of .app-container's centered max-width so the tool
+   reads as a clearly separate space from the storefront, edge to edge. */
+.admin-modern.admin-shell {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  margin-left: -50vw;
+}
+
+.admin-modern .icon-rail {
+  background: #14161a;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-modern .icon-rail-logo {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.admin-modern .icon-rail-btn {
+  color: #9aa1ad;
+}
+
+.admin-modern .icon-rail-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.admin-modern .icon-rail-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .admin-modern .event-sidebar {
   background: var(--bg-card);
-  box-shadow: var(--shadow-sm);
+  border-right: 1px solid var(--border-color);
+}
+
+.admin-modern .event-sidebar-header,
+.admin-modern .event-sidebar-group-label {
+  color: var(--text-dim);
 }
 
 .admin-modern .event-sidebar-item:hover {
@@ -1617,49 +1739,72 @@ main h3 {
 
 .admin-modern .event-sidebar-item.is-selected {
   background: var(--color-primary-glow);
-  border: 1px solid var(--color-primary);
 }
 
-.admin-modern .event-sidebar-active-star {
-  color: var(--color-primary);
-  fill: var(--color-primary);
-}
-
-.admin-modern .event-header {
-  box-shadow: var(--shadow-sm);
-}
-
-/* Tab bar: flat underline tabs instead of the storefront's glowing pill buttons */
-.admin-modern .hero-banner {
-  padding: 0 0 0.75rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.admin-modern .admin-tabs-scroll {
-  gap: 0.25rem;
-}
-
-.admin-modern .admin-tabs-scroll .btn {
-  background: transparent;
-  color: var(--text-muted);
-  border: none;
-  border-radius: var(--radius-sm);
-  box-shadow: none;
-  padding: 0.5rem 0.85rem;
+.admin-modern .event-sidebar-item.is-selected .event-sidebar-item-name {
+  color: var(--color-primary-text);
   font-weight: 600;
 }
 
-.admin-modern .admin-tabs-scroll .btn:hover {
-  background: var(--bg-card-hover);
-  color: var(--text-main);
-  transform: none;
+.admin-modern .event-sidebar-active-dot {
+  background: var(--success);
 }
 
-.admin-modern .admin-tabs-scroll .btn.btn-primary {
-  background: var(--color-primary-glow);
+.admin-modern .event-sidebar-item-actions button {
+  color: var(--text-dim);
+}
+
+.admin-modern .event-sidebar-item-actions button:hover {
   color: var(--color-primary-text);
-  box-shadow: none;
+  background: var(--color-primary-glow);
+}
+
+.admin-modern .event-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .storefront-tabs {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .storefront-tab {
+  color: var(--text-muted);
+}
+
+.admin-modern .storefront-tab:hover {
+  background: var(--bg-card-hover);
+}
+
+.admin-modern .storefront-tab.active {
+  background: var(--text-main);
+  color: #fff;
+}
+
+.admin-modern .storefront-tab-dot {
+  background: var(--success);
+}
+
+.admin-modern .storefront-tab.active .storefront-tab-dot {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.admin-modern .storefront-tab-actions button {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.admin-modern .storefront-tab-actions button:hover {
+  opacity: 1;
+}
+
+.admin-modern .storefront-tab-add {
+  color: var(--text-dim);
+  border-color: var(--border-color);
+}
+
+.admin-modern .storefront-tab-add:hover {
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
 }
 
 /* Buttons */

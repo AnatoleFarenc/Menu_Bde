@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
-import { CalendarClock, Copy, Plus, Star, Trash2 } from 'lucide-react';
+import { Copy, Plus, Trash2 } from 'lucide-react';
 
-// VSCode-explorer-style event list: pick which event's page you're looking
-// at. Selecting an event never changes what's live for students -- that's
-// the separate "Activer" action in EventHeader.
+const GROUPS = [
+  { status: 'ongoing', label: 'En cours' },
+  { status: 'upcoming', label: 'À venir' },
+  { status: 'completed', label: 'Terminés' }
+];
+
+// Event list panel: pick which event's page you're looking at, grouped by
+// status. Selecting an event never changes what's live for students -- see
+// StorefrontTabs for that.
 export default function EventSidebar({ events, selectedEventId, onSelectEvent, onCreateEvent, onDuplicateEvent, onDeleteEvent }) {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -40,32 +46,37 @@ export default function EventSidebar({ events, selectedEventId, onSelectEvent, o
         </form>
       )}
 
-      <ul className="event-sidebar-list">
-        {events.map(event => (
-          <li key={event.id} className={`event-sidebar-item ${event.id === selectedEventId ? 'is-selected' : ''}`}>
-            <button type="button" className="event-sidebar-item-main" onClick={() => onSelectEvent(event.id)}>
-              {event.isActive && <Star size={12} className="event-sidebar-active-star" />}
-              <span className="event-sidebar-item-name">{event.name}</span>
-            </button>
-            {(event.startDate || event.endDate) && (
-              <span className="event-sidebar-item-date">
-                <CalendarClock size={10} />
-                {event.startDate ? new Date(event.startDate).toLocaleDateString('fr-FR') : '?'}
-              </span>
-            )}
-            <span className="event-sidebar-item-actions">
-              <button type="button" onClick={() => onDuplicateEvent(event.id)} title="Dupliquer cet événement">
-                <Copy size={12} />
-              </button>
-              {!event.isActive && (
-                <button type="button" onClick={() => onDeleteEvent(event.id)} title="Supprimer cet événement">
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="event-sidebar-list">
+        {GROUPS.map(group => {
+          const items = events.filter(ev => (ev.status || 'upcoming') === group.status);
+          if (items.length === 0) return null;
+          return (
+            <div key={group.status} className="event-sidebar-group">
+              <div className="event-sidebar-group-label">{group.label}</div>
+              <ul>
+                {items.map(event => (
+                  <li key={event.id} className={`event-sidebar-item ${event.id === selectedEventId ? 'is-selected' : ''}`}>
+                    <button type="button" className="event-sidebar-item-main" onClick={() => onSelectEvent(event.id)}>
+                      {event.isActive && <span className="event-sidebar-active-dot" />}
+                      <span className="event-sidebar-item-name">{event.name}</span>
+                    </button>
+                    <span className="event-sidebar-item-actions">
+                      <button type="button" onClick={() => onDuplicateEvent(event.id)} title="Dupliquer cet événement">
+                        <Copy size={12} />
+                      </button>
+                      {!event.isActive && (
+                        <button type="button" onClick={() => onDeleteEvent(event.id)} title="Supprimer cet événement">
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </aside>
   );
 }

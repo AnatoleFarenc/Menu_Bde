@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChefHat, CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Package, Sparkles, Layers, MapPin, Utensils, Trash2, Edit3, Undo2, Gift, BarChart3, Star, MessageSquare, Download, History } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, Plus, Eye, EyeOff, Sparkles, Layers, MapPin, Utensils, Trash2, Edit3, Undo2, Gift, BarChart3, Star, MessageSquare, Download } from 'lucide-react';
 import ProductCard from './ProductCard';
 import AdminCatalogTools from './AdminCatalogTools';
 import AdminOrderEditModal from './AdminOrderEditModal';
-import EventSidebar from './EventSidebar';
-import EventHeader from './EventHeader';
 import EventHistoryTab from './EventHistoryTab';
 import ShoppingListManager from './ShoppingListManager';
 import ItemIcon from './ItemIcon';
@@ -25,6 +23,7 @@ for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 15) {
 }
 
 export default function KitchenDashboard({
+  activeSection,
   orders,
   synthesisByTime,
   products,
@@ -33,11 +32,7 @@ export default function KitchenDashboard({
   events,
   selectedEvent,
   onSelectEvent,
-  onCreateEvent,
   onDuplicateEvent,
-  onActivateEvent,
-  onDeleteEvent,
-  onUpdateEvent,
   onAddCategory,
   onDeleteCategory,
   onToggleCategory,
@@ -60,7 +55,7 @@ export default function KitchenDashboard({
   onAddShoppingListItem,
   onDeleteShoppingListItem
 }) {
-  const [adminTab, setAdminTab] = useState('kitchen'); // 'kitchen' | 'vitrine' | 'bilan' | 'avis' | 'historique'
+  const adminTab = activeSection; // 'kitchen' | 'vitrine' | 'bilan' | 'avis' | 'historique'
   const [selectedSlot, setSelectedSlot] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'all'
   const [editingOrder, setEditingOrder] = useState(null);
@@ -153,54 +148,7 @@ export default function KitchenDashboard({
   };
 
   return (
-    <div className="admin-workspace admin-modern">
-      <EventSidebar
-        events={events}
-        selectedEventId={selectedEvent?.id}
-        onSelectEvent={onSelectEvent}
-        onCreateEvent={onCreateEvent}
-        onDuplicateEvent={onDuplicateEvent}
-        onDeleteEvent={onDeleteEvent}
-      />
-      <div className="admin-workspace-main fade-in">
-        <EventHeader event={selectedEvent} onUpdateEvent={onUpdateEvent} onActivateEvent={onActivateEvent} />
-
-        {/* HEADER BANNER */}
-        <div className="hero-banner">
-          <div className="admin-tabs-scroll">
-            <button
-              className={`btn ${adminTab === 'kitchen' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setAdminTab('kitchen')}
-            >
-              <ChefHat size={16} /> Cuisine & Préparation
-            </button>
-            <button
-              className={`btn ${adminTab === 'vitrine' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setAdminTab('vitrine')}
-            >
-              <Package size={16} /> Gestion Vitrine & Stocks
-            </button>
-            <button
-              className={`btn ${adminTab === 'bilan' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setAdminTab('bilan')}
-            >
-              <BarChart3 size={16} /> Bilan de l'événement
-            </button>
-            <button
-              className={`btn ${adminTab === 'avis' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setAdminTab('avis')}
-            >
-              <Star size={16} /> Avis Clients
-            </button>
-            <button
-              className={`btn ${adminTab === 'historique' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setAdminTab('historique')}
-            >
-              <History size={16} /> Historique
-            </button>
-          </div>
-        </div>
-
+    <div className="admin-section fade-in">
         {/* ---------------------------------------------------- */}
       {/* TAB 1: KITCHEN PREPARATION BOARD                    */}
       {/* ---------------------------------------------------- */}
@@ -779,15 +727,14 @@ export default function KitchenDashboard({
         />
       )}
 
-        {editingOrder && (
-          <AdminOrderEditModal
-            order={editingOrder}
-            products={products}
-            onClose={() => setEditingOrder(null)}
-            onSave={onUpdateOrder}
-          />
-        )}
-      </div>
+      {editingOrder && (
+        <AdminOrderEditModal
+          order={editingOrder}
+          products={products}
+          onClose={() => setEditingOrder(null)}
+          onSave={onUpdateOrder}
+        />
+      )}
     </div>
   );
 }

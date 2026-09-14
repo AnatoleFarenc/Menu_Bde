@@ -5,7 +5,7 @@ import ProductCard from './components/ProductCard';
 import MenuBuilderModal from './components/MenuBuilderModal';
 import CartDrawer from './components/CartDrawer';
 import AdminProductModal from './components/AdminProductModal';
-import KitchenDashboard from './components/KitchenDashboard';
+import AdminShell from './components/AdminShell';
 import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
@@ -31,6 +31,9 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [storefronts, setStorefronts] = useState([]);
+  const [selectedStorefrontId, setSelectedStorefrontId] = useState(null);
+  const [adminSection, setAdminSection] = useState('kitchen'); // 'kitchen' | 'vitrine' | 'bilan' | 'avis' | 'historique'
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
@@ -121,7 +124,7 @@ export default function App() {
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
       fetchAdminEvents();
-      const refreshTimer = setInterval(() => fetchAdminOrders(selectedEventId), 5000);
+      const refreshTimer = setInterval(() => fetchAdminOrders(selectedStorefrontId), 5000);
       return () => clearInterval(refreshTimer);
     }
     return undefined;
@@ -136,14 +139,25 @@ export default function App() {
     }
   }, [events, selectedEventId]);
 
-  // Whichever event is selected in the admin, keep its catalog/orders/bilan/shopping list in sync.
+  // Whichever event is selected, load its storefronts and default to
+  // whichever one is live (or the first one otherwise).
   useEffect(() => {
-    if (!selectedEventId || activeTab !== 'admin') return;
-    fetchAdminCatalog(selectedEventId);
-    fetchAdminOrders(selectedEventId);
-    fetchShoppingList(selectedEventId);
+    if (!selectedEventId) return;
+    (async () => {
+      const list = await fetchStorefronts(selectedEventId);
+      const active = list.find(sf => sf.isActive);
+      setSelectedStorefrontId(active ? active.id : (list[0]?.id || null));
+    })();
+  }, [selectedEventId]);
+
+  // Whichever storefront is selected in the admin, keep its catalog/orders/bilan/shopping list in sync.
+  useEffect(() => {
+    if (!selectedStorefrontId || activeTab !== 'admin') return;
+    fetchAdminCatalog(selectedStorefrontId);
+    fetchAdminOrders(selectedStorefrontId);
+    fetchShoppingList(selectedStorefrontId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEventId, activeTab]);
+  }, [selectedStorefrontId, activeTab]);
 
   useEffect(() => {
     if (!user || activeTab !== 'orders') return undefined;
@@ -190,13 +204,28 @@ export default function App() {
     }
   };
 
-  // Products/menus of whichever event is open in the admin -- independent
-  // from the public storefront's `products`/`menus`, which always reflect
-  // the active event only.
-  const fetchAdminCatalog = async (eventId) => {
-    if (!eventId) return;
+  // A single event can hold several storefronts (e.g. "Petit-déjeuner" and
+  // "Déjeuner"). Returns the list so callers can pick a default right away.
+  const fetchStorefronts = async (eventId) => {
+    if (!eventId) return [];
     try {
-      const res = await axios.get(`/api/admin/events/${eventId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get(`/api/admin/events/${eventId}/storefronts`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const list = res.data.storefronts || [];
+      setStorefronts(list);
+      return list;
+    } catch (e) {
+      console.error('Error fetching storefronts:', e);
+      return [];
+    }
+  };
+
+  // Products/menus of whichever storefront is open in the admin --
+  // independent from the public storefront's `products`/`menus`, which
+  // always reflect the active storefront only.
+  const fetchAdminCatalog = async (storefrontId) => {
+    if (!storefrontId) return;
+    try {
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
       setAdminProducts(res.data.products || []);
       setAdminMenus(res.data.menus || []);
     } catch (e) {
@@ -204,10 +233,10 @@ export default function App() {
     }
   };
 
-  const fetchShoppingList = async (eventId) => {
-    if (!eventId) return;
+  const fetchShoppingList = async (storefrontId) => {
+    if (!storefrontId) return;
     try {
-      const res = await axios.get(`/api/admin/events/${eventId}/shopping-list`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/shopping-list`, { headers: { Authorization: `Bearer ${authToken}` } });
       setShoppingList(res.data.items || []);
     } catch (e) {
       console.error('Error fetching shopping list:', e);
@@ -216,8 +245,8 @@ export default function App() {
 
   const handleAddShoppingListItem = async item => {
     try {
-      await axios.post(`/api/admin/events/${selectedEventId}/shopping-list`, item, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchShoppingList(selectedEventId);
+      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list`, item, { headers: { Authorization: `Bearer ${authToken}` } });
+      fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de l\'ajout à la liste de courses.');
@@ -228,17 +257,17 @@ export default function App() {
   const handleDeleteShoppingListItem = async id => {
     try {
       await axios.delete(`/api/admin/shopping-list/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchShoppingList(selectedEventId);
+      fetchShoppingList(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la suppression.');
     }
   };
 
-  const fetchAdminOrders = async (eventId = selectedEventId) => {
-    if (!eventId) return;
+  const fetchAdminOrders = async (storefrontId = selectedStorefrontId) => {
+    if (!storefrontId) return;
     try {
       const res = await axios.get('/api/admin/orders', {
-        params: { eventId },
+        params: { storefrontId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setAdminOrders(res.data.orders || []);
@@ -251,7 +280,7 @@ export default function App() {
   const fetchDailyReport = async (from, to) => {
     try {
       const res = await axios.get('/api/admin/report', {
-        params: { from, to: to || from, eventId: selectedEventId },
+        params: { from, to: to || from, storefrontId: selectedStorefrontId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setDailyReport(res.data);
@@ -263,7 +292,7 @@ export default function App() {
   const fetchReviews = async () => {
     try {
       const res = await axios.get('/api/admin/reviews', {
-        params: { eventId: selectedEventId },
+        params: { storefrontId: selectedStorefrontId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setReviews(res.data.reviews || []);
@@ -415,7 +444,7 @@ export default function App() {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
       await axios.patch(url, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchAdminCatalog(selectedEventId);
+      fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la modification du stock.');
     }
@@ -427,16 +456,16 @@ export default function App() {
         if (editingId) {
           await axios.put(`/api/admin/menus/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
         } else {
-          await axios.post('/api/admin/menus', { ...formData, eventId: selectedEventId }, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.post('/api/admin/menus', { ...formData, storefrontId: selectedStorefrontId }, { headers: { Authorization: `Bearer ${authToken}` } });
         }
       } else {
         if (editingId) {
           await axios.put(`/api/admin/products/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
         } else {
-          await axios.post('/api/admin/products', { ...formData, eventId: selectedEventId }, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId }, { headers: { Authorization: `Bearer ${authToken}` } });
         }
       }
-      fetchAdminCatalog(selectedEventId);
+      fetchAdminCatalog(selectedStorefrontId);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
@@ -449,7 +478,7 @@ export default function App() {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
       await axios.delete(url, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchAdminCatalog(selectedEventId);
+      fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la suppression.');
     }
@@ -531,17 +560,6 @@ export default function App() {
     }
   };
 
-  const handleActivateEvent = async id => {
-    if (!confirm('Basculer la vitrine sur cet événement ?')) return;
-    try {
-      await axios.post(`/api/admin/events/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      await fetchAdminEvents();
-      fetchProducts(); // refresh the public storefront, now serving this event
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors du changement d\'événement.');
-    }
-  };
-
   const handleDeleteEvent = async id => {
     if (!confirm('Supprimer cet événement enregistré ?')) return;
     try {
@@ -553,13 +571,67 @@ export default function App() {
     }
   };
 
+  const handleSelectStorefront = id => {
+    setSelectedStorefrontId(id);
+  };
+
+  const handleCreateStorefront = async name => {
+    try {
+      const res = await axios.post(
+        `/api/admin/events/${selectedEventId}/storefronts`,
+        { name },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      await fetchStorefronts(selectedEventId);
+      setSelectedStorefrontId(res.data.storefront.id);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la création de la vitrine.');
+    }
+  };
+
+  const handleDuplicateStorefront = async (id, name) => {
+    try {
+      const res = await axios.post(
+        `/api/admin/storefronts/${id}/duplicate`,
+        { name },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      await fetchStorefronts(selectedEventId);
+      setSelectedStorefrontId(res.data.storefront.id);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la duplication de la vitrine.');
+    }
+  };
+
+  const handleActivateStorefront = async id => {
+    if (!confirm('Mettre cette vitrine en ligne pour les étudiants ?')) return;
+    try {
+      await axios.post(`/api/admin/storefronts/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      await Promise.all([fetchAdminEvents(), fetchStorefronts(selectedEventId)]);
+      fetchProducts(); // refresh the public storefront, now serving this one
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors du changement de vitrine.');
+    }
+  };
+
+  const handleDeleteStorefront = async id => {
+    if (!confirm('Supprimer cette vitrine ?')) return;
+    try {
+      await axios.delete(`/api/admin/storefronts/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (selectedStorefrontId === id) setSelectedStorefrontId(null);
+      fetchStorefronts(selectedEventId);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la suppression de la vitrine.');
+    }
+  };
+
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       await axios.patch(`/api/admin/orders/${orderId}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
-      fetchAdminCatalog(selectedEventId);
+      fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la mise à jour du statut.');
     }
@@ -569,7 +641,7 @@ export default function App() {
     if (!confirm('Supprimer définitivement tout l\'historique des commandes de cet événement ? Cette action est irréversible.')) return;
     try {
       await axios.delete('/api/admin/orders', {
-        params: { eventId: selectedEventId },
+        params: { storefrontId: selectedStorefrontId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
@@ -593,11 +665,11 @@ export default function App() {
 
   const handleCreateFreeOrder = async (payload) => {
     try {
-      await axios.post('/api/admin/orders/free', { ...payload, eventId: selectedEventId }, {
+      await axios.post('/api/admin/orders/free', { ...payload, storefrontId: selectedStorefrontId }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
-      fetchAdminCatalog(selectedEventId);
+      fetchAdminCatalog(selectedStorefrontId);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la création du don.');
@@ -612,7 +684,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       fetchAdminOrders();
-      fetchAdminCatalog(selectedEventId);
+      fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
     }
@@ -783,20 +855,28 @@ export default function App() {
 
       {/* TAB 3: ADMIN BDE DASHBOARD */}
       {activeTab === 'admin' && user && user.isAdmin && (
-        <KitchenDashboard
-          orders={adminOrders}
-          synthesisByTime={synthesisByTime}
-          products={adminProducts}
-          menus={adminMenus}
-          categories={categories}
+        <AdminShell
+          activeSection={adminSection}
+          onSelectSection={setAdminSection}
           events={events}
           selectedEvent={events.find(ev => ev.id === selectedEventId)}
           onSelectEvent={handleSelectEvent}
           onCreateEvent={handleCreateEvent}
           onDuplicateEvent={handleDuplicateEvent}
-          onActivateEvent={handleActivateEvent}
           onDeleteEvent={handleDeleteEvent}
           onUpdateEvent={handleUpdateEvent}
+          storefronts={storefronts}
+          selectedStorefront={storefronts.find(sf => sf.id === selectedStorefrontId)}
+          onSelectStorefront={handleSelectStorefront}
+          onCreateStorefront={handleCreateStorefront}
+          onDuplicateStorefront={handleDuplicateStorefront}
+          onActivateStorefront={handleActivateStorefront}
+          onDeleteStorefront={handleDeleteStorefront}
+          orders={adminOrders}
+          synthesisByTime={synthesisByTime}
+          products={adminProducts}
+          menus={adminMenus}
+          categories={categories}
           onAddCategory={handleAddCategory}
           onDeleteCategory={handleDeleteCategory}
           onToggleCategory={handleToggleCategory}

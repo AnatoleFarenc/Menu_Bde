@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Pencil, Save, WandSparkles, X } from 'lucide-react';
+import { Pencil, Save, X } from 'lucide-react';
 
 const STATUS_LABELS = { upcoming: 'À venir', ongoing: 'En cours', completed: 'Terminé' };
 const STATUS_CLASSNAMES = { upcoming: 'status-pending', ongoing: 'status-preparing', completed: 'status-completed' };
 
-export default function EventHeader({ event, onUpdateEvent, onActivateEvent }) {
+export default function EventHeader({ event, onUpdateEvent }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', status: 'upcoming', startDate: '', endDate: '' });
 
@@ -54,13 +54,6 @@ export default function EventHeader({ event, onUpdateEvent, onActivateEvent }) {
         <span className={`badge status-badge ${STATUS_CLASSNAMES[event.status] || 'status-pending'}`}>
           {STATUS_LABELS[event.status] || 'À venir'}
         </span>
-        {event.isActive ? (
-          <span className="badge badge-best" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Check size={12} /> Événement actif</span>
-        ) : (
-          <button type="button" className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem' }} onClick={() => onActivateEvent(event.id)}>
-            <WandSparkles size={14} /> Activer (mettre en ligne)
-          </button>
-        )}
         <button type="button" className="btn btn-secondary" style={{ padding: '0.3rem', borderRadius: '50%' }} onClick={() => setIsEditing(true)} title="Modifier l'événement">
           <Pencil size={13} />
         </button>

@@ -18,36 +18,52 @@ model Category {
   products  Product[]
 }
 
-// A dated sale (a "piscine", a midterm, a party...). Each event owns its own
-// catalog (products/meal deals) and its own orders -- switching the active
-// event never destroys the previous one, unlike the old Template
-// "apply = overwrite" model. Exactly one event is active at a time.
+// A dated sale (a "piscine", a midterm, a party...). An event can hold
+// several storefronts (e.g. "Petit-déjeuner" and "Déjeuner" for the same
+// event) -- each with its own catalog, orders and resource list. Exactly one
+// storefront across the whole app is live at a time; that storefront's
+// parent event is implicitly "the current event".
 model Event {
   id          String    @id @default(cuid())
   name        String
   description String    @default("")
-  isActive    Boolean   @default(false)
   status      String    @default("upcoming") // upcoming | ongoing | completed
   startDate   DateTime?
   endDate     DateTime?
   createdAt   DateTime  @default(now())
+
+  storefronts Storefront[]
+
+  @@index([status])
+}
+
+// One catalog + order stream within an event. Switching which storefront is
+// active never destroys the others: past storefronts (and past events) stay
+// intact and queryable, just no longer shown to students.
+model Storefront {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   products     Product[]
   menus        Menu[]
   orders       Order[]
   shoppingList ShoppingListItem[]
 
+  @@index([eventId])
   @@index([isActive])
-  @@index([status])
 }
 
-// One line of an event's shopping/resource list: what was bought to run it,
-// so another team can rebuild the same event later. Every field but name is
-// optional -- the info isn't always known or tracked.
+// One line of a storefront's shopping/resource list: what was bought to run
+// it, so another team can rebuild the same storefront later. Every field but
+// name is optional -- the info isn't always known or tracked.
 model ShoppingListItem {
-  id               String   @id @default(cuid())
-  eventId          String
-  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id               String     @id @default(cuid())
+  storefrontId     String
+  storefront       Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
   name             String
   quantity         Float?
   unit             String?
@@ -56,12 +72,12 @@ model ShoppingListItem {
   unitCost         Float?
   totalCost        Float?
   purchaseLocation String?
-  note             String?  @db.Text
-  createdAt        DateTime @default(now())
+  note             String?    @db.Text
+  createdAt        DateTime   @default(now())
 
   products ShoppingListItemProduct[]
 
-  @@index([eventId])
+  @@index([storefrontId])
 }
 
 // A shopping list line can be destined for several catalog products (e.g.
@@ -76,43 +92,43 @@ model ShoppingListItemProduct {
 }
 
 model Product {
-  id             String   @id @default(cuid())
-  eventId        String
-  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id             String     @id @default(cuid())
+  storefrontId   String
+  storefront     Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
   name           String
   categoryId     String
-  category       Category @relation(fields: [categoryId], references: [id])
+  category       Category   @relation(fields: [categoryId], references: [id])
   price          Float
-  extraMenuPrice Float    @default(0)
+  extraMenuPrice Float      @default(0)
   costPrice      Float?
   stock          Int?
-  description    String?  @db.Text
-  badge          String   @default("")
-  available      Boolean  @default(true)
-  icon           String   @default("🥪")
-  createdAt      DateTime @default(now())
+  description    String?    @db.Text
+  badge          String     @default("")
+  available      Boolean    @default(true)
+  icon           String     @default("🥪")
+  createdAt      DateTime   @default(now())
 
   menuGroups        MenuGroupProduct[]
   shoppingListLinks ShoppingListItemProduct[]
 
   @@index([categoryId])
-  @@index([eventId])
+  @@index([storefrontId])
 }
 
 model Menu {
-  id          String   @id @default(cuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name        String
-  price       Float
-  description String?  @db.Text
-  badge       String   @default("")
-  available   Boolean  @default(true)
-  icon        String   @default("🍱")
-  createdAt   DateTime @default(now())
-  groups      MenuGroup[]
+  id           String     @id @default(cuid())
+  storefrontId String
+  storefront   Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  name         String
+  price        Float
+  description  String?    @db.Text
+  badge        String     @default("")
+  available    Boolean    @default(true)
+  icon         String     @default("🍱")
+  createdAt    DateTime   @default(now())
+  groups       MenuGroup[]
 
-  @@index([eventId])
+  @@index([storefrontId])
 }
 
 // A meal-deal choice group (e.g. "Main", "Drink").
@@ -143,23 +159,23 @@ model MenuGroupProduct {
 // ---------------------------------------------------------------------------
 
 model Order {
-  id              String    @id @default(cuid())
-  eventId         String
-  event           Event     @relation(fields: [eventId], references: [id])
-  orderNumber     String    @unique
-  status          String    @default("pending") // pending | preparing | ready | completed | cancelled
-  isPaid          Boolean   @default(false)
-  isFree          Boolean   @default(false)
+  id              String     @id @default(cuid())
+  storefrontId    String
+  storefront      Storefront @relation(fields: [storefrontId], references: [id])
+  orderNumber     String     @unique
+  status          String     @default("pending") // pending | preparing | ready | completed | cancelled
+  isPaid          Boolean    @default(false)
+  isFree          Boolean    @default(false)
   userId          String
   userLogin       String
   userDisplayName String
   pickupTime      String
-  note            String    @default("") @db.Text
+  note            String     @default("") @db.Text
   totalPrice      Float
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime   @default(now())
 
   reviewRating    Int?
-  reviewComment   String?   @db.Text
+  reviewComment   String?    @db.Text
   reviewCreatedAt DateTime?
 
   items OrderItem[]
@@ -167,7 +183,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
-  @@index([eventId])
+  @@index([storefrontId])
 }
 
 // An order line. Name/price/cost are duplicated here at order time

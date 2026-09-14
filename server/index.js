@@ -235,9 +235,56 @@ app.patch('/api/admin/events/:id', ah(async (req, res) => {
   res.json({ event: updated });
 }));
 
-// Full catalog (products + meal deals + categories) of one specific event --
-// used by the per-event admin page, whether or not that event is active.
-app.get('/api/admin/events/:id/catalog', ah(async (req, res) => {
+app.delete('/api/admin/events/:id', ah(async (req, res) => {
+  if (!(await db.deleteEvent(req.params.id))) {
+    return res.status(400).json({ error: 'Événement avec une vitrine active ou encore lié à des commandes : impossible à supprimer' });
+  }
+  res.json({ success: true });
+}));
+
+// STOREFRONTS -- an event can hold several (e.g. "Petit-déjeuner" and
+// "Déjeuner"), each with its own catalog and orders. Exactly one storefront
+// across the whole app is live for students at a time.
+app.get('/api/admin/events/:id/storefronts', ah(async (req, res) => {
+  res.json({ storefronts: await db.getStorefronts(req.params.id) });
+}));
+
+app.post('/api/admin/events/:id/storefronts', ah(async (req, res) => {
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la vitrine est obligatoire' });
+  const storefront = await db.createStorefront(req.params.id, req.body);
+  res.status(201).json({ storefront });
+}));
+
+app.patch('/api/admin/storefronts/:id', ah(async (req, res) => {
+  const updated = await db.updateStorefront(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Vitrine introuvable' });
+  res.json({ storefront: updated });
+}));
+
+app.post('/api/admin/storefronts/:id/duplicate', ah(async (req, res) => {
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la nouvelle vitrine est obligatoire' });
+  const storefront = await db.duplicateStorefront(req.params.id, req.body.name);
+  if (!storefront) return res.status(404).json({ error: 'Vitrine introuvable' });
+  res.status(201).json({ storefront });
+}));
+
+app.post('/api/admin/storefronts/:id/activate', ah(async (req, res) => {
+  const storefront = await db.setActiveStorefront(req.params.id);
+  if (!storefront) return res.status(404).json({ error: 'Vitrine introuvable' });
+  res.json({ storefront });
+}));
+
+app.delete('/api/admin/storefronts/:id', ah(async (req, res) => {
+  if (!(await db.deleteStorefront(req.params.id))) {
+    return res.status(400).json({ error: 'Vitrine active, dernière de son événement, ou encore liée à des commandes : impossible à supprimer' });
+  }
+  res.json({ success: true });
+}));
+
+// Full catalog (products + meal deals + categories) of one specific
+// storefront -- used by the per-storefront admin page, whether or not that
+// storefront is currently live.
+app.get('/api/admin/storefronts/:id/catalog', ah(async (req, res) => {
   const [products, menus, categories] = await Promise.all([
     db.getProducts(req.params.id),
     db.getMenus(req.params.id),
@@ -246,26 +293,13 @@ app.get('/api/admin/events/:id/catalog', ah(async (req, res) => {
   res.json({ products, menus, categories });
 }));
 
-app.post('/api/admin/events/:id/activate', ah(async (req, res) => {
-  const event = await db.setActiveEvent(req.params.id);
-  if (!event) return res.status(404).json({ error: 'Événement introuvable' });
-  res.json({ event });
-}));
-
-app.delete('/api/admin/events/:id', ah(async (req, res) => {
-  if (!(await db.deleteEvent(req.params.id))) {
-    return res.status(400).json({ error: 'Événement actif ou encore lié à des commandes : impossible à supprimer' });
-  }
-  res.json({ success: true });
-}));
-
-// Shopping/resource list of one event -- what was bought to run it, so
+// Shopping/resource list of one storefront -- what was bought to run it, so
 // another team can rebuild it later.
-app.get('/api/admin/events/:id/shopping-list', ah(async (req, res) => {
+app.get('/api/admin/storefronts/:id/shopping-list', ah(async (req, res) => {
   res.json({ items: await db.getShoppingList(req.params.id) });
 }));
 
-app.post('/api/admin/events/:id/shopping-list', ah(async (req, res) => {
+app.post('/api/admin/storefronts/:id/shopping-list', ah(async (req, res) => {
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'article est obligatoire' });
   const item = await db.addShoppingListItem(req.params.id, req.body);
   res.status(201).json({ item });
@@ -304,8 +338,8 @@ app.patch('/api/admin/categories/:id/visibility', ah(async (req, res) => {
 
 // Admin product routes
 app.post('/api/admin/products', ah(async (req, res) => {
-  if (!req.body.eventId) return res.status(400).json({ error: 'eventId manquant' });
-  const newProduct = await db.addProduct(req.body, req.body.eventId);
+  if (!req.body.storefrontId) return res.status(400).json({ error: 'storefrontId manquant' });
+  const newProduct = await db.addProduct(req.body, req.body.storefrontId);
   res.status(201).json({ product: newProduct });
 }));
 
@@ -328,8 +362,8 @@ app.patch('/api/admin/products/:id/toggle-stock', ah(async (req, res) => {
 
 // Admin menu routes
 app.post('/api/admin/menus', ah(async (req, res) => {
-  if (!req.body.eventId) return res.status(400).json({ error: 'eventId manquant' });
-  const newMenu = await db.addMenu(req.body, req.body.eventId);
+  if (!req.body.storefrontId) return res.status(400).json({ error: 'storefrontId manquant' });
+  const newMenu = await db.addMenu(req.body, req.body.storefrontId);
   res.status(201).json({ menu: newMenu });
 }));
 
@@ -389,7 +423,7 @@ app.post('/api/admin/orders/free', ah(async (req, res) => {
   const label = (beneficiary || '').trim() || 'Don BDE';
 
   const newOrder = await db.addOrder({
-    eventId: req.body.eventId,
+    storefrontId: req.body.storefrontId,
     userId: 'free_' + Date.now(),
     userLogin: label,
     userDisplayName: label,
@@ -434,7 +468,7 @@ app.post('/api/orders/:id/review', ah(async (req, res) => {
 // Get all orders for Admin / Kitchen Board with synthesis computation, scoped
 // to whichever event is currently open in the admin.
 app.get('/api/admin/orders', ah(async (req, res) => {
-  const orders = await db.getOrders(req.query.eventId);
+  const orders = await db.getOrders(req.query.storefrontId);
 
   // Compute kitchen synthesis per pickup time and product count
   const synthesisByTime = {};
@@ -498,7 +532,7 @@ app.patch('/api/admin/orders/:id/paid', ah(async (req, res) => {
 }));
 
 app.delete('/api/admin/orders', ah(async (req, res) => {
-  await db.clearOrders(req.query.eventId);
+  await db.clearOrders(req.query.storefrontId);
   res.json({ success: true });
 }));
 
@@ -510,7 +544,7 @@ app.delete('/api/admin/orders/:id', ah(async (req, res) => {
 
 // All customer reviews left on orders, most recent first (scoped to one event).
 app.get('/api/admin/reviews', ah(async (req, res) => {
-  const orders = await db.getOrders(req.query.eventId);
+  const orders = await db.getOrders(req.query.storefrontId);
   const reviews = orders
     .filter(order => order.review)
     .map(order => ({
@@ -537,7 +571,7 @@ app.get('/api/admin/report', ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || req.query.date || today).slice(0, 10);
   const to = (req.query.to || from).slice(0, 10);
-  const allOrders = await db.getOrders(req.query.eventId);
+  const allOrders = await db.getOrders(req.query.storefrontId);
   const periodOrders = allOrders.filter(order => {
     if (order.status !== 'completed') return false;
     const day = (order.createdAt || '').slice(0, 10);
