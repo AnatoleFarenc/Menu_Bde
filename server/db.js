@@ -1,3 +1,8 @@
+// Must run before anything reads process.env below: this module's top-level
+// code executes during index.js's import of it, which happens before
+// index.js's own dotenv.config() call (ES module imports are evaluated
+// before the importing module's body runs).
+import 'dotenv/config';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { PrismaClient } from '@prisma/client';
 
