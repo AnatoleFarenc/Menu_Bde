@@ -66,6 +66,8 @@ student/amateur project.
 - [x] Purchase price & profit (margin per product and per meal deal)
 - [x] Financial report (chosen period, CSV export, revenue / cost / profit)
 - [x] Gifted/free products
+- [x] Event model: each event owns its own catalog and orders; switching the
+      active event never destroys the previous one
 
 ### Team, security & infra
 - [x] Separate test environment (isolated database, restricted access)
@@ -76,16 +78,14 @@ student/amateur project.
 
 ## Roadmap
 
-The "event" model is the foundation for everything else — we tackle it first.
-Statistics and team management depend directly on it.
+### 01 — Event / project model — ✅ Done
 
-### 01 — Event / project model — 🔜 Next
-
-Evolve catalog templates into real dated events: each sale (a "piscine", a
+Catalog templates evolved into real dated events: each sale (a "piscine", a
 midterm, a party...) keeps its own catalog, orders, and history —
-reusable as-is by another team the following year.
+reusable as-is by another team the following year. Foundation for 02 and 03
+below.
 
-### 02 — Statistics & graphs per event — 📋 Planned
+### 02 — Statistics & graphs per event — 🔜 Next
 
 Visualize sales trends from one event to the next, compare editions.
 
