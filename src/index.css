@@ -177,12 +177,14 @@ main h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
 }
 
 .logo-group {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex-shrink: 0;
 }
 
 .logo-badge {
@@ -250,12 +252,26 @@ main h3 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-tabs .tab-btn {
+  flex-shrink: 0;
 }
 
 .nav-user {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .logo-labels {
@@ -1779,6 +1795,27 @@ main h3 {
   color: var(--text-main);
 }
 
+/* The global `*` scrollbar rule near the top of this file is scoped to the
+   warm storefront and always wins over inheritance, so it has to be beaten
+   here with an equally direct selector rather than just redefined on the
+   .admin-modern root. */
+.admin-modern,
+.admin-modern * {
+  scrollbar-color: var(--text-dim) var(--bg-inset);
+}
+
+.admin-modern ::-webkit-scrollbar-track {
+  background: var(--bg-inset);
+}
+
+.admin-modern ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}
+
+.admin-modern ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
 .admin-modern .icon-rail {
   background: #211d19;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -2247,11 +2284,13 @@ main h3 {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .admin-modern .data-table-wrap table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -2438,12 +2477,6 @@ main h3 {
 }
 
 @media (max-width: 640px) {
-  .admin-modern .data-table-wrap {
-    overflow-x: auto;
-  }
-  .admin-modern .data-table-wrap table {
-    min-width: 720px;
-  }
   .admin-modern .item-desc {
     max-width: 140px;
   }
