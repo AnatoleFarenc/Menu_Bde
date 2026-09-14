@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles, Settings } from 'lucide-react';
 
-function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
+function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, className }) {
   return (
     <nav className={className}>
       <button
@@ -33,7 +33,7 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
         </button>
       )}
 
-      {isAdmin && (
+      {isManager && (
         <a className="tab-btn tab-btn-admin" href="/gestion">
           <Settings size={16} />
           <span className="tab-text-long">Gestion événements</span>
@@ -47,6 +47,7 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
 export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart }) {
   const [isHidden, setIsHidden] = useState(false);
   const isAdmin = !!(user && user.isAdmin);
+  const isManager = !!(user && user.isManager);
 
   useEffect(() => {
     let previousScrollY = window.scrollY;
@@ -60,6 +61,18 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // BDE Admin (order tracking) and BDE Gestion (event/catalog management)
+  // are independent roles -- show whichever one(s) this account actually has.
+  const rolePillLabel = isAdmin && isManager
+    ? 'BDE Admin + Gestion'
+    : isAdmin
+      ? 'BDE Admin'
+      : isManager
+        ? 'BDE Gestion'
+        : user?.role === 'kiosk_guest'
+          ? 'Commande borne'
+          : 'Étudiant 42';
 
   return (
     <>
@@ -79,6 +92,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             isAdmin={isAdmin}
+            isManager={isManager}
           />
 
           <div className="nav-user">
@@ -93,8 +107,8 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
                 )}
                 <div className="user-badge-info">
                   <span className="user-name">{user.displayName || user.login}</span>
-                  <span className={`role-pill ${user.isAdmin ? 'role-admin' : 'role-student'}`}>
-                    {user.isAdmin ? 'BDE Admin' : user.role === 'kiosk_guest' ? 'Commande borne' : 'Étudiant 42'}
+                  <span className={`role-pill ${isAdmin || isManager ? 'role-admin' : 'role-student'}`}>
+                    {rolePillLabel}
                   </span>
                 </div>
                 <button
@@ -125,6 +139,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isAdmin={isAdmin}
+        isManager={isManager}
       />
     </>
   );

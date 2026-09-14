@@ -155,10 +155,14 @@ Any other origin is rejected.
 - The `client_secret` is never exposed to the browser (code → token exchange happens server-side).
 
 ### Authorization model
-- Two levels currently: **42 user** (can order, view their orders, leave a review)
-  and **BDE administrator** (allowlist of logins in `ADMIN_LOGINS`).
-- All `/api/admin/*` routes go through **a single `requireAdmin` middleware** —
-  impossible to forget a check on a new admin route.
+- Three levels currently: **42 user** (can order, view their orders, leave a
+  review), **BDE administrator** (allowlist of logins in `ADMIN_LOGINS`, live
+  order-tracking board), and **BDE manager** (allowlist of logins in
+  `MANAGER_LOGINS`, the `/gestion` event/catalog/stock tool). Admin and
+  manager are independent -- a login can hold either, both, or neither.
+- Every `/api/admin/*` route is explicitly gated by `requireAdmin`,
+  `requireManager`, or `requireAdminOrManager` (the one shared read route,
+  the per-storefront catalog, used by both the order board and `/gestion`).
 - Routes that write user data verify **ownership** of the resource (e.g. a
   review can only be left on one's own order, and only if it has been picked up).
 

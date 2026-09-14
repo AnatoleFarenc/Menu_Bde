@@ -42,7 +42,7 @@ export default function ManagementApp() {
   }, [authToken]);
 
   useEffect(() => {
-    if (!user || !user.isAdmin) return;
+    if (!user || !user.isManager) return;
     fetchAdminEvents();
     fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -391,12 +391,12 @@ export default function ManagementApp() {
     );
   }
 
-  if (!user.isAdmin) {
+  if (!user.isManager) {
     return (
       <main className="auth-page admin-modern fade-in">
         <div className="auth-panel">
           <h1>Accès réservé</h1>
-          <p>Cet outil est réservé aux administrateurs BDE.</p>
+          <p>Cet outil est réservé aux gestionnaires BDE.</p>
           <a className="btn btn-primary" href="/">Retour au site</a>
         </div>
       </main>

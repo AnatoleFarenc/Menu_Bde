@@ -459,12 +459,13 @@ main h3 {
    (light, neutral) look -- these rules are pure layout/structure. */
 .admin-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .admin-shell-main {
   flex: 1;
   min-width: 0;
+  height: 100%;
   padding: 1.25rem 1.75rem 3rem;
   overflow-y: auto;
 }
@@ -476,11 +477,13 @@ main h3 {
 .icon-rail {
   flex-shrink: 0;
   width: 60px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.6rem;
   padding: 1rem 0;
+  overflow-y: auto;
 }
 
 .icon-rail-logo {

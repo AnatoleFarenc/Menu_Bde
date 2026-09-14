@@ -159,10 +159,15 @@ PUBLIC_APP_URL=http://localhost:5001
 INTRA42_CLIENT_ID=your_intra_uid
 INTRA42_CLIENT_SECRET=your_intra_secret
 ADMIN_LOGINS=bde_login_1,bde_login_2
+MANAGER_LOGINS=bde_login_1,bde_login_2
 DATABASE_URL="mysql://bde_app:devpassword@localhost:3306/bde_sandwich"
 ```
 
-`ADMIN_LOGINS` contains, comma-separated, the 42 logins allowed to access the BDE admin space. Only these logins can manage orders, products, and meal deals.
+`ADMIN_LOGINS` and `MANAGER_LOGINS` are two independent, comma-separated lists of 42 logins:
+- `ADMIN_LOGINS` can open the live order-tracking board (the "Admin" tab on the main site) -- tracking and updating orders during an event.
+- `MANAGER_LOGINS` can open the `/gestion` tool -- creating/editing events and storefronts, catalog and stock, shopping list, bilan, reviews.
+
+A login can be in either list, both, or neither. If `MANAGER_LOGINS` is left unset, it defaults to `ADMIN_LOGINS` (single-tier access, matching the previous behavior).
 
 > `INTRA42_REDIRECT_URI` is no longer needed: it's computed from `PUBLIC_APP_URL`.
 > Only set it if you want to force a different value. On startup, the server

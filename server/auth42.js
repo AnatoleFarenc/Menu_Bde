@@ -5,6 +5,16 @@ const getAdminLogins = () => (process.env.ADMIN_LOGINS || '')
   .map(login => login.trim().toLowerCase())
   .filter(Boolean);
 
+// Separate from ADMIN_LOGINS: gates the /gestion tool (event/catalog/stock
+// management) rather than the live order-tracking board. A login can be in
+// either list, both, or neither -- the two accesses are independent.
+// Falls back to ADMIN_LOGINS when unset, so existing single-tier deployments
+// keep working without extra configuration.
+const getManagerLogins = () => (process.env.MANAGER_LOGINS ?? process.env.ADMIN_LOGINS ?? '')
+  .split(',')
+  .map(login => login.trim().toLowerCase())
+  .filter(Boolean);
+
 // The OAuth redirect URI is always "<public URL>/api/auth/42/callback".
 // We derive it from PUBLIC_APP_URL, so there's only one variable to set.
 // INTRA42_REDIRECT_URI is still accepted if you want to force a value.
@@ -63,6 +73,7 @@ export const handle42Callback = async (code) => {
   const intraUser = userRes.data;
   const login = intraUser.login.toLowerCase();
   const isAdmin = getAdminLogins().includes(login);
+  const isManager = getManagerLogins().includes(login);
 
   return {
     id: intraUser.id,
@@ -72,7 +83,8 @@ export const handle42Callback = async (code) => {
     avatarUrl: intraUser.image?.link || intraUser.image?.versions?.medium || 'https://profile.intra.42.fr/assets/42_logo-7e42914c62...png',
     campus: intraUser.campus?.[0]?.name || '42 Perpignan',
     poolYear: intraUser.pool_year || '2024',
-    isAdmin: isAdmin,
+    isAdmin,
+    isManager,
     role: isAdmin ? 'bde_admin' : 'student'
   };
 };
