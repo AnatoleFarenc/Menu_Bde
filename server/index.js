@@ -590,15 +590,24 @@ app.delete('/api/admin/reviews/:orderId', requireManager, ah(async (req, res) =>
   res.json({ success: true });
 }));
 
-// Sales report over a period (?from=YYYY-MM-DD&to=YYYY-MM-DD, defaults to today
-// for both). Only counts picked-up orders (completed); gifted orders (isFree)
-// count toward quantity but not revenue.
-app.get('/api/admin/report', requireManager, ah(async (req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const from = (req.query.from || req.query.date || today).slice(0, 10);
-  const to = (req.query.to || from).slice(0, 10);
-  const allOrders = await db.getOrders(req.query.storefrontId);
-  const periodOrders = allOrders.filter(order => {
+// Cost of a line: for a product it's its costPrice; for a meal deal it's the
+// sum of the costPrice of the products chosen within it. Missing/null
+// costPrice => 0 (unknown). Shared by every report-shaped route below.
+const itemUnitCost = (item) => {
+  if (item.type === 'menu' && item.choices) {
+    const chosen = Array.isArray(item.choices)
+      ? item.choices.map(entry => entry && entry.product)
+      : Object.values(item.choices);
+    return chosen.reduce((sum, p) => sum + (p && p.costPrice ? p.costPrice : 0), 0);
+  }
+  return item.costPrice || 0;
+};
+
+// Sales report over [from, to] computed from an already-fetched order list --
+// shared between the single-storefront route and the per-event route, which
+// sources orders across every storefront of an event instead of just one.
+function computeReport(orders, from, to) {
+  const periodOrders = orders.filter(order => {
     if (order.status !== 'completed') return false;
     const day = (order.createdAt || '').slice(0, 10);
     return day >= from && day <= to;
@@ -607,18 +616,6 @@ app.get('/api/admin/report', requireManager, ah(async (req, res) => {
   const productsMap = new Map();
   let totalRevenue = 0;
   let totalCost = 0;
-
-  // Cost of a line: for a product it's its costPrice; for a meal deal it's
-  // the sum of the costPrice of the products chosen within it. Missing/null costPrice => 0 (unknown).
-  const itemUnitCost = (item) => {
-    if (item.type === 'menu' && item.choices) {
-      const chosen = Array.isArray(item.choices)
-        ? item.choices.map(entry => entry && entry.product)
-        : Object.values(item.choices);
-      return chosen.reduce((sum, p) => sum + (p && p.costPrice ? p.costPrice : 0), 0);
-    }
-    return item.costPrice || 0;
-  };
 
   // "Real consumption" count: also breaks down products chosen within meal deals,
   // to know how many times each product was taken in total (alone or via a meal deal).
@@ -657,7 +654,7 @@ app.get('/api/admin/report', requireManager, ah(async (req, res) => {
     .map(p => ({ ...p, margin: p.totalPrice - p.totalCost }))
     .sort((a, b) => b.quantity - a.quantity);
 
-  res.json({
+  return {
     from,
     to,
     totalOrders: periodOrders.length,
@@ -668,7 +665,112 @@ app.get('/api/admin/report', requireManager, ah(async (req, res) => {
     productUsage: Array.from(usageMap.entries())
       .map(([name, quantity]) => ({ name, quantity }))
       .sort((a, b) => b.quantity - a.quantity)
+  };
+}
+
+// Sales report over a period (?from=YYYY-MM-DD&to=YYYY-MM-DD, defaults to today
+// for both). Only counts picked-up orders (completed); gifted orders (isFree)
+// count toward quantity but not revenue.
+app.get('/api/admin/report', requireManager, ah(async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const from = (req.query.from || req.query.date || today).slice(0, 10);
+  const to = (req.query.to || from).slice(0, 10);
+  const allOrders = await db.getOrders(req.query.storefrontId);
+  res.json(computeReport(allOrders, from, to));
+}));
+
+// Same report, but aggregated across every storefront of one event -- used
+// by the Historique tab, which shows one bilan per event regardless of how
+// many storefronts it held. Also carries the event's catalog size, for the
+// tab's "Produits" stat.
+app.get('/api/admin/events/:id/report', requireManager, ah(async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const from = (req.query.from || req.query.date || today).slice(0, 10);
+  const to = (req.query.to || from).slice(0, 10);
+  const [allOrders, productCount] = await Promise.all([
+    db.getEventOrders(req.params.id),
+    db.getEventProductCount(req.params.id)
+  ]);
+  res.json({ ...computeReport(allOrders, from, to), productCount });
+}));
+
+// The union of every storefront's shopping list for one event -- what was
+// (or needs to be) bought to run it.
+app.get('/api/admin/events/:id/shopping-list', requireManager, ah(async (req, res) => {
+  res.json({ items: await db.getEventShoppingList(req.params.id) });
+}));
+
+// Averaged shopping list across every COMPLETED event, as a per-day rate --
+// the Historique tab scales it to however many days the next event needs.
+app.get('/api/admin/shopping-list/average', requireManager, ah(async (req, res) => {
+  res.json({ items: await db.getAverageShoppingList() });
+}));
+
+// Ventes par jour, par catégorie, et produits les plus vendus sur une
+// période -- alimente l'onglet Statistiques (mêmes filtres que /report).
+app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const from = (req.query.from || today).slice(0, 10);
+  const to = (req.query.to || from).slice(0, 10);
+  const [allOrders, categories] = await Promise.all([
+    db.getOrders(req.query.storefrontId),
+    db.getCategories()
+  ]);
+  const categoryNames = new Map(categories.map(c => [c.id, c.name]));
+
+  const periodOrders = allOrders.filter(order => {
+    if (order.status !== 'completed') return false;
+    const day = (order.createdAt || '').slice(0, 10);
+    return day >= from && day <= to;
   });
+
+  const dailyMap = new Map();
+  const categoryMap = new Map();
+  const usageMap = new Map();
+
+  periodOrders.forEach(order => {
+    const day = (order.createdAt || '').slice(0, 10);
+    const orderRevenue = order.isFree ? 0 : (order.totalPrice || 0);
+    dailyMap.set(day, (dailyMap.get(day) || 0) + orderRevenue);
+
+    order.items.forEach(item => {
+      const lineRevenue = order.isFree ? 0 : (item.price || 0) * item.quantity;
+      const categoryId = item.type === 'menu' ? 'formules' : (item.category || 'autre');
+      categoryMap.set(categoryId, (categoryMap.get(categoryId) || 0) + lineRevenue);
+
+      if (item.type === 'menu' && item.choices) {
+        const chosenProducts = Array.isArray(item.choices)
+          ? item.choices.map(entry => entry && entry.product)
+          : Object.values(item.choices);
+        chosenProducts.forEach(chosenProduct => {
+          if (chosenProduct && chosenProduct.name) {
+            usageMap.set(chosenProduct.name, (usageMap.get(chosenProduct.name) || 0) + item.quantity);
+          }
+        });
+      } else if (item.name) {
+        usageMap.set(item.name, (usageMap.get(item.name) || 0) + item.quantity);
+      }
+    });
+  });
+
+  const dailySales = Array.from(dailyMap.entries())
+    .map(([date, revenue]) => ({ date, revenue }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const byCategory = Array.from(categoryMap.entries())
+    .map(([category, revenue]) => ({
+      category,
+      categoryName: category === 'formules' ? 'Formules' : (categoryNames.get(category) || category),
+      revenue
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  const topProducts = Array.from(usageMap.entries())
+    .map(([name, quantity]) => ({ name, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 8);
+
+  res.json({ from, to, dailySales, byCategory, topProducts });
 }));
 
 // In production, serve the built React application from the same origin as the API.

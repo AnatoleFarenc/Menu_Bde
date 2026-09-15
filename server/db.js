@@ -841,6 +841,89 @@ class DB {
     });
     return true;
   }
+
+  // Every order placed across ALL of an event's storefronts -- used by the
+  // Historique tab's per-event bilan, since an event can hold more than one
+  // storefront (e.g. "Petit-déjeuner" + "Déjeuner").
+  async getEventOrders(eventId) {
+    const storefronts = await prisma.storefront.findMany({ where: { eventId }, select: { id: true } });
+    if (storefronts.length === 0) return [];
+    const orders = await prisma.order.findMany({
+      where: { storefrontId: { in: storefronts.map(s => s.id) } },
+      include: orderInclude,
+      orderBy: { createdAt: 'asc' }
+    });
+    return orders.map(serializeOrder);
+  }
+
+  // The union of the shopping lists of every storefront of one event -- what
+  // was (or needs to be) bought to run it, across all its storefronts.
+  async getEventShoppingList(eventId) {
+    const storefronts = await prisma.storefront.findMany({ where: { eventId }, select: { id: true } });
+    if (storefronts.length === 0) return [];
+    const items = await prisma.shoppingListItem.findMany({
+      where: { storefrontId: { in: storefronts.map(s => s.id) } },
+      include: { products: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    return items.map(serializeShoppingListItem);
+  }
+
+  // Distinct product count across an event's storefronts -- a quick "how big
+  // was this event's catalog" figure for the Historique tab.
+  async getEventProductCount(eventId) {
+    const storefronts = await prisma.storefront.findMany({ where: { eventId }, select: { id: true } });
+    if (storefronts.length === 0) return 0;
+    return prisma.product.count({ where: { storefrontId: { in: storefronts.map(s => s.id) } } });
+  }
+
+  // Averages every shopping-list item bought for a COMPLETED event, grouped
+  // by name (trimmed/lowercased -- items aren't a controlled vocabulary), as
+  // a per-day rate (quantity/forDays, cost/forDays) so the Historique tab can
+  // scale it to however many days the next event will run. Only items with
+  // both a quantity/cost AND a forDays are counted -- an item with no
+  // duration can't be turned into a rate.
+  async getAverageShoppingList() {
+    const completedEvents = await prisma.event.findMany({
+      where: { status: 'completed' },
+      include: { storefronts: { select: { id: true } } }
+    });
+    const storefrontIds = completedEvents.flatMap(e => e.storefronts.map(sf => sf.id));
+    if (storefrontIds.length === 0) return [];
+
+    const items = await prisma.shoppingListItem.findMany({
+      where: { storefrontId: { in: storefrontIds }, forDays: { not: null, gt: 0 } }
+    });
+
+    const groups = new Map();
+    for (const item of items) {
+      const key = item.name.trim().toLowerCase();
+      if (!groups.has(key)) {
+        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation });
+      }
+      const group = groups.get(key);
+      if (item.quantity !== null && item.quantity !== undefined) {
+        group.qtySum += item.quantity / item.forDays;
+        group.qtyCount += 1;
+      }
+      if (item.totalCost !== null && item.totalCost !== undefined) {
+        group.costSum += item.totalCost / item.forDays;
+        group.costCount += 1;
+      }
+    }
+
+    return Array.from(groups.values())
+      .map(g => ({
+        name: g.name,
+        unit: g.unit,
+        purchaseLocation: g.purchaseLocation,
+        perDayQuantity: g.qtyCount ? g.qtySum / g.qtyCount : null,
+        perDayCost: g.costCount ? g.costSum / g.costCount : null,
+        sampleSize: Math.max(g.qtyCount, g.costCount)
+      }))
+      .filter(g => g.perDayCost !== null)
+      .sort((a, b) => b.perDayCost - a.perDayCost);
+  }
 }
 
 // Rebuilds a meal deal's choice groups from the admin input.
