@@ -38,6 +38,17 @@ export default function ManagementApp() {
   const [reviews, setReviews] = useState([]);
   const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
 
+  // The storefront's warm background/scrollbar colors live on <body>, outside
+  // React's tree, so .admin-modern (a nested div) can override them for its
+  // own content but never for the actual viewport scrollbar or the page area
+  // below that div's content -- both are drawn from <body> itself. Stamping
+  // the class directly on <body> for as long as this page is mounted fixes
+  // both, and is undone on unmount so the storefront is untouched.
+  useEffect(() => {
+    document.body.classList.add('admin-modern');
+    return () => document.body.classList.remove('admin-modern');
+  }, []);
+
   useEffect(() => {
     if (!authToken) {
       setIsAuthChecking(false);
