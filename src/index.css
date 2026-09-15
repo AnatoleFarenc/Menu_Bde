@@ -2507,3 +2507,620 @@ main h3 {
     max-width: 140px;
   }
 }
+
+/* -----------------------------------------------------------------------
+   /gestion page shell: top bar + event switcher + breadcrumb/tabs.
+   Replaces the old icon-rail + event-sidebar layout -- the event is
+   reached through the switcher instead of an always-visible list, so nav
+   space no longer depends on a fixed sidebar width.
+   ----------------------------------------------------------------------- */
+.admin-modern .gestion-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-modern .gestion-topbar {
+  height: 64px;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 20px;
+}
+
+.admin-modern .gestion-logo-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.admin-modern .gestion-logo-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.admin-modern .gestion-logo-title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.admin-modern .gestion-topbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+.admin-modern .gestion-topbar-spacer {
+  flex: 1;
+}
+
+.admin-modern .gestion-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Event switcher */
+.admin-modern .event-switcher {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.admin-modern .event-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-page);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 320px;
+}
+
+.admin-modern .event-switcher-btn.is-open {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.admin-modern .event-switcher-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-modern .event-switcher-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+
+.admin-modern .event-switcher-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 340px;
+  max-width: 90vw;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(38, 34, 32, 0.16);
+  padding: 10px;
+  z-index: 50;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.admin-modern .event-switcher-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  color: var(--text-dim);
+}
+
+.admin-modern .event-switcher-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-main);
+  width: 100%;
+  font-family: inherit;
+}
+
+.admin-modern .event-switcher-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  padding: 6px 8px 2px;
+}
+
+.admin-modern .event-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  color: var(--text-main);
+}
+
+.admin-modern .event-switcher-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.admin-modern .event-switcher-item.is-selected {
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+}
+
+.admin-modern .event-switcher-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-modern .event-switcher-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary-text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  margin-top: 6px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+/* Breadcrumb + section tabs */
+.admin-modern .gestion-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 28px;
+  height: 46px;
+  font-size: 12.5px;
+}
+
+.admin-modern .gestion-breadcrumb-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  padding: 0;
+  font-family: inherit;
+}
+
+.admin-modern .gestion-breadcrumb-link:hover {
+  color: var(--color-primary-text);
+}
+
+.admin-modern .gestion-breadcrumb-sep {
+  color: var(--border-color);
+}
+
+.admin-modern .gestion-breadcrumb-current {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.admin-modern .gestion-tabbar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .gestion-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 28px;
+  overflow-x: auto;
+}
+
+.admin-modern .gestion-tab {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-modern .gestion-tab:hover {
+  color: var(--text-main);
+}
+
+.admin-modern .gestion-tab.active {
+  font-weight: 700;
+  color: var(--color-primary-text);
+  border-bottom-color: var(--color-primary);
+}
+
+.admin-modern .gestion-content {
+  flex: 1;
+  padding: 24px 28px 60px;
+  /* The catalog table's column-hiding breakpoints (see .col-optional /
+     .col-category below) react to this container's actual width via
+     @container, not the viewport's -- there's no sidebar to eat space
+     anymore, but a narrower browser window still needs the same collapse. */
+  container-type: inline-size;
+  container-name: admin-content;
+}
+
+.admin-modern .gestion-content-narrow {
+  max-width: 760px;
+}
+
+/* Dashboard */
+.admin-modern .dashboard-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.admin-modern .stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.admin-modern .stat-tile.is-warning {
+  border-color: rgba(179, 64, 46, 0.25);
+}
+
+.admin-modern .stat-tile-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.admin-modern .stat-tile-value {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.admin-modern .stat-tile-value.is-warning {
+  color: var(--color-danger);
+}
+
+.admin-modern .stat-tile-suffix {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.admin-modern .dashboard-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.admin-modern .section-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.admin-modern .section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.admin-modern .section-card:hover {
+  border-color: var(--color-primary);
+}
+
+.admin-modern .section-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--color-primary-glow);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-modern .section-card-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.admin-modern .section-card-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .admin-modern .section-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-modern .section-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-modern .gestion-topbar {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .admin-modern .gestion-breadcrumb,
+  .admin-modern .gestion-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Historique accordion */
+.admin-modern .history-group {
+  margin-bottom: 26px;
+}
+
+.admin-modern .history-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+
+.admin-modern .history-group-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  padding: 1px 7px;
+  border-radius: 99px;
+}
+
+.admin-modern .history-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.admin-modern .history-row.is-ongoing {
+  border: 1.5px solid var(--color-primary);
+}
+
+.admin-modern .history-row-head {
+  cursor: pointer;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.admin-modern .history-row-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-modern .history-row-date {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.admin-modern .history-row-body {
+  padding: 4px 16px 16px;
+}
+
+.admin-modern .history-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.admin-modern .history-stat-tile {
+  background: var(--bg-inset);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.admin-modern .history-stat-tile-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.admin-modern .history-stat-tile-value {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.admin-modern .history-subsection {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.admin-modern .history-subsection-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.admin-modern .day-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.admin-modern .day-stepper button {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-modern .day-stepper button:hover {
+  background: var(--bg-inset);
+}
+
+.admin-modern .day-stepper-value {
+  width: 44px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* Charts (Statistiques tab) */
+.admin-modern .chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.admin-modern .chart-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.admin-modern .chart-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.admin-modern .chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.admin-modern .chart-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-modern .chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary, var(--text-muted));
+  font-weight: 600;
+}
+
+.admin-modern .chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-modern .chart-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .admin-modern .chart-row {
+    grid-template-columns: 1fr;
+  }
+  .admin-modern .history-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

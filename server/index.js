@@ -509,11 +509,8 @@ app.get('/api/admin/orders', requireAdmin, ah(async (req, res) => {
     order.items.forEach(item => {
       // Direct products or elements inside a meal deal
       if (item.type === 'menu' && item.choices) {
-        const chosenProducts = Array.isArray(item.choices)
-          ? item.choices.map(entry => entry && entry.product)
-          : Object.values(item.choices);
-        chosenProducts.forEach(chosenProduct => {
-          if (chosenProduct && chosenProduct.name) {
+        getChosenProducts(item).forEach(chosenProduct => {
+          if (chosenProduct.name) {
             const key = `${chosenProduct.name} (dans ${item.name})`;
             synthesisByTime[slot].itemsCount[key] = (synthesisByTime[slot].itemsCount[key] || 0) + item.quantity;
           }
@@ -590,15 +587,22 @@ app.delete('/api/admin/reviews/:orderId', requireManager, ah(async (req, res) =>
   res.json({ success: true });
 }));
 
+// A meal-deal order item's `choices` is either an array of {product, ...}
+// entries or (older orders) a plain object keyed by group name -- either
+// way, the products actually chosen within it. Shared by every route that
+// needs to break a meal deal down into its components.
+const getChosenProducts = (item) => {
+  if (!item.choices) return [];
+  const entries = Array.isArray(item.choices) ? item.choices : Object.values(item.choices);
+  return entries.map(entry => entry && entry.product).filter(Boolean);
+};
+
 // Cost of a line: for a product it's its costPrice; for a meal deal it's the
 // sum of the costPrice of the products chosen within it. Missing/null
 // costPrice => 0 (unknown). Shared by every report-shaped route below.
 const itemUnitCost = (item) => {
   if (item.type === 'menu' && item.choices) {
-    const chosen = Array.isArray(item.choices)
-      ? item.choices.map(entry => entry && entry.product)
-      : Object.values(item.choices);
-    return chosen.reduce((sum, p) => sum + (p && p.costPrice ? p.costPrice : 0), 0);
+    return getChosenProducts(item).reduce((sum, p) => sum + (p.costPrice ? p.costPrice : 0), 0);
   }
   return item.costPrice || 0;
 };
@@ -638,11 +642,8 @@ function computeReport(orders, from, to) {
       productsMap.set(item.name, existing);
 
       if (item.type === 'menu' && item.choices) {
-        const chosenProducts = Array.isArray(item.choices)
-          ? item.choices.map(entry => entry && entry.product)
-          : Object.values(item.choices);
-        chosenProducts.forEach(chosenProduct => {
-          if (chosenProduct && chosenProduct.name) addUsage(chosenProduct.name, item.quantity);
+        getChosenProducts(item).forEach(chosenProduct => {
+          if (chosenProduct.name) addUsage(chosenProduct.name, item.quantity);
         });
       } else if (item.name) {
         addUsage(item.name, item.quantity);
@@ -685,8 +686,11 @@ app.get('/api/admin/report', requireManager, ah(async (req, res) => {
 // tab's "Produits" stat.
 app.get('/api/admin/events/:id/report', requireManager, ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
-  const from = (req.query.from || req.query.date || today).slice(0, 10);
-  const to = (req.query.to || from).slice(0, 10);
+  // Unlike /api/admin/report (a live, single-storefront daily view), this is
+  // a finished event's full summary -- defaulting to "today" would show
+  // nothing at all for a past event, so the default range spans everything.
+  const from = (req.query.from || '2000-01-01').slice(0, 10);
+  const to = (req.query.to || today).slice(0, 10);
   const [allOrders, productCount] = await Promise.all([
     db.getEventOrders(req.params.id),
     db.getEventProductCount(req.params.id)
@@ -708,6 +712,7 @@ app.get('/api/admin/shopping-list/average', requireManager, ah(async (req, res) 
 
 // Ventes par jour, par catégorie, et produits les plus vendus sur une
 // période -- alimente l'onglet Statistiques (mêmes filtres que /report).
+const FORMULES_BUCKET = '__formules__';
 app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || today).slice(0, 10);
@@ -735,15 +740,16 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
 
     order.items.forEach(item => {
       const lineRevenue = order.isFree ? 0 : (item.price || 0) * item.quantity;
-      const categoryId = item.type === 'menu' ? 'formules' : (item.category || 'autre');
+      // Category ids are slugified (lowercase letters/digits/hyphens only,
+      // see slugify() in db.js), so this key can never collide with a real
+      // one -- unlike the literal string 'formules', which a category
+      // named "Formules" would also slugify to.
+      const categoryId = item.type === 'menu' ? FORMULES_BUCKET : (item.category || 'autre');
       categoryMap.set(categoryId, (categoryMap.get(categoryId) || 0) + lineRevenue);
 
       if (item.type === 'menu' && item.choices) {
-        const chosenProducts = Array.isArray(item.choices)
-          ? item.choices.map(entry => entry && entry.product)
-          : Object.values(item.choices);
-        chosenProducts.forEach(chosenProduct => {
-          if (chosenProduct && chosenProduct.name) {
+        getChosenProducts(item).forEach(chosenProduct => {
+          if (chosenProduct.name) {
             usageMap.set(chosenProduct.name, (usageMap.get(chosenProduct.name) || 0) + item.quantity);
           }
         });
@@ -760,7 +766,7 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
   const byCategory = Array.from(categoryMap.entries())
     .map(([category, revenue]) => ({
       category,
-      categoryName: category === 'formules' ? 'Formules' : (categoryNames.get(category) || category),
+      categoryName: category === FORMULES_BUCKET ? 'Formules' : (categoryNames.get(category) || category),
       revenue
     }))
     .sort((a, b) => b.revenue - a.revenue);

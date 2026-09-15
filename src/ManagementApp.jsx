@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import AdminShell from './components/AdminShell';
+import TopBar from './components/TopBar';
+import SectionShell from './components/SectionShell';
+import Dashboard from './components/Dashboard';
+import CataloguePanel from './components/CataloguePanel';
+import StockPanel from './components/StockPanel';
+import BilanPanel from './components/BilanPanel';
+import StatsPanel from './components/StatsPanel';
+import HistoriquePanel from './components/HistoriquePanel';
+import AvisPanel from './components/AvisPanel';
 import AdminProductModal from './components/AdminProductModal';
 
 // Top-level component for the /gestion route: a genuinely separate page from
@@ -16,12 +24,17 @@ export default function ManagementApp() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [storefronts, setStorefronts] = useState([]);
   const [selectedStorefrontId, setSelectedStorefrontId] = useState(null);
-  const [adminSection, setAdminSection] = useState('vitrine'); // 'vitrine' | 'bilan' | 'avis' | 'historique'
+
+  // 'dashboard' = the event's own hub; 'section' = one of the tab pages below it.
+  const [view, setView] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState('catalogue');
+
   const [categories, setCategories] = useState([]);
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
   const [dailyReport, setDailyReport] = useState(null);
+  const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
 
@@ -60,6 +73,7 @@ export default function ManagementApp() {
   // whichever one is live (or the first one otherwise).
   useEffect(() => {
     if (!selectedEventId) return;
+    setView('dashboard');
     (async () => {
       const list = await fetchStorefronts(selectedEventId);
       const active = list.find(sf => sf.isActive);
@@ -75,6 +89,8 @@ export default function ManagementApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStorefrontId]);
 
+  const authHeaders = { headers: { Authorization: `Bearer ${authToken}` } };
+
   const fetchCategories = async () => {
     try {
       const res = await axios.get('/api/products');
@@ -86,7 +102,7 @@ export default function ManagementApp() {
 
   const fetchAdminEvents = async () => {
     try {
-      const res = await axios.get('/api/admin/events', { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get('/api/admin/events', authHeaders);
       setEvents(res.data.events || []);
     } catch (e) {
       console.error('Error fetching events:', e);
@@ -98,7 +114,7 @@ export default function ManagementApp() {
   const fetchStorefronts = async (eventId) => {
     if (!eventId) return [];
     try {
-      const res = await axios.get(`/api/admin/events/${eventId}/storefronts`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get(`/api/admin/events/${eventId}/storefronts`, authHeaders);
       const list = res.data.storefronts || [];
       setStorefronts(list);
       return list;
@@ -111,7 +127,7 @@ export default function ManagementApp() {
   const fetchAdminCatalog = async (storefrontId) => {
     if (!storefrontId) return;
     try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, authHeaders);
       setAdminProducts(res.data.products || []);
       setAdminMenus(res.data.menus || []);
     } catch (e) {
@@ -122,7 +138,7 @@ export default function ManagementApp() {
   const fetchShoppingList = async (storefrontId) => {
     if (!storefrontId) return;
     try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/shopping-list`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/shopping-list`, authHeaders);
       setShoppingList(res.data.items || []);
     } catch (e) {
       console.error('Error fetching shopping list:', e);
@@ -131,7 +147,7 @@ export default function ManagementApp() {
 
   const handleAddShoppingListItem = async item => {
     try {
-      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list`, item, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list`, item, authHeaders);
       fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
@@ -142,7 +158,7 @@ export default function ManagementApp() {
 
   const handleDeleteShoppingListItem = async id => {
     try {
-      await axios.delete(`/api/admin/shopping-list/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.delete(`/api/admin/shopping-list/${id}`, authHeaders);
       fetchShoppingList(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la suppression.');
@@ -151,22 +167,58 @@ export default function ManagementApp() {
 
   const fetchDailyReport = async (from, to) => {
     try {
-      const res = await axios.get('/api/admin/report', {
-        params: { from, to: to || from, storefrontId: selectedStorefrontId },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      const res = await axios.get('/api/admin/report', { params: { from, to: to || from, storefrontId: selectedStorefrontId }, ...authHeaders });
       setDailyReport(res.data);
     } catch (e) {
       console.error('Error fetching daily report:', e);
     }
   };
 
+  const fetchStats = async (from, to) => {
+    try {
+      const res = await axios.get('/api/admin/stats', { params: { from, to: to || from, storefrontId: selectedStorefrontId }, ...authHeaders });
+      setStats(res.data);
+    } catch (e) {
+      console.error('Error fetching stats:', e);
+    }
+  };
+
+  // Historique tab: per-event data, fetched lazily by HistoriquePanel itself
+  // as each row expands -- these just wrap the request and hand back data,
+  // no state kept here.
+  const fetchEventReport = async (eventId) => {
+    try {
+      const res = await axios.get(`/api/admin/events/${eventId}/report`, authHeaders);
+      return res.data;
+    } catch (e) {
+      console.error('Error fetching event report:', e);
+      return null;
+    }
+  };
+
+  const fetchEventShoppingList = async (eventId) => {
+    try {
+      const res = await axios.get(`/api/admin/events/${eventId}/shopping-list`, authHeaders);
+      return res.data.items || [];
+    } catch (e) {
+      console.error('Error fetching event shopping list:', e);
+      return [];
+    }
+  };
+
+  const fetchAverageShoppingList = async () => {
+    try {
+      const res = await axios.get('/api/admin/shopping-list/average', authHeaders);
+      return res.data.items || [];
+    } catch (e) {
+      console.error('Error fetching average shopping list:', e);
+      return [];
+    }
+  };
+
   const fetchReviews = async () => {
     try {
-      const res = await axios.get('/api/admin/reviews', {
-        params: { storefrontId: selectedStorefrontId },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      const res = await axios.get('/api/admin/reviews', { params: { storefrontId: selectedStorefrontId }, ...authHeaders });
       setReviews(res.data.reviews || []);
     } catch (e) {
       console.error('Error fetching reviews:', e);
@@ -176,7 +228,7 @@ export default function ManagementApp() {
   const handleDeleteReview = async (orderId) => {
     if (!confirm('Supprimer définitivement cet avis ?')) return;
     try {
-      await axios.delete(`/api/admin/reviews/${orderId}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.delete(`/api/admin/reviews/${orderId}`, authHeaders);
       fetchReviews();
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
@@ -186,7 +238,7 @@ export default function ManagementApp() {
   const handleToggleStock = async (id, type) => {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
-      await axios.patch(url, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.patch(url, {}, authHeaders);
       fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la modification du stock.');
@@ -197,15 +249,15 @@ export default function ManagementApp() {
     try {
       if (type === 'menu') {
         if (editingId) {
-          await axios.put(`/api/admin/menus/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.put(`/api/admin/menus/${editingId}`, formData, authHeaders);
         } else {
-          await axios.post('/api/admin/menus', { ...formData, storefrontId: selectedStorefrontId }, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.post('/api/admin/menus', { ...formData, storefrontId: selectedStorefrontId }, authHeaders);
         }
       } else {
         if (editingId) {
-          await axios.put(`/api/admin/products/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.put(`/api/admin/products/${editingId}`, formData, authHeaders);
         } else {
-          await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId }, { headers: { Authorization: `Bearer ${authToken}` } });
+          await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId }, authHeaders);
         }
       }
       fetchAdminCatalog(selectedStorefrontId);
@@ -220,7 +272,7 @@ export default function ManagementApp() {
     if (!confirm('Voulez-vous vraiment supprimer cet élément ?')) return;
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
-      await axios.delete(url, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.delete(url, authHeaders);
       fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la suppression.');
@@ -229,7 +281,7 @@ export default function ManagementApp() {
 
   const handleAddCategory = async category => {
     try {
-      const res = await axios.post('/api/admin/categories', category, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.post('/api/admin/categories', category, authHeaders);
       setCategories(res.data.categories || []);
       return true;
     } catch (e) {
@@ -241,7 +293,7 @@ export default function ManagementApp() {
   const handleDeleteCategory = async id => {
     if (!confirm('Supprimer cette catégorie ?')) return;
     try {
-      const res = await axios.delete(`/api/admin/categories/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.delete(`/api/admin/categories/${id}`, authHeaders);
       setCategories(res.data.categories || []);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
@@ -250,7 +302,7 @@ export default function ManagementApp() {
 
   const handleToggleCategory = async id => {
     try {
-      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, authHeaders);
       setCategories(res.data.categories || []);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
@@ -261,10 +313,10 @@ export default function ManagementApp() {
     setSelectedEventId(id);
   };
 
-  // "+" in the sidebar: a genuinely new, empty event.
+  // The event switcher's "+": a genuinely new, empty event.
   const handleCreateEvent = async eventData => {
     try {
-      const res = await axios.post('/api/admin/events', eventData, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.post('/api/admin/events', eventData, authHeaders);
       await fetchAdminEvents();
       setSelectedEventId(res.data.event.id);
       return true;
@@ -280,11 +332,7 @@ export default function ManagementApp() {
     const name = prompt('Nom du nouvel événement :', source ? `${source.name} (copie)` : '');
     if (!name || !name.trim()) return;
     try {
-      const res = await axios.post(
-        '/api/admin/events',
-        { name, copyFromEventId: id },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
+      const res = await axios.post('/api/admin/events', { name, copyFromEventId: id }, authHeaders);
       await fetchAdminEvents();
       setSelectedEventId(res.data.event.id);
     } catch (e) {
@@ -294,7 +342,7 @@ export default function ManagementApp() {
 
   const handleUpdateEvent = async (id, updates) => {
     try {
-      await axios.patch(`/api/admin/events/${id}`, updates, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.patch(`/api/admin/events/${id}`, updates, authHeaders);
       await fetchAdminEvents();
       return true;
     } catch (e) {
@@ -306,7 +354,7 @@ export default function ManagementApp() {
   const handleDeleteEvent = async id => {
     if (!confirm('Supprimer cet événement enregistré ?')) return;
     try {
-      await axios.delete(`/api/admin/events/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.delete(`/api/admin/events/${id}`, authHeaders);
       if (selectedEventId === id) setSelectedEventId(null);
       fetchAdminEvents();
     } catch (e) {
@@ -320,11 +368,7 @@ export default function ManagementApp() {
 
   const handleCreateStorefront = async name => {
     try {
-      const res = await axios.post(
-        `/api/admin/events/${selectedEventId}/storefronts`,
-        { name },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
+      const res = await axios.post(`/api/admin/events/${selectedEventId}/storefronts`, { name }, authHeaders);
       await fetchStorefronts(selectedEventId);
       setSelectedStorefrontId(res.data.storefront.id);
     } catch (e) {
@@ -334,11 +378,7 @@ export default function ManagementApp() {
 
   const handleDuplicateStorefront = async (id, name) => {
     try {
-      const res = await axios.post(
-        `/api/admin/storefronts/${id}/duplicate`,
-        { name },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
+      const res = await axios.post(`/api/admin/storefronts/${id}/duplicate`, { name }, authHeaders);
       await fetchStorefronts(selectedEventId);
       setSelectedStorefrontId(res.data.storefront.id);
     } catch (e) {
@@ -349,7 +389,7 @@ export default function ManagementApp() {
   const handleActivateStorefront = async id => {
     if (!confirm('Mettre cette vitrine en ligne pour les étudiants ?')) return;
     try {
-      await axios.post(`/api/admin/storefronts/${id}/activate`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.post(`/api/admin/storefronts/${id}/activate`, {}, authHeaders);
       await Promise.all([fetchAdminEvents(), fetchStorefronts(selectedEventId)]);
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors du changement de vitrine.');
@@ -359,7 +399,7 @@ export default function ManagementApp() {
   const handleDeleteStorefront = async id => {
     if (!confirm('Supprimer cette vitrine ?')) return;
     try {
-      await axios.delete(`/api/admin/storefronts/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.delete(`/api/admin/storefronts/${id}`, authHeaders);
       if (selectedStorefrontId === id) setSelectedStorefrontId(null);
       fetchStorefronts(selectedEventId);
     } catch (e) {
@@ -369,10 +409,15 @@ export default function ManagementApp() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('/api/auth/logout', {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.post('/api/auth/logout', {}, authHeaders);
     } catch (e) {}
     localStorage.removeItem('bde_token');
     window.location.href = '/';
+  };
+
+  const handleGoToSection = (section) => {
+    setActiveSection(section);
+    setView('section');
   };
 
   if (isAuthChecking) {
@@ -403,46 +448,85 @@ export default function ManagementApp() {
     );
   }
 
+  const selectedEvent = events.find(ev => ev.id === selectedEventId);
+  const selectedStorefront = storefronts.find(sf => sf.id === selectedStorefrontId);
+
   return (
-    <>
-      <AdminShell
-        activeSection={adminSection}
-        onSelectSection={setAdminSection}
-        user={user}
-        onLogout={handleLogout}
+    <div className="admin-modern gestion-shell">
+      <TopBar
         events={events}
-        selectedEvent={events.find(ev => ev.id === selectedEventId)}
+        selectedEvent={selectedEvent}
         onSelectEvent={handleSelectEvent}
         onCreateEvent={handleCreateEvent}
-        onDuplicateEvent={handleDuplicateEvent}
-        onDeleteEvent={handleDeleteEvent}
-        onUpdateEvent={handleUpdateEvent}
-        storefronts={storefronts}
-        selectedStorefront={storefronts.find(sf => sf.id === selectedStorefrontId)}
-        onSelectStorefront={handleSelectStorefront}
-        onCreateStorefront={handleCreateStorefront}
-        onDuplicateStorefront={handleDuplicateStorefront}
-        onActivateStorefront={handleActivateStorefront}
-        onDeleteStorefront={handleDeleteStorefront}
-        products={adminProducts}
-        menus={adminMenus}
-        categories={categories}
-        onAddCategory={handleAddCategory}
-        onDeleteCategory={handleDeleteCategory}
-        onToggleCategory={handleToggleCategory}
-        dailyReport={dailyReport}
-        onFetchDailyReport={fetchDailyReport}
-        reviews={reviews}
-        onFetchReviews={fetchReviews}
-        onDeleteReview={handleDeleteReview}
-        onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
-        onToggleStock={handleToggleStock}
-        onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
-        onDeleteItem={handleDeleteAdminItem}
-        shoppingList={shoppingList}
-        onAddShoppingListItem={handleAddShoppingListItem}
-        onDeleteShoppingListItem={handleDeleteShoppingListItem}
+        user={user}
+        onLogout={handleLogout}
       />
+
+      {view === 'dashboard' ? (
+        <div className="gestion-content">
+          <Dashboard
+            events={events}
+            selectedEvent={selectedEvent}
+            onUpdateEvent={handleUpdateEvent}
+            onDeleteEvent={handleDeleteEvent}
+            storefronts={storefronts}
+            selectedStorefront={selectedStorefront}
+            onSelectStorefront={handleSelectStorefront}
+            onCreateStorefront={handleCreateStorefront}
+            onDuplicateStorefront={handleDuplicateStorefront}
+            onActivateStorefront={handleActivateStorefront}
+            onDeleteStorefront={handleDeleteStorefront}
+            products={adminProducts}
+            shoppingList={shoppingList}
+            onSelectSection={handleGoToSection}
+          />
+        </div>
+      ) : (
+        <SectionShell activeSection={activeSection} onSelectSection={setActiveSection} onGoToDashboard={() => setView('dashboard')}>
+          {activeSection === 'catalogue' && (
+            <CataloguePanel
+              products={adminProducts}
+              menus={adminMenus}
+              categories={categories}
+              onAddCategory={handleAddCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onToggleCategory={handleToggleCategory}
+              onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
+              onToggleStock={handleToggleStock}
+              onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
+              onDeleteItem={handleDeleteAdminItem}
+            />
+          )}
+          {activeSection === 'stock' && (
+            <StockPanel
+              products={adminProducts}
+              categories={categories}
+              shoppingList={shoppingList}
+              onAddShoppingListItem={handleAddShoppingListItem}
+              onDeleteShoppingListItem={handleDeleteShoppingListItem}
+            />
+          )}
+          {activeSection === 'bilan' && (
+            <BilanPanel dailyReport={dailyReport} onFetchDailyReport={fetchDailyReport} />
+          )}
+          {activeSection === 'statistiques' && (
+            <StatsPanel stats={stats} onFetchStats={fetchStats} />
+          )}
+          {activeSection === 'historique' && (
+            <HistoriquePanel
+              events={events}
+              onSelectEvent={id => { handleSelectEvent(id); setView('dashboard'); }}
+              onDuplicateEvent={handleDuplicateEvent}
+              onFetchEventReport={fetchEventReport}
+              onFetchEventShoppingList={fetchEventShoppingList}
+              onFetchAverageShoppingList={fetchAverageShoppingList}
+            />
+          )}
+          {activeSection === 'avis' && (
+            <AvisPanel reviews={reviews} onFetchReviews={fetchReviews} onDeleteReview={handleDeleteReview} />
+          )}
+        </SectionShell>
+      )}
 
       <AdminProductModal
         isOpen={adminModalState.isOpen}
@@ -453,6 +537,6 @@ export default function ManagementApp() {
         categories={categories}
         products={adminProducts}
       />
-    </>
+    </div>
   );
 }
