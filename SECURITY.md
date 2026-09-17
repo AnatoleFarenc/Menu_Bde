@@ -11,8 +11,8 @@ lifecycle. It is kept up to date with every significant change.
 ```
 Browser ──HTTPS──►  Caddy (reverse proxy, :80/:443)  ──local HTTP──►  Node/Express (:5001)
                               │                                                │
-                              └── obtains/renews the certificate              └── server/data/db.json
-                                  automatically via Let's Encrypt                  (file-based database)
+                              └── obtains/renews the certificate              └── MariaDB (via Prisma)
+                                  automatically via Let's Encrypt                  local to the VPS
 ```
 
 - **1 VPS** (OVH, Debian 13), 2 services: production (`bde42perpignan.fr`, :5001) and
@@ -265,8 +265,7 @@ Identified points, not yet addressed (by priority):
 | `debian` retains broad `sudo` | A deliberate decision while the infra is still being built (see [§3](#3-server-hardening-vps)). To be restricted to deployment commands only once stabilized — the principle (dedicated application account + named commands) is already in place for `bde-ops`; it will just need to be duplicated. |
 | `fail2ban` | Not installed — to be added (SSH + application). |
 | Automatic security updates | `unattended-upgrades` to be enabled. |
-| Backups | No **automatic encrypted backup** of `server/data/db.json` to external storage. |
-| Database | Plain-text JSON file on disk. Migration to **SQLite** possible (locked file, transactional integrity). |
+| Backups | No **automatic encrypted backup** of the MariaDB database to external storage. |
 | Audit log | No traceability of administrator actions. |
 | Dependency scanning | To be set up (`npm audit` in CI, Dependabot). |
 | GDPR compliance | Privacy policy, retention/purge periods, right-to-erasure procedure, processing register: to be written once the data model has stabilized. |
