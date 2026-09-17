@@ -115,6 +115,10 @@ model Product {
   extraMenuPrice Float      @default(0)
   costPrice      Float?
   stock          Int?
+  // Below this stock count the Stock tab flags the product as "low" --
+  // customizable per product since a sensible threshold varies a lot (a few
+  // units for an expensive item, dozens for bread).
+  lowStockThreshold Int     @default(5)
   description    String?    @db.Text
   badge          String     @default("")
   available      Boolean    @default(true)

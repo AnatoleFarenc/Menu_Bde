@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE `Category` MODIFY `icon` VARCHAR(191) NOT NULL DEFAULT '📦';
+
+-- AlterTable
+ALTER TABLE `Menu` MODIFY `icon` VARCHAR(191) NOT NULL DEFAULT '🍱';
+
+-- AlterTable
+ALTER TABLE `Product` ADD COLUMN `lowStockThreshold` INTEGER NOT NULL DEFAULT 5,
+    MODIFY `icon` VARCHAR(191) NOT NULL DEFAULT '🥪';

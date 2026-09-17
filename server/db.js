@@ -80,6 +80,7 @@ function serializeProduct(p) {
     extraMenuPrice: p.extraMenuPrice,
     costPrice: p.costPrice,
     stock: p.stock,
+    lowStockThreshold: p.lowStockThreshold,
     description: p.description,
     badge: p.badge,
     available: p.available,
@@ -597,6 +598,9 @@ class DB {
       const stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
       data.stock = stock;
       if (stock !== null) data.available = stock > 0;
+    }
+    if (updates.lowStockThreshold !== undefined) {
+      data.lowStockThreshold = Math.max(0, parseInt(updates.lowStockThreshold, 10) || 0);
     }
 
     const updated = await prisma.product.update({ where: { id }, data });

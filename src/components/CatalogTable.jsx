@@ -170,7 +170,7 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
                   <td className="num">
                     {product.stock === null || product.stock === undefined
                       ? <span className="dim">Illimité</span>
-                      : <span className={product.stock === 0 ? 'stock-out' : product.stock <= 5 ? 'stock-low' : ''}>{product.stock}</span>}
+                      : <span className={product.stock === 0 ? 'stock-out' : product.stock <= (product.lowStockThreshold ?? 5) ? 'stock-low' : ''}>{product.stock}</span>}
                   </td>
                   <td>
                     <button

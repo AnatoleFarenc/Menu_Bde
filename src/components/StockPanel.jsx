@@ -19,10 +19,11 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
   const [showPreview, setShowPreview] = useState(false);
   const [previewItems, setPreviewItems] = useState(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  // Value currently being typed into a stock cell, keyed by product id --
-  // stays local until blur/Enter commits it, so re-renders from a fresh
-  // fetch never fight the admin mid-keystroke.
+  // Value currently being typed into a stock/threshold cell, keyed by
+  // product id -- stays local until blur/Enter commits it, so re-renders
+  // from a fresh fetch never fight the admin mid-keystroke.
   const [pendingStock, setPendingStock] = useState({});
+  const [pendingThreshold, setPendingThreshold] = useState({});
 
   const commitStock = (product, rawValue) => {
     setPendingStock(prev => {
@@ -34,6 +35,17 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
     const newStock = trimmed === '' ? null : Math.max(0, parseInt(trimmed, 10) || 0);
     if (newStock === product.stock) return;
     onUpdateStock(product.id, { stock: newStock });
+  };
+
+  const commitThreshold = (product, rawValue) => {
+    setPendingThreshold(prev => {
+      const next = { ...prev };
+      delete next[product.id];
+      return next;
+    });
+    const newThreshold = Math.max(0, parseInt(rawValue, 10) || 0);
+    if (newThreshold === product.lowStockThreshold) return;
+    onUpdateStock(product.id, { lowStockThreshold: newThreshold });
   };
 
   const changeDays = delta => {
@@ -76,19 +88,21 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
               <th>Produit</th>
               <th>Catégorie</th>
               <th className="num">Stock</th>
+              <th className="num">Seuil bas</th>
               <th>Statut</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={5} className="catalog-empty-row">Aucun produit dans cette vitrine.</td></tr>
+              <tr><td colSpan={6} className="catalog-empty-row">Aucun produit dans cette vitrine.</td></tr>
             )}
             {rows.map(product => {
               const tracked = product.stock !== null && product.stock !== undefined;
               const isOut = tracked && product.stock <= 0;
-              const isLow = tracked && product.stock > 0 && product.stock <= 5;
+              const isLow = tracked && product.stock > 0 && product.stock <= product.lowStockThreshold;
               const pending = pendingStock[product.id];
+              const pendingLow = pendingThreshold[product.id];
               return (
                 <tr key={product.id}>
                   <td style={{ fontWeight: 700, textDecoration: product.available ? 'none' : 'line-through', color: product.available ? 'inherit' : 'var(--text-dim)' }}>
@@ -109,6 +123,23 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
                       />
                     ) : (
                       <span className="dim">Illimité</span>
+                    )}
+                  </td>
+                  <td className="num">
+                    {tracked ? (
+                      <input
+                        type="number"
+                        min="0"
+                        className="form-input"
+                        style={{ width: '60px', textAlign: 'right', padding: '0.3rem 0.5rem' }}
+                        value={pendingLow !== undefined ? pendingLow : product.lowStockThreshold}
+                        onChange={e => setPendingThreshold(prev => ({ ...prev, [product.id]: e.target.value }))}
+                        onBlur={e => commitThreshold(product, e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                        title="À partir de quel stock ce produit est signalé comme bas"
+                      />
+                    ) : (
+                      <span className="dim">—</span>
                     )}
                   </td>
                   <td>
