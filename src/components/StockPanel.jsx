@@ -1,11 +1,27 @@
 import React, { useState } from 'react';
-import { Wand2 } from 'lucide-react';
+import { InfinityIcon, Wand2 } from 'lucide-react';
 import ShoppingListManager from './ShoppingListManager';
 
-export default function StockPanel({ products, categories, shoppingList, onAddShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList }) {
+export default function StockPanel({ products, categories, shoppingList, onAddShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onUpdateStock }) {
   const [days, setDays] = useState(3);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
+  // Value currently being typed into a stock cell, keyed by product id --
+  // stays local until blur/Enter commits it, so re-renders from a fresh
+  // fetch never fight the admin mid-keystroke.
+  const [pendingStock, setPendingStock] = useState({});
+
+  const commitStock = (product, rawValue) => {
+    setPendingStock(prev => {
+      const next = { ...prev };
+      delete next[product.id];
+      return next;
+    });
+    const trimmed = rawValue.trim();
+    const newStock = trimmed === '' ? null : Math.max(0, parseInt(trimmed, 10) || 0);
+    if (newStock === product.stock) return;
+    onUpdateStock(product.id, { stock: newStock });
+  };
 
   const changeDays = delta => {
     setDays(d => Math.min(14, Math.max(1, d + delta)));
@@ -38,16 +54,18 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
               <th>Catégorie</th>
               <th className="num">Stock</th>
               <th>Statut</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={4} className="catalog-empty-row">Aucun produit dans cette vitrine.</td></tr>
+              <tr><td colSpan={5} className="catalog-empty-row">Aucun produit dans cette vitrine.</td></tr>
             )}
             {rows.map(product => {
               const tracked = product.stock !== null && product.stock !== undefined;
               const isOut = tracked && product.stock <= 0;
               const isLow = tracked && product.stock > 0 && product.stock <= 5;
+              const pending = pendingStock[product.id];
               return (
                 <tr key={product.id}>
                   <td style={{ fontWeight: 700, textDecoration: product.available ? 'none' : 'line-through', color: product.available ? 'inherit' : 'var(--text-dim)' }}>
@@ -55,7 +73,20 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
                   </td>
                   <td className="dim">{categories.find(c => c.id === product.category)?.name || product.category}</td>
                   <td className={`num ${isOut ? 'stock-out' : isLow ? 'stock-low' : ''}`}>
-                    {tracked ? product.stock : <span className="dim">Illimité</span>}
+                    {tracked ? (
+                      <input
+                        type="number"
+                        min="0"
+                        className="form-input"
+                        style={{ width: '70px', textAlign: 'right', padding: '0.3rem 0.5rem' }}
+                        value={pending !== undefined ? pending : product.stock}
+                        onChange={e => setPendingStock(prev => ({ ...prev, [product.id]: e.target.value }))}
+                        onBlur={e => commitStock(product, e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                      />
+                    ) : (
+                      <span className="dim">Illimité</span>
+                    )}
                   </td>
                   <td>
                     {!product.available ? (
@@ -67,6 +98,17 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
                     ) : (
                       <span className="badge-chip" style={{ background: 'rgba(76,122,63,0.1)', color: 'var(--color-success)' }}>OK</span>
                     )}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                      onClick={() => onUpdateStock(product.id, tracked ? { stock: null, available: true } : { stock: 0 })}
+                      title={tracked ? 'Passer en stock illimité' : 'Suivre le stock de ce produit'}
+                    >
+                      <InfinityIcon size={13} /> {tracked ? 'Illimité' : 'Suivre'}
+                    </button>
                   </td>
                 </tr>
               );

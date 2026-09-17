@@ -289,6 +289,20 @@ export default function ManagementApp() {
     }
   };
 
+  // `updates` is a partial Product patch, not just a number -- switching to
+  // "illimité" also forces `available: true` (see StockPanel), since
+  // clearing the stock count alone leaves a product that was out of stock
+  // still marked unavailable (updateProduct only recomputes `available`
+  // from a non-null stock).
+  const handleUpdateStock = async (id, updates) => {
+    try {
+      await axios.put(`/api/admin/products/${id}`, updates, authHeaders);
+      fetchAdminCatalog(selectedStorefrontId);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du stock.');
+    }
+  };
+
   const handleToggleStock = async (id, type) => {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
@@ -560,6 +574,7 @@ export default function ManagementApp() {
               onAddShoppingListItem={handleAddShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
               onGenerateShoppingList={handleGenerateShoppingList}
+              onUpdateStock={handleUpdateStock}
             />
           )}
           {activeSection === 'bilan' && (
