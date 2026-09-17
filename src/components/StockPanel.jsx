@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, InfinityIcon, Wand2 } from 'lucide-react';
+import { ChevronDown, Wand2 } from 'lucide-react';
 import ShoppingListManager from './ShoppingListManager';
 import IngredientsManager from './IngredientsManager';
 
@@ -7,10 +7,15 @@ function formatMoney(value) {
   return `${value.toFixed(2).replace('.', ',')} €`;
 }
 
+// Products bought already finished (drinks...) still have their own stock
+// (Product.inventoryItemId), but that's edited from the product's own entry
+// in the Catalogue tab now -- this tab is entirely about the ingredient
+// stock (StockItem), what actually drives "know what's left / what to
+// rebuy" and the shopping-list generator.
 export default function StockPanel({
-  products, categories, menus, shoppingList, stockItems,
+  products, menus, shoppingList, stockItems,
   onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem,
-  onGenerateShoppingList, onFetchRestockCandidates, onUpdateStock,
+  onGenerateShoppingList, onFetchRestockCandidates,
   onAddStockItem, onUpdateStockItem, onDeleteStockItem
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -18,34 +23,6 @@ export default function StockPanel({
   const [showPreview, setShowPreview] = useState(false);
   const [previewItems, setPreviewItems] = useState(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  // Value currently being typed into a stock/threshold cell, keyed by
-  // product id -- stays local until blur/Enter commits it, so re-renders
-  // from a fresh fetch never fight the admin mid-keystroke.
-  const [pendingStock, setPendingStock] = useState({});
-  const [pendingThreshold, setPendingThreshold] = useState({});
-
-  const commitStock = (product, rawValue) => {
-    setPendingStock(prev => {
-      const next = { ...prev };
-      delete next[product.id];
-      return next;
-    });
-    const trimmed = rawValue.trim();
-    const newStock = trimmed === '' ? null : Math.max(0, parseInt(trimmed, 10) || 0);
-    if (newStock === product.stock) return;
-    onUpdateStock(product.id, { stock: newStock });
-  };
-
-  const commitThreshold = (product, rawValue) => {
-    setPendingThreshold(prev => {
-      const next = { ...prev };
-      delete next[product.id];
-      return next;
-    });
-    const newThreshold = Math.max(0, parseInt(rawValue, 10) || 0);
-    if (newThreshold === product.lowStockThreshold) return;
-    onUpdateStock(product.id, { lowStockThreshold: newThreshold });
-  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -63,15 +40,6 @@ export default function StockPanel({
     setIsPreviewLoading(false);
   };
 
-  const rows = [...products].sort((a, b) => {
-    const aTracked = a.stock !== null && a.stock !== undefined;
-    const bTracked = b.stock !== null && b.stock !== undefined;
-    if (aTracked && bTracked) return a.stock - b.stock;
-    if (aTracked) return -1;
-    if (bTracked) return 1;
-    return 0;
-  });
-
   return (
     <div className="fade-in">
       <IngredientsManager
@@ -80,101 +48,6 @@ export default function StockPanel({
         onUpdate={onUpdateStockItem}
         onDelete={onDeleteStockItem}
       />
-
-      <div className="catalog-section-label" style={{ marginTop: '2.5rem' }}>Stock des produits vendus tels quels</div>
-      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem', marginBottom: '0.75rem' }}>
-        Pour les produits achetés déjà finis (boissons...), pas besoin de recette -- leur stock se suit ici directement. Partagé par nom entre toutes les vitrines et événements.
-        Pour ajouter un nouveau produit au catalogue, direction l'onglet Catalogue.
-      </p>
-      <div className="data-table-wrap" style={{ marginBottom: '2rem' }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Produit</th>
-              <th>Catégorie</th>
-              <th className="num">Stock</th>
-              <th className="num">Seuil bas</th>
-              <th>Statut</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={6} className="catalog-empty-row">Aucun produit dans cette vitrine.</td></tr>
-            )}
-            {rows.map(product => {
-              const tracked = product.stock !== null && product.stock !== undefined;
-              const isOut = tracked && product.stock <= 0;
-              const isLow = tracked && product.stock > 0 && product.stock <= product.lowStockThreshold;
-              const pending = pendingStock[product.id];
-              const pendingLow = pendingThreshold[product.id];
-              return (
-                <tr key={product.id}>
-                  <td style={{ fontWeight: 700, textDecoration: product.available ? 'none' : 'line-through', color: product.available ? 'inherit' : 'var(--text-dim)' }}>
-                    {product.name}
-                  </td>
-                  <td className="dim">{categories.find(c => c.id === product.category)?.name || product.category}</td>
-                  <td className={`num ${isOut ? 'stock-out' : isLow ? 'stock-low' : ''}`}>
-                    {tracked ? (
-                      <input
-                        type="number"
-                        min="0"
-                        className="form-input"
-                        style={{ width: '70px', textAlign: 'right', padding: '0.3rem 0.5rem' }}
-                        value={pending !== undefined ? pending : product.stock}
-                        onChange={e => setPendingStock(prev => ({ ...prev, [product.id]: e.target.value }))}
-                        onBlur={e => commitStock(product, e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                      />
-                    ) : (
-                      <span className="dim">Illimité</span>
-                    )}
-                  </td>
-                  <td className="num">
-                    {tracked ? (
-                      <input
-                        type="number"
-                        min="0"
-                        className="form-input"
-                        style={{ width: '60px', textAlign: 'right', padding: '0.3rem 0.5rem' }}
-                        value={pendingLow !== undefined ? pendingLow : product.lowStockThreshold}
-                        onChange={e => setPendingThreshold(prev => ({ ...prev, [product.id]: e.target.value }))}
-                        onBlur={e => commitThreshold(product, e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                        title="À partir de quel stock ce produit est signalé comme bas"
-                      />
-                    ) : (
-                      <span className="dim">—</span>
-                    )}
-                  </td>
-                  <td>
-                    {!product.available ? (
-                      <span className="badge-chip" style={{ background: 'rgba(179,64,46,0.1)', color: 'var(--color-danger)' }}>Indisponible</span>
-                    ) : isOut ? (
-                      <span className="badge-chip" style={{ background: 'rgba(179,64,46,0.1)', color: 'var(--color-danger)' }}>Épuisé</span>
-                    ) : isLow ? (
-                      <span className="badge-chip" style={{ background: 'rgba(180,121,15,0.12)', color: 'var(--color-warning)' }}>Stock bas</span>
-                    ) : (
-                      <span className="badge-chip" style={{ background: 'rgba(76,122,63,0.1)', color: 'var(--color-success)' }}>OK</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-                      onClick={() => onUpdateStock(product.id, tracked ? { stock: null, available: true } : { stock: 0 })}
-                      title={tracked ? 'Passer en stock illimité' : 'Suivre le stock de ce produit'}
-                    >
-                      <InfinityIcon size={13} /> {tracked ? 'Illimité' : 'Suivre'}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
 
       <div className="synthesis-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '2.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>

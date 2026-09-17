@@ -33,6 +33,7 @@ const emptyBaseForm = (type) => ({
   extraMenuPrice: '',
   costPrice: '',
   stock: '',
+  lowStockThreshold: '',
   description: '',
   badge: '',
   icon: type === 'menu' ? '🍱' : '🥪'
@@ -101,6 +102,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         extraMenuPrice: editingItem.extraMenuPrice || '',
         costPrice: editingItem.costPrice === null || editingItem.costPrice === undefined ? '' : editingItem.costPrice,
         stock: editingItem.stock === null || editingItem.stock === undefined ? '' : editingItem.stock,
+        lowStockThreshold: editingItem.lowStockThreshold === null || editingItem.lowStockThreshold === undefined ? '' : editingItem.lowStockThreshold,
         description: editingItem.description || '',
         badge: editingItem.badge || '',
         icon: editingItem.icon || (type === 'menu' ? '🍱' : '🥪')
@@ -347,18 +349,29 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
           {type === 'product' && (
             <div className="form-group">
               <label className="form-label">Stock (Optionnel)</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                className="form-input"
-                placeholder="Laisser vide = pas de suivi de stock (toujours disponible)"
-                value={formData.stock}
-                onChange={e => setFormData({ ...formData, stock: e.target.value })}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="form-input"
+                  placeholder="Laisser vide = pas de suivi de stock (toujours disponible)"
+                  value={formData.stock}
+                  onChange={e => setFormData({ ...formData, stock: e.target.value })}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="form-input"
+                  placeholder="Seuil bas (défaut 5)"
+                  value={formData.lowStockThreshold}
+                  onChange={e => setFormData({ ...formData, lowStockThreshold: e.target.value })}
+                />
+              </div>
               <p className="formule-slot-hint">
                 Si renseigné, le stock diminue à chaque commande et le produit passe automatiquement en rupture à 0.
-                Le stock est partagé entre toutes les vitrines/événements du même nom -- modifiable aussi depuis l'onglet Stock.
+                Le stock est partagé entre toutes les vitrines/événements du même nom. Pour un produit fait à partir d'ingrédients (avec une recette), c'est le stock des ingrédients (onglet Stock) qui compte, pas celui-ci.
               </p>
             </div>
           )}
