@@ -200,14 +200,24 @@ export default function ManagementApp() {
     }
   };
 
-  const handleGenerateShoppingList = async days => {
+  const handleGenerateShoppingList = async () => {
     try {
-      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/generate`, { days }, authHeaders);
+      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/generate`, {}, authHeaders);
       fetchShoppingList(selectedStorefrontId);
       return res.data;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la génération de la liste.');
       return null;
+    }
+  };
+
+  const fetchRestockCandidates = async () => {
+    try {
+      const res = await axios.get(`/api/admin/storefronts/${selectedStorefrontId}/restock-candidates`, authHeaders);
+      return res.data.items || [];
+    } catch (e) {
+      console.error('Error fetching restock candidates:', e);
+      return [];
     }
   };
 
@@ -639,7 +649,7 @@ export default function ManagementApp() {
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
               onGenerateShoppingList={handleGenerateShoppingList}
-              onFetchAverageShoppingList={fetchAverageShoppingList}
+              onFetchRestockCandidates={fetchRestockCandidates}
               onUpdateStock={handleUpdateStock}
             />
           )}

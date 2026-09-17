@@ -2,18 +2,11 @@ import React, { useState } from 'react';
 import { ChevronDown, InfinityIcon, Wand2 } from 'lucide-react';
 import ShoppingListManager from './ShoppingListManager';
 
-function formatQty(value, unit) {
-  const rounded = Math.round(value * 10) / 10;
-  const label = Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
-  return `${label}${unit ? ` ${unit}` : ''}`;
-}
-
 function formatMoney(value) {
   return `${value.toFixed(2).replace('.', ',')} €`;
 }
 
-export default function StockPanel({ products, categories, menus, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onFetchAverageShoppingList, onUpdateStock }) {
-  const [days, setDays] = useState(3);
+export default function StockPanel({ products, categories, menus, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onFetchRestockCandidates, onUpdateStock }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -48,14 +41,9 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
     onUpdateStock(product.id, { lowStockThreshold: newThreshold });
   };
 
-  const changeDays = delta => {
-    setDays(d => Math.min(14, Math.max(1, d + delta)));
-    setResult(null);
-  };
-
   const handleGenerate = async () => {
     setIsGenerating(true);
-    setResult(await onGenerateShoppingList(days));
+    setResult(await onGenerateShoppingList());
     setIsGenerating(false);
     setPreviewItems(null); // stale after generating -- next open re-fetches
   };
@@ -65,7 +53,7 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
     setShowPreview(true);
     if (previewItems !== null) return;
     setIsPreviewLoading(true);
-    setPreviewItems(await onFetchAverageShoppingList());
+    setPreviewItems(await onFetchRestockCandidates());
     setIsPreviewLoading(false);
   };
 
@@ -180,16 +168,11 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Génération automatique</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Pré-remplit la liste à partir de la moyenne des événements passés, pour la durée choisie.
+              Ajoute un article pour chaque produit de cet événement en stock bas ou épuisé, avec une quantité pour repasser au-dessus du seuil.
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          <div className="day-stepper">
-            <button type="button" onClick={() => changeDays(-1)}>−</button>
-            <span className="day-stepper-value">{days} j</span>
-            <button type="button" onClick={() => changeDays(1)}>+</button>
-          </div>
           <button type="button" className="btn btn-secondary" onClick={handleTogglePreview}>
             Aperçu <ChevronDown size={14} style={{ transition: 'transform 0.15s', transform: showPreview ? 'rotate(180deg)' : 'rotate(0deg)' }} />
           </button>
@@ -201,10 +184,7 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
           <div style={{ width: '100%', fontSize: '0.8rem', color: result.created > 0 ? 'var(--color-success)' : 'var(--text-muted)' }}>
             {result.created > 0
               ? `${result.created} article${result.created > 1 ? 's' : ''} ajouté${result.created > 1 ? 's' : ''}${result.skipped > 0 ? ` (${result.skipped} déjà présent${result.skipped > 1 ? 's' : ''})` : ''}.`
-              : 'Rien à ajouter automatiquement : tout est déjà dans la liste, ou aucun historique vérifié pour ce catalogue.'}
-            {result.unverified > 0 && (
-              <> {result.unverified} article{result.unverified > 1 ? 's' : ''} de plus dans l'historique, jamais lié{result.unverified > 1 ? 's' : ''} à un produit -- vois l'aperçu pour les ajouter à la main si pertinent.</>
-            )}
+              : 'Rien à ajouter : aucun produit de cet événement n\'est en stock bas pour l\'instant, ou tout est déjà dans la liste.'}
           </div>
         )}
         {showPreview && (
@@ -212,39 +192,25 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
             {isPreviewLoading || previewItems === null ? (
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Chargement...</div>
             ) : previewItems.length === 0 ? (
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Aucun historique de listes de courses disponible pour l'instant.</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Aucun produit de cet événement n'est en stock bas pour l'instant.</div>
             ) : (
               <div className="data-table-wrap">
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '0.4rem' }}>
-                  "Vendu au dernier événement" est indicatif (articles liés à un produit du catalogue) -- n'influence pas la quantité/coût estimés, calculés depuis l'historique d'achats.
-                  Seuls les articles <strong>vérifiés</strong> (liés à un produit de ce catalogue) sont ajoutés automatiquement par "Générer" -- les autres restent à ajouter à la main.
-                </p>
                 <table>
                   <thead>
                     <tr>
-                      <th>Article</th>
-                      <th className="num">Quantité estimée</th>
+                      <th>Produit</th>
+                      <th className="num">Stock actuel</th>
+                      <th className="num">Quantité à ajouter</th>
                       <th className="num">Coût estimé</th>
-                      <th>Vendu au dernier événement</th>
-                      <th>Statut</th>
                     </tr>
                   </thead>
                   <tbody>
                     {previewItems.map(it => (
-                      <tr key={`${it.name}-${it.unit || ''}`}>
+                      <tr key={it.productId}>
                         <td style={{ fontWeight: 700 }}>{it.name}</td>
-                        <td className="num">{it.perDayQuantity != null ? formatQty(it.perDayQuantity * days, it.unit) : '—'}</td>
-                        <td className="num">{it.perDayCost != null ? formatMoney(it.perDayCost * days) : '—'}</td>
-                        <td className="dim" style={{ fontSize: '0.8rem' }}>
-                          {it.soldLastEvent
-                            ? `${it.soldLastEvent.quantity} vendu${it.soldLastEvent.quantity > 1 ? 's' : ''} (${it.soldLastEvent.eventName})`
-                            : '—'}
-                        </td>
-                        <td>
-                          {it.linked
-                            ? <span className="badge-chip" style={{ background: 'rgba(76,122,63,0.1)', color: 'var(--color-success)' }}>Vérifié</span>
-                            : <span className="badge-chip" style={{ background: 'rgba(180,121,15,0.12)', color: 'var(--color-warning)' }}>Non lié</span>}
-                        </td>
+                        <td className={`num ${it.stock <= 0 ? 'stock-out' : 'stock-low'}`}>{it.stock}</td>
+                        <td className="num">{it.quantity}</td>
+                        <td className="num">{it.totalCost != null ? formatMoney(it.totalCost) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>

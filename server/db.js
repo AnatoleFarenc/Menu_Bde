@@ -1084,11 +1084,12 @@ class DB {
           perDayCost: g.costCount ? g.costSum / g.costCount : null,
           sampleSize: Math.max(g.qtyCount, g.costCount),
           soldLastEvent: g.inventoryItemIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null,
-          // Was this article ever linked to a real catalog product? Only
-          // generateShoppingList's one-click auto-add cares -- it only
-          // trusts a group it can verify is genuinely tied to something in
-          // THIS event, see there. The Aperçu preview shows every group
-          // regardless, this is just a signal for the UI to flag one as
+          // Was this article ever linked to a real catalog product? Purely
+          // informational now that generateShoppingList (Stock tab) has its
+          // own, unrelated stock-threshold logic (see getRestockCandidates)
+          // instead of drawing from this historical average at all -- kept
+          // here for whatever still shows this list (e.g. Historique's
+          // pre-event preview) to flag one as
           // "not verified" rather than hide it.
           linked: g.inventoryItemIds.size > 0
         };
@@ -1193,45 +1194,58 @@ class DB {
   // lowercased) so clicking it twice, or generating after already adding a
   // few items by hand, never creates duplicate lines -- the admin edits or
   // deletes individual rows from here on, same as a manually-added one.
-  async generateShoppingList(storefrontId, days) {
+  // Every tracked product in THIS storefront's own catalog at or below its
+  // own low-stock threshold, with a suggested restock quantity -- same
+  // formula as Courses' "Produits à racheter" (bring it back up to its
+  // threshold), just computed for the whole catalog at once instead of one
+  // item at a time. Grounded entirely in real, current data (the event's
+  // actual products and their actual stock), never in unrelated shopping
+  // history from a different event -- see generateShoppingList below,
+  // which creates exactly this list, and getAverageShoppingList for the
+  // (separate, historical-average) feature this deliberately doesn't use.
+  async getRestockCandidates(storefrontId) {
+    const products = await prisma.product.findMany({ where: { storefrontId }, include: { inventoryItem: true } });
+    return products
+      .filter(p => p.inventoryItem && p.inventoryItem.stock !== null && p.inventoryItem.stock <= p.inventoryItem.lowStockThreshold)
+      .map(p => {
+        const quantity = Math.max(1, p.inventoryItem.lowStockThreshold - p.inventoryItem.stock);
+        return {
+          productId: p.id,
+          name: p.name,
+          stock: p.inventoryItem.stock,
+          lowStockThreshold: p.inventoryItem.lowStockThreshold,
+          quantity,
+          totalCost: p.costPrice != null ? Math.round(p.costPrice * quantity * 100) / 100 : null
+        };
+      })
+      .sort((a, b) => a.stock - b.stock);
+  }
+
+  // Pre-fills the storefront's shopping list with one line per restock
+  // candidate above -- skips anything already on the list (by name).
+  async generateShoppingList(storefrontId) {
     const trip = await this.getOrCreateOpenTrip(storefrontId);
-    const [average, existing] = await Promise.all([
-      this.getAverageShoppingList(storefrontId),
-      prisma.shoppingListItem.findMany({ where: { tripId: trip.id }, select: { name: true, unit: true } })
+    const [candidates, existing] = await Promise.all([
+      this.getRestockCandidates(storefrontId),
+      prisma.shoppingListItem.findMany({ where: { tripId: trip.id }, select: { name: true } })
     ]);
-    const keyOf = (name, unit) => `${name.trim().toLowerCase()} ${(unit || '').trim().toLowerCase()}`;
-    const existingKeys = new Set(existing.map(it => keyOf(it.name, it.unit)));
+    const existingNames = new Set(existing.map(it => it.name.trim().toLowerCase()));
+    const toCreate = candidates.filter(c => !existingNames.has(c.name.trim().toLowerCase()));
 
-    // The one-click auto-add only trusts a group it can VERIFY belongs to
-    // this event -- linked to a real product in the current catalog (see
-    // getAverageShoppingList's storefrontId filter, which already drops
-    // anything linked ELSEWHERE). An unlinked group (no product link at
-    // all, ever) can't be verified either way, so it's left for the admin
-    // to add by hand from the Aperçu preview if it's actually relevant,
-    // rather than guessed into the list automatically.
-    const unlinked = average.filter(g => !g.linked && !existingKeys.has(keyOf(g.name, g.unit)));
-    const toCreate = average.filter(g => g.linked && !existingKeys.has(keyOf(g.name, g.unit)));
-
-    if (toCreate.length > 0) {
-      await prisma.shoppingListItem.createMany({
-        data: toCreate.map(g => ({
+    for (const c of toCreate) {
+      await prisma.shoppingListItem.create({
+        data: {
           storefrontId,
           tripId: trip.id,
-          name: g.name,
-          unit: g.unit || null,
-          quantity: g.perDayQuantity != null ? Math.round(g.perDayQuantity * days * 10) / 10 : null,
-          forDays: days,
-          totalCost: g.perDayCost != null ? Math.round(g.perDayCost * days * 100) / 100 : null,
-          purchaseLocation: g.purchaseLocation || null
-        }))
+          name: c.name,
+          quantity: c.quantity,
+          totalCost: c.totalCost,
+          products: { create: [{ productId: c.productId }] }
+        }
       });
     }
 
-    return {
-      created: toCreate.length,
-      skipped: average.length - toCreate.length - unlinked.length,
-      unverified: unlinked.length
-    };
+    return { created: toCreate.length, skipped: candidates.length - toCreate.length };
   }
 
   // Role hierarchy (see resolveRole() in auth42.js for how a login's role is

@@ -342,11 +342,16 @@ app.post('/api/admin/storefronts/:id/shopping-list', requireManager, ah(async (r
   res.status(201).json({ item });
 }));
 
-// Pre-fills this storefront's shopping list from the cross-event average,
-// scaled to the given number of days.
+// Preview of what generate (below) would add: every tracked product in
+// this storefront at or below its own low-stock threshold.
+app.get('/api/admin/storefronts/:id/restock-candidates', requireManager, ah(async (req, res) => {
+  res.json({ items: await db.getRestockCandidates(req.params.id) });
+}));
+
+// Pre-fills this storefront's shopping list with a restock suggestion for
+// every low/out-of-stock product in ITS OWN catalog.
 app.post('/api/admin/storefronts/:id/shopping-list/generate', requireManager, ah(async (req, res) => {
-  const days = Math.max(1, Math.min(60, Math.round(Number(req.body.days)) || 1));
-  const result = await db.generateShoppingList(req.params.id, days);
+  const result = await db.generateShoppingList(req.params.id);
   res.json(result);
 }));
 
