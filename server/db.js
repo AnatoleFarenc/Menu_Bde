@@ -66,6 +66,7 @@ function serializeShoppingListItem(item) {
     totalCost: item.totalCost,
     purchaseLocation: item.purchaseLocation,
     note: item.note,
+    bought: item.bought,
     productIds: (item.products || []).map(link => link.productId)
   };
 }
@@ -509,6 +510,7 @@ class DB {
         totalCost: item.totalCost === '' || item.totalCost === undefined || item.totalCost === null ? null : parseFloat(item.totalCost),
         purchaseLocation: item.purchaseLocation || null,
         note: item.note || null,
+        bought: !!item.bought,
         products: { create: (item.productIds || []).map(productId => ({ productId })) }
       },
       include: { products: true }
@@ -530,6 +532,7 @@ class DB {
     if (updates.totalCost !== undefined) data.totalCost = (updates.totalCost === '' || updates.totalCost === null) ? null : parseFloat(updates.totalCost);
     if (updates.purchaseLocation !== undefined) data.purchaseLocation = updates.purchaseLocation || null;
     if (updates.note !== undefined) data.note = updates.note || null;
+    if (updates.bought !== undefined) data.bought = !!updates.bought;
 
     if (updates.productIds !== undefined) {
       await prisma.shoppingListItemProduct.deleteMany({ where: { shoppingListItemId: id } });

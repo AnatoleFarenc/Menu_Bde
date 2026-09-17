@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 const SECTIONS = [
   { id: 'catalogue', label: 'Catalogue' },
   { id: 'stock', label: 'Stock' },
+  { id: 'courses', label: 'Courses' },
   { id: 'bilan', label: 'Bilan' },
   { id: 'statistiques', label: 'Statistiques' },
   { id: 'previsionnel', label: 'Prévisionnel' },

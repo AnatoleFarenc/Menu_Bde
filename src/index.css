@@ -3116,6 +3116,46 @@ main h3 {
   font-size: 13px;
 }
 
+/* Courses (shopping-trip checklist): roomier rows than a dense table, sized
+   for a phone at arm's length while walking a store aisle. */
+.admin-modern .shopping-trip-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-modern .shopping-trip-item.is-bought {
+  background: var(--bg-inset);
+  box-shadow: none;
+}
+
+.admin-modern .shopping-trip-checkbox {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.admin-modern .shopping-trip-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-warning);
+  background: rgba(180, 121, 15, 0.07);
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 900px) {
   .admin-modern .chart-row {
     grid-template-columns: 1fr;

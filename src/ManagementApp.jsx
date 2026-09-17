@@ -5,6 +5,7 @@ import SectionShell from './components/SectionShell';
 import Dashboard from './components/Dashboard';
 import CataloguePanel from './components/CataloguePanel';
 import StockPanel from './components/StockPanel';
+import CoursesPanel from './components/CoursesPanel';
 import BilanPanel from './components/BilanPanel';
 import StatsPanel from './components/StatsPanel';
 import ForecastPanel from './components/ForecastPanel';
@@ -616,6 +617,15 @@ export default function ManagementApp() {
               onGenerateShoppingList={handleGenerateShoppingList}
               onFetchAverageShoppingList={fetchAverageShoppingList}
               onUpdateStock={handleUpdateStock}
+            />
+          )}
+          {activeSection === 'courses' && (
+            <CoursesPanel
+              products={adminProducts}
+              shoppingList={shoppingList}
+              onAddShoppingListItem={handleAddShoppingListItem}
+              onUpdateShoppingListItem={handleUpdateShoppingListItem}
+              onDeleteShoppingListItem={handleDeleteShoppingListItem}
             />
           )}
           {activeSection === 'bilan' && (

@@ -86,6 +86,7 @@ model ShoppingListItem {
   totalCost        Float?
   purchaseLocation String?
   note             String?    @db.Text
+  bought           Boolean    @default(false)
   createdAt        DateTime   @default(now())
 
   products ShoppingListItemProduct[]

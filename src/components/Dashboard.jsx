@@ -1,11 +1,12 @@
 import React from 'react';
-import { BarChart3, ClipboardList, History, LineChart, Package, Star, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, ClipboardList, History, LineChart, Package, ShoppingCart, Star, TrendingUp, Users } from 'lucide-react';
 import EventHeader from './EventHeader';
 import StorefrontTabs from './StorefrontTabs';
 
 const CARDS = [
   { id: 'catalogue', icon: Package, title: 'Catalogue', desc: (ctx) => `${ctx.productCount} produits, catégories et stock.` },
   { id: 'stock', icon: ClipboardList, title: 'Stock', desc: () => 'Niveaux de stock et liste de courses.' },
+  { id: 'courses', icon: ShoppingCart, title: 'Courses', desc: () => 'Checklist pour aller faire les courses, mise à jour en direct.' },
   { id: 'bilan', icon: BarChart3, title: 'Bilan', desc: () => "Chiffre d'affaires, coûts et marge par période." },
   { id: 'statistiques', icon: TrendingUp, title: 'Statistiques', desc: () => 'Ventes, catégories et produits les plus vendus.' },
   { id: 'previsionnel', icon: LineChart, title: 'Prévisionnel', desc: () => "CA, bénéfice et élèves attendus sur les prochains jours/semaines." },
