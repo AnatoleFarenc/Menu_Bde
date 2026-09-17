@@ -212,14 +212,15 @@ export default function ManagementApp() {
   };
 
   const handleCloseShoppingTrip = async () => {
-    if (!confirm('Clôturer la liste de courses actuelle ? Elle passera dans l\'historique et une nouvelle liste vide démarrera.')) return false;
+    if (!confirm('Clôturer la liste de courses actuelle ? Elle passera dans l\'historique, une nouvelle liste vide démarrera, et le stock des produits liés à un seul article coché sera mis à jour.')) return false;
     try {
-      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
+      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
       fetchShoppingList(selectedStorefrontId);
-      return true;
+      fetchAdminCatalog(selectedStorefrontId); // stock may have just changed
+      return res.data.trip;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');
-      return false;
+      return null;
     }
   };
 

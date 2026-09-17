@@ -134,6 +134,7 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [closeResult, setCloseResult] = useState(null);
 
   const listedNames = new Set(shoppingList.map(it => it.name.trim().toLowerCase()));
   const restockCandidates = products
@@ -162,7 +163,10 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
     setIsClosing(true);
     const closed = await onCloseTrip();
     setIsClosing(false);
-    if (closed) setHistory(null); // stale -- next open re-fetches with the newly closed trip
+    if (closed) {
+      setHistory(null); // stale -- next open re-fetches with the newly closed trip
+      setCloseResult(closed.restocked || []);
+    }
   };
 
   const handleToggleHistory = async () => {
@@ -180,6 +184,23 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
         Coche au fur et à mesure, ajuste la quantité/le coût réel si besoin -- pensé pour être utilisé depuis le magasin.
       </p>
+
+      {closeResult && (
+        <div className="synthesis-card" style={{ marginBottom: '1.25rem', fontSize: '0.82rem' }}>
+          <div style={{ fontWeight: 700, marginBottom: closeResult.length ? '0.4rem' : 0, color: 'var(--color-success)' }}>
+            Liste clôturée -- nouvelle liste démarrée.
+          </div>
+          {closeResult.length > 0 ? (
+            <div style={{ color: 'var(--text-muted)' }}>
+              Stock mis à jour : {closeResult.map(r => `${r.productName} (+${r.added} → ${r.newStock})`).join(', ')}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-muted)' }}>
+              Aucun article coché n'était lié à un seul produit du catalogue suivi en stock -- rien à mettre à jour automatiquement.
+            </div>
+          )}
+        </div>
+      )}
 
       {shoppingList.length > 0 && (
         <div className="synthesis-card" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>

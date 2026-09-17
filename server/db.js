@@ -511,10 +511,33 @@ class DB {
   }
 
   async closeShoppingTrip(storefrontId) {
-    const trip = await prisma.shoppingTrip.findFirst({ where: { storefrontId, closedAt: null } });
+    const trip = await prisma.shoppingTrip.findFirst({
+      where: { storefrontId, closedAt: null },
+      include: { items: { include: { products: true } } }
+    });
     if (!trip) return null;
+
+    // Restock: a bought item linked to EXACTLY one catalog product is an
+    // unambiguous 1:1 match (e.g. a "Pain au chocolat" shopping-list line
+    // linked to the "Pain au chocolat" product) -- add its quantity to that
+    // product's stock. Skipped for items linked to zero or several
+    // products: there's no quantified recipe saying how much of a
+    // multi-product ingredient goes to each one (same reasoning as
+    // getLastCompletedEventProductSales), so guessing would just be wrong.
+    // Untracked (stock: null) products are left untracked.
+    const restocked = [];
+    for (const item of trip.items) {
+      if (!item.bought || item.quantity == null || item.products.length !== 1) continue;
+      const productId = item.products[0].productId;
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+      if (!product || product.stock === null) continue;
+      const newStock = product.stock + item.quantity;
+      await prisma.product.update({ where: { id: productId }, data: { stock: newStock, available: newStock > 0 } });
+      restocked.push({ productId, productName: product.name, added: item.quantity, newStock });
+    }
+
     const updated = await prisma.shoppingTrip.update({ where: { id: trip.id }, data: { closedAt: new Date() } });
-    return { id: updated.id, closedAt: updated.closedAt.toISOString() };
+    return { id: updated.id, closedAt: updated.closedAt.toISOString(), restocked };
   }
 
   async getShoppingTripHistory(storefrontId) {
