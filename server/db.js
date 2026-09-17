@@ -553,14 +553,22 @@ class DB {
 
     // Restock: a bought item linked to EXACTLY one StockItem (an
     // ingredient, e.g. "Jambon") adds its quantity straight to that
-    // ingredient's stock. A bought item linked to exactly one catalog
-    // Product instead (something bought as-is, e.g. a canned drink) adds
-    // it to that product's SHARED stock (InventoryItem), cascading
-    // `available` to every product of the same name. Either way, an item
-    // linked to zero or several things (of either kind) is skipped: there's
-    // no quantified recipe saying how much of a multi-linked article goes
-    // to each one, so guessing would just be wrong. Untracked (stock: null)
-    // items/products are left untracked.
+    // ingredient's stock -- an unset (null) stock is treated as 0 and
+    // initialized, since for StockItem null just means "not counted yet",
+    // not "deliberately untracked" (there's no illimité toggle for
+    // ingredients like there is for products). A bought item linked to
+    // exactly one catalog Product instead (something bought as-is, e.g. a
+    // canned drink) adds it to that product's SHARED stock (InventoryItem),
+    // cascading `available` to every product of the same name -- there,
+    // null stock DOES mean deliberately untracked/illimité, so it's left
+    // alone. An item linked to several things of either kind is skipped:
+    // there's no quantified recipe saying how much of a multi-linked
+    // article goes to each one, so guessing would just be wrong. An item
+    // with NO link at all still isn't skipped -- it get-or-creates a
+    // StockItem by name, so a purchase is never silently dropped from
+    // stock tracking just because nobody pre-registered it as an
+    // ingredient (the whole point of this close is a complete stock
+    // picture, not a partial one).
     const restocked = [];
     for (const item of trip.items) {
       if (!item.bought || item.quantity == null) continue;
@@ -568,9 +576,11 @@ class DB {
       if (item.stockItems.length === 1) {
         const stockItemId = item.stockItems[0].stockItemId;
         const stockItem = await prisma.stockItem.findUnique({ where: { id: stockItemId } });
-        if (!stockItem || stockItem.stock === null) continue;
-        const newStock = stockItem.stock + item.quantity;
-        await prisma.stockItem.update({ where: { id: stockItemId }, data: { stock: newStock } });
+        if (!stockItem) continue;
+        const newStock = (stockItem.stock ?? 0) + item.quantity;
+        const data = { stock: newStock };
+        if (stockItem.unitCost == null && item.unitCost != null) data.unitCost = item.unitCost;
+        await prisma.stockItem.update({ where: { id: stockItemId }, data });
         restocked.push({ stockItemId, name: stockItem.name, added: item.quantity, newStock });
         continue;
       }
@@ -583,6 +593,22 @@ class DB {
         await prisma.inventoryItem.update({ where: { id: product.inventoryItem.id }, data: { stock: newStock } });
         await prisma.product.updateMany({ where: { inventoryItemId: product.inventoryItem.id }, data: { available: newStock > 0 } });
         restocked.push({ productId, productName: product.name, added: item.quantity, newStock });
+        continue;
+      }
+
+      if (item.stockItems.length === 0 && item.products.length === 0) {
+        const stockItem = await this.getOrCreateStockItem(item.name, item.unit);
+        const newStock = (stockItem.stock ?? 0) + item.quantity;
+        const data = { stock: newStock };
+        if (stockItem.unit == null && item.unit) data.unit = item.unit;
+        if (stockItem.unitCost == null && item.unitCost != null) data.unitCost = item.unitCost;
+        await prisma.stockItem.update({ where: { id: stockItem.id }, data });
+        await prisma.shoppingListItemStockItem.upsert({
+          where: { shoppingListItemId_stockItemId: { shoppingListItemId: item.id, stockItemId: stockItem.id } },
+          create: { shoppingListItemId: item.id, stockItemId: stockItem.id },
+          update: {}
+        });
+        restocked.push({ stockItemId: stockItem.id, name: stockItem.name, added: item.quantity, newStock });
       }
     }
 
