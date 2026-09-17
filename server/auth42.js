@@ -1,4 +1,10 @@
 import axios from 'axios';
+import { db } from './db.js';
+
+// Role hierarchy (roadmap item 06): each role includes everything the one
+// below it can do. 'member' (rank 0, no row in the DB) is a plain student --
+// only 'staff' and up ever get a TeamMember row.
+export const ROLE_RANK = { member: 0, staff: 1, admin: 2, board: 3 };
 
 const getAdminLogins = () => (process.env.ADMIN_LOGINS || '')
   .split(',')
@@ -14,6 +20,20 @@ const getManagerLogins = () => (process.env.MANAGER_LOGINS ?? process.env.ADMIN_
   .split(',')
   .map(login => login.trim().toLowerCase())
   .filter(Boolean);
+
+// A login's role: an explicit TeamMember row (set by a Board member from the
+// /gestion team screen) always wins. With no such row, falls back to the
+// legacy env-var lists -- ADMIN_LOGINS becomes 'board' (its old isAdmin
+// access, now the top of the hierarchy) and MANAGER_LOGINS becomes 'admin'
+// (its old isManager access) -- so every account already configured before
+// this feature existed keeps working with no manual migration step.
+const resolveRole = async (login) => {
+  const dbRole = await db.getTeamMemberRole(login);
+  if (dbRole) return dbRole;
+  if (getAdminLogins().includes(login)) return 'board';
+  if (getManagerLogins().includes(login)) return 'admin';
+  return 'member';
+};
 
 // The OAuth redirect URI is always "<public URL>/api/auth/42/callback".
 // We derive it from PUBLIC_APP_URL, so there's only one variable to set.
@@ -72,8 +92,8 @@ export const handle42Callback = async (code) => {
 
   const intraUser = userRes.data;
   const login = intraUser.login.toLowerCase();
-  const isAdmin = getAdminLogins().includes(login);
-  const isManager = getManagerLogins().includes(login);
+  const role = await resolveRole(login);
+  const rank = ROLE_RANK[role] ?? 0;
 
   return {
     id: intraUser.id,
@@ -83,8 +103,9 @@ export const handle42Callback = async (code) => {
     avatarUrl: intraUser.image?.link || intraUser.image?.versions?.medium || 'https://profile.intra.42.fr/assets/42_logo-7e42914c62...png',
     campus: intraUser.campus?.[0]?.name || '42 Perpignan',
     poolYear: intraUser.pool_year || '2024',
-    isAdmin,
-    isManager,
-    role: isAdmin ? 'bde_admin' : 'student'
+    isAdmin: rank >= ROLE_RANK.staff,
+    isManager: rank >= ROLE_RANK.admin,
+    isBoard: rank >= ROLE_RANK.board,
+    role
   };
 };

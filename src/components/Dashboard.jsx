@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, ClipboardList, History, Package, Star, TrendingUp } from 'lucide-react';
+import { BarChart3, ClipboardList, History, Package, Star, TrendingUp, Users } from 'lucide-react';
 import EventHeader from './EventHeader';
 import StorefrontTabs from './StorefrontTabs';
 
@@ -28,7 +28,8 @@ export default function Dashboard({
   onDeleteStorefront,
   products,
   shoppingList,
-  onSelectSection
+  onSelectSection,
+  showTeam
 }) {
   if (!selectedEvent) {
     return <div style={{ color: 'var(--text-muted)' }}>Chargement...</div>;
@@ -91,6 +92,19 @@ export default function Dashboard({
           })}
         </div>
       </div>
+
+      {showTeam && (
+        <div>
+          <div className="dashboard-section-label">Bureau BDE</div>
+          <div className="section-card-grid">
+            <button type="button" className="section-card" onClick={() => onSelectSection('equipe')}>
+              <div className="section-card-icon"><Users size={19} /></div>
+              <div className="section-card-title">Équipe</div>
+              <div className="section-card-desc">Rôles Board / Admin / Staff des membres BDE (pas lié à cet événement).</div>
+            </button>
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="dashboard-section-label">Vitrines de l'événement</div>

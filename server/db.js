@@ -947,6 +947,37 @@ class DB {
 
     return { created: toCreate.length, skipped: average.length - toCreate.length };
   }
+
+  // Role hierarchy (see resolveRole() in auth42.js for how a login's role is
+  // resolved at login time -- this table is the DB half of that, the source
+  // of truth once a Board member has assigned someone explicitly).
+  async getTeamMemberRole(login) {
+    const row = await prisma.teamMember.findUnique({ where: { login } });
+    return row ? row.role : null;
+  }
+
+  async listTeamMembers() {
+    const rows = await prisma.teamMember.findMany({ orderBy: { login: 'asc' } });
+    return rows.map(r => ({ login: r.login, role: r.role, addedBy: r.addedBy, updatedAt: r.updatedAt.toISOString() }));
+  }
+
+  async setTeamMemberRole(login, role, addedBy) {
+    const row = await prisma.teamMember.upsert({
+      where: { login },
+      create: { login, role, addedBy },
+      update: { role, addedBy }
+    });
+    return { login: row.login, role: row.role, addedBy: row.addedBy, updatedAt: row.updatedAt.toISOString() };
+  }
+
+  async removeTeamMember(login) {
+    try {
+      await prisma.teamMember.delete({ where: { login } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 // Rebuilds a meal deal's choice groups from the admin input.
