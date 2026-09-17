@@ -278,6 +278,39 @@ function AvgBasketCard({ avgBasket }) {
           <div className="stat-tile-value">{formatQty(avgBasket.quantity)}</div>
         </div>
       </div>
+
+      {avgBasket.byType && (avgBasket.byType.menu.quantity > 0 || avgBasket.byType.product.quantity > 0) && (
+        <div className="data-table-wrap" style={{ marginBottom: '1rem' }}>
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th className="num">Par commande</th>
+                <th className="num">Prix moyen</th>
+                <th className="num">Coût moyen</th>
+                <th className="num">Marge moyenne</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ fontWeight: 700 }}>Formules</td>
+                <td className="num">{formatQty(avgBasket.byType.menu.avgPerOrder)}</td>
+                <td className="num">{formatMoney(avgBasket.byType.menu.avgPrice)}</td>
+                <td className="num">{formatMoney(avgBasket.byType.menu.avgCost)}</td>
+                <td className={`num ${avgBasket.byType.menu.avgMargin >= 0 ? 'margin-pos' : 'margin-neg'}`}>{formatMoney(avgBasket.byType.menu.avgMargin)}</td>
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 700 }}>Produits à l'unité</td>
+                <td className="num">{formatQty(avgBasket.byType.product.avgPerOrder)}</td>
+                <td className="num">{formatMoney(avgBasket.byType.product.avgPrice)}</td>
+                <td className="num">{formatMoney(avgBasket.byType.product.avgCost)}</td>
+                <td className={`num ${avgBasket.byType.product.avgMargin >= 0 ? 'margin-pos' : 'margin-neg'}`}>{formatMoney(avgBasket.byType.product.avgMargin)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {avgBasket.topItems.length > 0 && (
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
           {avgBasket.topItems.map(it => (

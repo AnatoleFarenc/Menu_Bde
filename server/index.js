@@ -789,6 +789,7 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
   const seriesMap = new Map(); // bucket key (day or Monday of the week) -> { revenue, cost, orders, customers: Set }
   const categoryMap = new Map();
   const usageMap = new Map();
+  const typeMap = new Map(); // 'menu' | 'product' -> { quantity, revenue, cost } -- formule vs. produit à l'unité
   let periodQuantity = 0; // every line's quantity, period-wide -- for the average basket
 
   periodOrders.forEach(order => {
@@ -801,8 +802,17 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
 
     order.items.forEach(item => {
       const lineRevenue = order.isFree ? 0 : (item.price || 0) * item.quantity;
-      bucket.cost += itemUnitCost(item) * item.quantity;
+      const lineCost = itemUnitCost(item) * item.quantity;
+      bucket.cost += lineCost;
       periodQuantity += item.quantity;
+
+      const typeKey = item.type === 'menu' ? 'menu' : 'product';
+      const typeBucket = typeMap.get(typeKey) || { quantity: 0, revenue: 0, cost: 0 };
+      typeBucket.quantity += item.quantity;
+      typeBucket.revenue += lineRevenue;
+      typeBucket.cost += lineCost;
+      typeMap.set(typeKey, typeBucket);
+
       // Category ids are slugified (lowercase letters/digits/hyphens only,
       // see slugify() in db.js), so this key can never collide with a real
       // one -- unlike the literal string 'formules', which a category
@@ -846,13 +856,28 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
   const totalOrders = periodOrders.length;
 
   // Average basket: what a typical order looks like this period -- its
-  // value/cost and how many units of each top item it tends to contain.
-  // periodQuantity/topProducts are already computed above; dividing by
-  // totalOrders turns each into a per-basket average.
+  // value/cost, how many units of each top item it tends to contain, and
+  // whether it leans formule or produit-à-l'unité (each line counted as
+  // its own type -- a formule's chosen products are NOT re-attributed to
+  // 'product' here, unlike usageMap/topProducts above, since the question
+  // is what the customer actually ordered, not what they end up eating).
+  const byType = ['menu', 'product'].reduce((acc, key) => {
+    const t = typeMap.get(key) || { quantity: 0, revenue: 0, cost: 0 };
+    acc[key] = {
+      quantity: t.quantity,
+      avgPerOrder: totalOrders > 0 ? t.quantity / totalOrders : 0,
+      avgPrice: t.quantity > 0 ? t.revenue / t.quantity : 0,
+      avgCost: t.quantity > 0 ? t.cost / t.quantity : 0,
+      avgMargin: t.quantity > 0 ? (t.revenue - t.cost) / t.quantity : 0
+    };
+    return acc;
+  }, {});
+
   const avgBasket = totalOrders > 0 ? {
     value: totalRevenue / totalOrders,
     cost: (totalRevenue - totalProfit) / totalOrders,
     quantity: periodQuantity / totalOrders,
+    byType,
     topItems: topProducts.slice(0, 5).map(p => ({ name: p.name, avgQuantity: p.quantity / totalOrders }))
   } : null;
 
