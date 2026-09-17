@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, ClipboardList, History, Package, Star, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, ClipboardList, History, LineChart, Package, Star, TrendingUp, Users } from 'lucide-react';
 import EventHeader from './EventHeader';
 import StorefrontTabs from './StorefrontTabs';
 
@@ -8,6 +8,7 @@ const CARDS = [
   { id: 'stock', icon: ClipboardList, title: 'Stock', desc: () => 'Niveaux de stock et liste de courses.' },
   { id: 'bilan', icon: BarChart3, title: 'Bilan', desc: () => "Chiffre d'affaires, coûts et marge par période." },
   { id: 'statistiques', icon: TrendingUp, title: 'Statistiques', desc: () => 'Ventes, catégories et produits les plus vendus.' },
+  { id: 'previsionnel', icon: LineChart, title: 'Prévisionnel', desc: () => "CA, bénéfice et élèves attendus sur les prochains jours/semaines." },
   { id: 'historique', icon: History, title: 'Historique', desc: (ctx) => `${ctx.pastCount} événement${ctx.pastCount === 1 ? '' : 's'} terminé${ctx.pastCount === 1 ? '' : 's'}, réutilisables comme modèle.` },
   { id: 'avis', icon: Star, title: 'Avis', desc: () => 'Retours et notes laissés par les étudiants.' }
 ];

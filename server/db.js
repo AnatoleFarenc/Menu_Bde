@@ -961,6 +961,43 @@ class DB {
     return { eventName: lastEvent.name, sales };
   }
 
+  // Per real "active sales day" (>=1 completed order) across every
+  // COMPLETED event's storefronts: revenue, cost and distinct-customer
+  // count. Cross-event, like getAverageShoppingList above -- the forecast
+  // route (see /api/admin/forecast in index.js) turns this into a mean/
+  // stddev to project upcoming days/weeks. Kept independent from
+  // itemUnitCost/getChosenProducts in index.js (same small logic,
+  // duplicated) rather than reaching across modules for it.
+  async getHistoricalDailyStats() {
+    const orders = await prisma.order.findMany({
+      where: { status: 'completed', storefront: { event: { status: 'completed' } } },
+      include: orderInclude
+    });
+
+    const itemCost = item => {
+      if (item.type === 'menu' && item.choices && item.choices.length) {
+        return item.choices.reduce((sum, c) => sum + (c.costPrice || 0), 0);
+      }
+      return item.costPrice || 0;
+    };
+
+    const dayMap = new Map(); // YYYY-MM-DD -> { revenue, cost, customers: Set }
+    for (const order of orders) {
+      const day = order.createdAt.toISOString().slice(0, 10);
+      const bucket = dayMap.get(day) || { revenue: 0, cost: 0, customers: new Set() };
+      bucket.revenue += order.isFree ? 0 : (order.totalPrice || 0);
+      bucket.customers.add(order.userId);
+      for (const item of order.items) {
+        bucket.cost += itemCost(item) * item.quantity;
+      }
+      dayMap.set(day, bucket);
+    }
+
+    return Array.from(dayMap.entries())
+      .map(([date, { revenue, cost, customers }]) => ({ date, revenue, cost, profit: revenue - cost, customers: customers.size }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   // Pre-fills a storefront's shopping list from the cross-event average,
   // scaled to `days`. Skips any item already on the list (matched the same
   // way getAverageShoppingList groups items: name + unit, trimmed/

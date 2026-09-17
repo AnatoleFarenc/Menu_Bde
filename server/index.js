@@ -786,19 +786,23 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
     return day >= from && day <= to;
   });
 
-  const seriesMap = new Map(); // bucket key (day or Monday of the week) -> { revenue, cost }
+  const seriesMap = new Map(); // bucket key (day or Monday of the week) -> { revenue, cost, orders, customers: Set }
   const categoryMap = new Map();
   const usageMap = new Map();
+  let periodQuantity = 0; // every line's quantity, period-wide -- for the average basket
 
   periodOrders.forEach(order => {
     const day = (order.createdAt || '').slice(0, 10);
     const bucketKey = groupBy === 'week' ? weekKeyOf(day) : day;
-    const bucket = seriesMap.get(bucketKey) || { revenue: 0, cost: 0 };
+    const bucket = seriesMap.get(bucketKey) || { revenue: 0, cost: 0, orders: 0, customers: new Set() };
     bucket.revenue += order.isFree ? 0 : (order.totalPrice || 0);
+    bucket.orders += 1;
+    bucket.customers.add(order.userId);
 
     order.items.forEach(item => {
       const lineRevenue = order.isFree ? 0 : (item.price || 0) * item.quantity;
       bucket.cost += itemUnitCost(item) * item.quantity;
+      periodQuantity += item.quantity;
       // Category ids are slugified (lowercase letters/digits/hyphens only,
       // see slugify() in db.js), so this key can never collide with a real
       // one -- unlike the literal string 'formules', which a category
@@ -821,7 +825,7 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
   });
 
   const series = Array.from(seriesMap.entries())
-    .map(([date, { revenue, cost }]) => ({ date, revenue, cost, profit: revenue - cost }))
+    .map(([date, { revenue, cost, orders, customers }]) => ({ date, revenue, cost, profit: revenue - cost, orders, customers: customers.size }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const byCategory = Array.from(categoryMap.entries())
@@ -839,6 +843,18 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
 
   const totalRevenue = series.reduce((sum, s) => sum + s.revenue, 0);
   const totalProfit = series.reduce((sum, s) => sum + s.profit, 0);
+  const totalOrders = periodOrders.length;
+
+  // Average basket: what a typical order looks like this period -- its
+  // value/cost and how many units of each top item it tends to contain.
+  // periodQuantity/topProducts are already computed above; dividing by
+  // totalOrders turns each into a per-basket average.
+  const avgBasket = totalOrders > 0 ? {
+    value: totalRevenue / totalOrders,
+    cost: (totalRevenue - totalProfit) / totalOrders,
+    quantity: periodQuantity / totalOrders,
+    topItems: topProducts.slice(0, 5).map(p => ({ name: p.name, avgQuantity: p.quantity / totalOrders }))
+  } : null;
 
   // Forecast: revenue/profit already made in the period, plus what selling
   // every unit still on hand (at its current price/margin) would add -- a
@@ -878,7 +894,54 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
     ratio: previousProfit !== 0 ? totalProfit / previousProfit : null
   };
 
-  res.json({ from, to, groupBy, series, byCategory, topProducts, forecast, comparison });
+  res.json({ from, to, groupBy, series, byCategory, topProducts, avgBasket, forecast, comparison });
+}));
+
+// Historical-average forecast for the next N days/weeks (revenue, profit,
+// customer count) -- cross-event, same basis as getAverageShoppingList.
+// Not a statistical model: with only a handful of real sales days, a
+// trend/seasonality fit would be noise dressed up as precision, so this is
+// a mean per active sales day, projected forward, with a low/high range
+// from the sample's standard deviation (scaled by sqrt(days), since days
+// are treated as independent -- variance of a sum, not a naive x-days
+// scaling of a single day's spread).
+app.get('/api/admin/forecast', requireManager, ah(async (req, res) => {
+  const unit = req.query.unit === 'week' ? 'week' : 'day';
+  const count = Math.max(1, Math.min(52, Math.round(Number(req.query.count)) || 1));
+  const days = unit === 'week' ? count * 7 : count;
+
+  const history = await db.getHistoricalDailyStats();
+  const sampleSize = history.length;
+
+  const stat = values => {
+    if (values.length === 0) return { mean: 0, std: 0 };
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    if (values.length < 2) return { mean, std: 0 };
+    const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (values.length - 1);
+    return { mean, std: Math.sqrt(variance) };
+  };
+
+  const project = s => {
+    const mean = s.mean * days;
+    const std = s.std * Math.sqrt(days);
+    return { mean, low: Math.max(0, mean - std), high: mean + std };
+  };
+
+  const perDay = {
+    revenue: stat(history.map(h => h.revenue)),
+    profit: stat(history.map(h => h.profit)),
+    customers: stat(history.map(h => h.customers))
+  };
+
+  res.json({
+    unit, count, days, sampleSize,
+    perDay,
+    projection: {
+      revenue: project(perDay.revenue),
+      profit: project(perDay.profit),
+      customers: project(perDay.customers)
+    }
+  });
 }));
 
 // ----------------------------------------------------

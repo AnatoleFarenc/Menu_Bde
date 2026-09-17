@@ -6,6 +6,7 @@ const SECTIONS = [
   { id: 'stock', label: 'Stock' },
   { id: 'bilan', label: 'Bilan' },
   { id: 'statistiques', label: 'Statistiques' },
+  { id: 'previsionnel', label: 'Prévisionnel' },
   { id: 'historique', label: 'Historique' },
   { id: 'avis', label: 'Avis' }
 ];

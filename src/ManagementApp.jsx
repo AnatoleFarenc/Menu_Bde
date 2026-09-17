@@ -7,6 +7,7 @@ import CataloguePanel from './components/CataloguePanel';
 import StockPanel from './components/StockPanel';
 import BilanPanel from './components/BilanPanel';
 import StatsPanel from './components/StatsPanel';
+import ForecastPanel from './components/ForecastPanel';
 import HistoriquePanel from './components/HistoriquePanel';
 import AvisPanel from './components/AvisPanel';
 import TeamPanel from './components/TeamPanel';
@@ -224,6 +225,16 @@ export default function ManagementApp() {
       setStats(res.data);
     } catch (e) {
       console.error('Error fetching stats:', e);
+    }
+  };
+
+  const fetchForecast = async (unit, count) => {
+    try {
+      const res = await axios.get('/api/admin/forecast', { params: { unit, count }, ...authHeaders });
+      return res.data;
+    } catch (e) {
+      console.error('Error fetching forecast:', e);
+      return null;
     }
   };
 
@@ -612,6 +623,9 @@ export default function ManagementApp() {
           )}
           {activeSection === 'statistiques' && (
             <StatsPanel stats={stats} onFetchStats={fetchStats} />
+          )}
+          {activeSection === 'previsionnel' && (
+            <ForecastPanel onFetchForecast={fetchForecast} />
           )}
           {activeSection === 'historique' && (
             <HistoriquePanel

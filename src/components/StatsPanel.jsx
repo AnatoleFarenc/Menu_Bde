@@ -91,6 +91,48 @@ function SalesProfitChart({ data, groupBy, forecastRevenue }) {
   );
 }
 
+// Distinct customers per bucket (main line) alongside order count (thinner,
+// muted) -- both are plain counts so sharing one axis is fine, unlike
+// pairing either with a euro amount.
+function CustomersChart({ data, groupBy }) {
+  if (!data || data.length === 0) {
+    return <div className="chart-empty">Aucune vente sur cette période.</div>;
+  }
+
+  const width = 640;
+  const height = 190;
+  const padLeft = 30;
+  const padRight = 20;
+  const padTop = 16;
+  const baseline = 150;
+  const plotWidth = width - padLeft - padRight;
+
+  const max = Math.max(...data.map(d => d.customers), ...data.map(d => d.orders), 1);
+  const scaleY = v => baseline - (v / max) * (baseline - padTop);
+  const step = data.length > 1 ? plotWidth / (data.length - 1) : 0;
+  const xOf = i => padLeft + i * step;
+
+  const customerPoints = data.map((d, i) => ({ x: xOf(i), y: scaleY(d.customers), v: d.customers }));
+  const orderPoints = data.map((d, i) => ({ x: xOf(i), y: scaleY(d.orders), v: d.orders }));
+  const pathOf = points => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const lastCustomers = customerPoints[customerPoints.length - 1];
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+      <line x1={padLeft} y1={baseline} x2={width - padRight} y2={baseline} stroke="#c3c2b7" strokeWidth="1" />
+      <path d={pathOf(orderPoints)} fill="none" stroke="#a39a8d" strokeWidth="1.5" strokeDasharray="4 3" />
+      <path d={pathOf(customerPoints)} fill="none" stroke={CHART_COLORS[1]} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {customerPoints.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={i === customerPoints.length - 1 ? 5 : 3} fill={CHART_COLORS[1]} stroke={i === customerPoints.length - 1 ? '#fcfcfb' : 'none'} strokeWidth={i === customerPoints.length - 1 ? 2 : 0} />
+      ))}
+      <text x={lastCustomers.x} y={lastCustomers.y - 10} textAnchor="end" fontSize="11" fontWeight="700" fill="#0b0b0b">{lastCustomers.v}</text>
+      {data.map((d, i) => (
+        <text key={i} x={xOf(i)} y={168} textAnchor="middle" fontSize="10" fill="#898781">{formatDateLabel(d.date, groupBy)}</text>
+      ))}
+    </svg>
+  );
+}
+
 function CategoryBarChart({ data }) {
   if (!data || data.length === 0) {
     return <div className="chart-empty">Aucune vente sur cette période.</div>;
@@ -202,6 +244,54 @@ function ComparisonCard({ comparison }) {
   );
 }
 
+function formatQty(value) {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
+}
+
+// What a typical order looks like this period: its value/cost and, for the
+// top items, how many units of each it tends to contain on average.
+function AvgBasketCard({ avgBasket }) {
+  if (!avgBasket) {
+    return (
+      <div className="chart-card">
+        <div className="chart-title">Panier moyen</div>
+        <div className="chart-empty">Aucune commande sur cette période.</div>
+      </div>
+    );
+  }
+  return (
+    <div className="chart-card">
+      <div className="chart-title">Panier moyen</div>
+      <div className="chart-subtitle">Par commande, sur la période</div>
+      <div className="dashboard-stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1rem' }}>
+        <div className="stat-tile">
+          <div className="stat-tile-label">Valeur</div>
+          <div className="stat-tile-value">{formatMoney(avgBasket.value)}</div>
+        </div>
+        <div className="stat-tile">
+          <div className="stat-tile-label">Coût</div>
+          <div className="stat-tile-value">{formatMoney(avgBasket.cost)}</div>
+        </div>
+        <div className="stat-tile">
+          <div className="stat-tile-label">Quantité</div>
+          <div className="stat-tile-value">{formatQty(avgBasket.quantity)}</div>
+        </div>
+      </div>
+      {avgBasket.topItems.length > 0 && (
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          {avgBasket.topItems.map(it => (
+            <div key={it.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', borderBottom: '1px solid var(--border-color)' }}>
+              <span>{it.name}</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{formatQty(it.avgQuantity)} / commande</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StatsPanel({ stats, onFetchStats }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [from, setFrom] = useState(todayStr);
@@ -245,6 +335,19 @@ export default function StatsPanel({ stats, onFetchStats }) {
               {stats.forecast?.stockPotentialRevenue > 0 && <> <span style={{ color: '#a39a8d' }}>┅</span> Prévisionnel si tout le stock restant est vendu</>}
             </div>
             <SalesProfitChart data={stats.series} groupBy={stats.groupBy} forecastRevenue={stats.forecast?.projectedRevenue} />
+          </div>
+
+          <div className="chart-row">
+            <div className="chart-card">
+              <div className="chart-title">Clients {stats.groupBy === 'week' ? 'par semaine' : 'par jour'}</div>
+              <div className="chart-subtitle">
+                <span style={{ color: CHART_COLORS[1] }}>■</span> Clients distincts{' '}
+                <span style={{ color: '#a39a8d' }}>┅</span> Commandes
+              </div>
+              <CustomersChart data={stats.series} groupBy={stats.groupBy} />
+            </div>
+
+            <AvgBasketCard avgBasket={stats.avgBasket} />
           </div>
 
           <div className="chart-row">
