@@ -81,6 +81,9 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
   return (
     <div className="fade-in">
       <div className="catalog-section-label">Stock actuel</div>
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.5rem', marginBottom: '0.75rem' }}>
+        Le stock est partagé par nom entre toutes les vitrines et événements : modifier le stock d'un produit ici met aussi à jour tous les produits du même nom ailleurs.
+      </p>
       <div className="data-table-wrap" style={{ marginBottom: '2rem' }}>
         <table>
           <thead>

@@ -291,6 +291,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
               />
               <p className="formule-slot-hint">
                 Si renseigné, le stock diminue à chaque commande et le produit passe automatiquement en rupture à 0.
+                Le stock est partagé entre toutes les vitrines/événements du même nom -- modifiable aussi depuis l'onglet Stock.
               </p>
             </div>
           )}
