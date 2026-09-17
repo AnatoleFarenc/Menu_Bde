@@ -274,5 +274,5 @@ Identified points, not yet addressed (by priority):
 
 ## 10. Reporting a vulnerability
 
-Please report any security flaw privately to **anatole.farenc42@gmail.com**
+Please report any security flaw privately to **MIRA.42perpignan@gmail.com**
 rather than opening a public issue. A response will be provided as soon as possible.
