@@ -3,12 +3,13 @@ import { ClipboardList, Pencil, Plus, Store, Trash2 } from 'lucide-react';
 
 const emptyForm = {
   name: '', quantity: '', unit: '', forDays: '', forPeople: '',
-  unitCost: '', totalCost: '', purchaseLocation: '', note: '', productIds: []
+  unitCost: '', totalCost: '', purchaseLocation: '', note: '', productIds: [], menuIds: []
 };
 
-// Every field but name/productIds comes back from the API as a number or
-// null; the form's inputs are controlled, so null has to become '' or React
-// complains about switching an input from uncontrolled to controlled.
+// Every field but name/productIds/menuIds comes back from the API as a
+// number or null; the form's inputs are controlled, so null has to become
+// '' or React complains about switching an input from uncontrolled to
+// controlled.
 const toFormValues = item => ({
   name: item.name || '',
   quantity: item.quantity ?? '',
@@ -19,13 +20,14 @@ const toFormValues = item => ({
   totalCost: item.totalCost ?? '',
   purchaseLocation: item.purchaseLocation || '',
   note: item.note || '',
-  productIds: item.productIds || []
+  productIds: item.productIds || [],
+  menuIds: item.menuIds || []
 });
 
 // One event's shopping/resource list: what was bought to run it, so another
 // BDE team can rebuild the same event later. Every field but the name is
 // optional -- the info isn't always known or tracked.
-export default function ShoppingListManager({ items, products, onAddItem, onUpdateItem, onDeleteItem }) {
+export default function ShoppingListManager({ items, products, menus, onAddItem, onUpdateItem, onDeleteItem }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -35,6 +37,14 @@ export default function ShoppingListManager({ items, products, onAddItem, onUpda
       const next = new Set(prev.productIds);
       if (next.has(productId)) next.delete(productId); else next.add(productId);
       return { ...prev, productIds: [...next] };
+    });
+  };
+
+  const toggleMenu = menuId => {
+    setForm(prev => {
+      const next = new Set(prev.menuIds);
+      if (next.has(menuId)) next.delete(menuId); else next.add(menuId);
+      return { ...prev, menuIds: [...next] };
     });
   };
 
@@ -65,6 +75,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onUpda
   };
 
   const productName = id => products.find(p => p.id === id)?.name || '?';
+  const menuName = id => menus.find(m => m.id === id)?.name || '?';
 
   return (
     <div style={{ marginTop: '2.5rem' }}>
@@ -112,6 +123,20 @@ export default function ShoppingListManager({ items, products, onAddItem, onUpda
             </div>
           )}
 
+          {menus && menus.length > 0 && (
+            <div>
+              <p className="formule-slot-hint" style={{ marginBottom: '0.4rem' }}>Destiné à quelle(s) formule(s) ? (optionnel)</p>
+              <div className="formule-item-list">
+                {menus.map(menu => (
+                  <label key={menu.id} className={`formule-item ${form.menuIds.includes(menu.id) ? 'is-checked' : ''}`}>
+                    <input type="checkbox" checked={form.menuIds.includes(menu.id)} onChange={() => toggleMenu(menu.id)} />
+                    <span>{menu.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button type="submit" className="btn btn-primary">Enregistrer</button>
             <button type="button" className="btn btn-secondary" onClick={closeForm}>Annuler</button>
@@ -134,7 +159,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onUpda
                 <th style={{ padding: '0.5rem', textAlign: 'right' }}>Coût unit.</th>
                 <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total</th>
                 <th style={{ padding: '0.5rem' }}>Lieu d'achat</th>
-                <th style={{ padding: '0.5rem' }}>Produits liés</th>
+                <th style={{ padding: '0.5rem' }}>Produits / formules liés</th>
                 <th style={{ padding: '0.5rem' }}></th>
               </tr>
             </thead>
@@ -150,7 +175,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onUpda
                   <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700 }}>{item.totalCost != null ? `${item.totalCost.toFixed(2)} €` : '—'}</td>
                   <td style={{ padding: '0.5rem', fontSize: '0.85rem' }}>{item.purchaseLocation || '—'}</td>
                   <td style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {item.productIds.length ? item.productIds.map(productName).join(', ') : '—'}
+                    {[...item.productIds.map(productName), ...item.menuIds.map(id => `${menuName(id)} (formule)`)].join(', ') || '—'}
                   </td>
                   <td style={{ padding: '0.5rem', whiteSpace: 'nowrap' }}>
                     <button className="btn btn-secondary" style={{ padding: '0.3rem 0.5rem', marginRight: '0.35rem' }} onClick={() => openEditForm(item)} title="Modifier">

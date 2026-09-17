@@ -12,16 +12,18 @@ function formatDate(iso) {
 // A low/out-of-stock product not yet on the shopping list, with a "add to
 // the list" quantity defaulting to just enough to bring stock back up to
 // its own threshold -- editable before adding, never assumed final.
-const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '' };
+const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '', menuId: '' };
 
 // Quick-add form for the checklist: the name field suggests existing
 // catalog products (native <datalist>, so free typing still works for
 // something new) -- picking one links the item to that product, which is
-// what lets closing the trip restock it automatically. Deliberately
-// lighter than ShoppingListManager's full form (no forDays/forPeople/note):
-// this is for adding one more thing while already at the store, not
-// planning ahead.
-function AddItemForm({ products, onAdd, onClose }) {
+// what lets closing the trip restock it automatically. A separate "pour
+// quelle formule" dropdown links it to a meal deal instead/as well
+// (informational only -- a Menu has no stock of its own to restock).
+// Deliberately lighter than ShoppingListManager's full form (no forDays/
+// forPeople/note): this is for adding one more thing while already at the
+// store, not planning ahead.
+function AddItemForm({ products, menus, onAdd, onClose }) {
   const [form, setForm] = useState(emptyItemForm);
 
   const handleSubmit = async e => {
@@ -34,7 +36,8 @@ function AddItemForm({ products, onAdd, onClose }) {
       quantity: form.quantity,
       unit: form.unit,
       totalCost: form.totalCost,
-      productIds: matched ? [matched.id] : []
+      productIds: matched ? [matched.id] : [],
+      menuIds: form.menuId ? [form.menuId] : []
     });
     if (saved) { setForm(emptyItemForm); onClose(); }
   };
@@ -63,6 +66,15 @@ function AddItemForm({ products, onAdd, onClose }) {
         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Coût €</label>
         <input type="number" step="0.01" className="form-input" value={form.totalCost} onChange={e => setForm({ ...form, totalCost: e.target.value })} />
       </div>
+      {menus && menus.length > 0 && (
+        <div style={{ flex: '1 1 160px' }}>
+          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Pour quelle formule ?</label>
+          <select className="form-select" value={form.menuId} onChange={e => setForm({ ...form, menuId: e.target.value })}>
+            <option value="">— (optionnel)</option>
+            {menus.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '0.4rem' }}>
         <button type="submit" className="btn btn-primary" style={{ padding: '0.45rem 0.75rem' }}>Ajouter</button>
         <button type="button" className="btn btn-secondary" style={{ padding: '0.45rem 0.75rem' }} onClick={onClose}>Annuler</button>
@@ -188,7 +200,7 @@ function TripHistoryRow({ trip }) {
 // from Stock's dense management table, meant to be used from a phone while
 // walking through a store: check items off, adjust quantity/cost on the
 // spot, and see low-stock catalog products worth adding before you go.
-export default function CoursesPanel({ products, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onCloseTrip, onFetchTripHistory }) {
+export default function CoursesPanel({ products, menus, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onCloseTrip, onFetchTripHistory }) {
   const [showRestock, setShowRestock] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState(null);
@@ -295,7 +307,7 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
       )}
 
       {isAddFormOpen ? (
-        <AddItemForm products={products} onAdd={onAddShoppingListItem} onClose={() => setIsAddFormOpen(false)} />
+        <AddItemForm products={products} menus={menus} onAdd={onAddShoppingListItem} onClose={() => setIsAddFormOpen(false)} />
       ) : (
         <button type="button" className="btn btn-secondary" style={{ marginBottom: '1.25rem' }} onClick={() => setIsAddFormOpen(true)}>
           <Plus size={15} /> Ajouter un article

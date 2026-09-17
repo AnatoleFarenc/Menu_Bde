@@ -110,6 +110,7 @@ model ShoppingListItem {
   createdAt        DateTime     @default(now())
 
   products ShoppingListItemProduct[]
+  menus    ShoppingListItemMenu[]
 
   @@index([storefrontId])
   @@index([tripId])
@@ -126,32 +127,66 @@ model ShoppingListItemProduct {
   @@id([shoppingListItemId, productId])
 }
 
+// A shopping list line can also be destined for a meal deal directly (e.g.
+// "20 baguettes" bought specifically to restock the "Formule Petit-déj"),
+// separate from ShoppingListItemProduct since a Menu has no stock of its
+// own to update -- this link is informational only (see closeShoppingTrip
+// in db.js, which only ever restocks through the product-link, never this
+// one: there's no quantified recipe saying how much of the article goes
+// into the meal deal's own components).
+model ShoppingListItemMenu {
+  shoppingListItemId String
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id], onDelete: Cascade)
+  menuId             String
+  menu               Menu             @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@id([shoppingListItemId, menuId])
+}
+
+// One physically shared stock count, matched by name across every
+// storefront and event (roadmap: "les vitrines doivent avoir le même
+// stock et être connectées entre elles") -- selling a "Café" in one
+// storefront also decrements it everywhere else "Café" is sold. Price,
+// description, badge, icon and manual availability all stay per-Product
+// (per-storefront), only the stock count itself is shared. See
+// getOrCreateInventoryItem in db.js for the name-matching lookup.
+model InventoryItem {
+  id                String   @id @default(cuid())
+  name              String
+  normalizedName    String   @unique
+  stock             Int?
+  // Below this stock count the Stock tab flags every linked product as
+  // "low" -- shared, since it's the same physical stock.
+  lowStockThreshold Int      @default(5)
+  createdAt         DateTime @default(now())
+
+  products Product[]
+}
+
 model Product {
-  id             String     @id @default(cuid())
-  storefrontId   String
-  storefront     Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
-  name           String
-  categoryId     String
-  category       Category   @relation(fields: [categoryId], references: [id])
-  price          Float
-  extraMenuPrice Float      @default(0)
-  costPrice      Float?
-  stock          Int?
-  // Below this stock count the Stock tab flags the product as "low" --
-  // customizable per product since a sensible threshold varies a lot (a few
-  // units for an expensive item, dozens for bread).
-  lowStockThreshold Int     @default(5)
-  description    String?    @db.Text
-  badge          String     @default("")
-  available      Boolean    @default(true)
-  icon           String     @default("🥪")
-  createdAt      DateTime   @default(now())
+  id              String         @id @default(cuid())
+  storefrontId    String
+  storefront      Storefront     @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  name            String
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id])
+  price           Float
+  extraMenuPrice  Float          @default(0)
+  costPrice       Float?
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  description     String?        @db.Text
+  badge           String         @default("")
+  available       Boolean        @default(true)
+  icon            String         @default("🥪")
+  createdAt       DateTime       @default(now())
 
   menuGroups        MenuGroupProduct[]
   shoppingListLinks ShoppingListItemProduct[]
 
   @@index([categoryId])
   @@index([storefrontId])
+  @@index([inventoryItemId])
 }
 
 model Menu {
@@ -166,6 +201,8 @@ model Menu {
   icon         String     @default("🍱")
   createdAt    DateTime   @default(now())
   groups       MenuGroup[]
+
+  shoppingListLinks ShoppingListItemMenu[]
 
   @@index([storefrontId])
 }

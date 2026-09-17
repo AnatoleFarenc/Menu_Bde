@@ -633,6 +633,7 @@ export default function ManagementApp() {
             <StockPanel
               products={adminProducts}
               categories={categories}
+              menus={adminMenus}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
@@ -645,6 +646,7 @@ export default function ManagementApp() {
           {activeSection === 'courses' && (
             <CoursesPanel
               products={adminProducts}
+              menus={adminMenus}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
