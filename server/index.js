@@ -388,6 +388,18 @@ app.get('/api/admin/inventory-items', requireManager, ah(async (req, res) => {
   res.json({ items: await db.getInventoryItems() });
 }));
 
+app.put('/api/admin/inventory-items/:id', requireManager, ah(async (req, res) => {
+  const updated = await db.updateInventoryItem(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Produit introuvable' });
+  res.json({ item: updated });
+}));
+
+app.delete('/api/admin/inventory-items/:id', requireManager, ah(async (req, res) => {
+  const ok = await db.deleteInventoryItem(req.params.id);
+  if (!ok) return res.status(400).json({ error: 'Encore utilisé par au moins un produit du catalogue -- supprime ou dissocie-le d\'abord' });
+  res.json({ success: true });
+}));
+
 // RECIPE -- how much of each StockItem one unit of a product consumes.
 app.get('/api/admin/products/:id/recipe', requireManager, ah(async (req, res) => {
   res.json({ ingredients: await db.getProductRecipe(req.params.id) });

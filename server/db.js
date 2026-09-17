@@ -888,6 +888,34 @@ class DB {
     return items.map(serializeInventoryItem);
   }
 
+  // Direct edit from the Stock tab's product-stock table -- same numbers a
+  // product's own edit modal writes to this same shared row, just reachable
+  // without opening a specific product. Cascades `available` like every
+  // other InventoryItem.stock write.
+  async updateInventoryItem(id, updates) {
+    const data = {};
+    if (updates.stock !== undefined) data.stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
+    if (updates.lowStockThreshold !== undefined) data.lowStockThreshold = Math.max(0, parseInt(updates.lowStockThreshold, 10) || 0);
+    const updated = await prisma.inventoryItem.update({ where: { id }, data, include: { stockItem: true } }).catch(() => null);
+    if (!updated) return null;
+    if (data.stock !== undefined) {
+      await prisma.product.updateMany({ where: { inventoryItemId: id }, data: { available: data.stock === null ? true : data.stock > 0 } });
+    }
+    return serializeInventoryItem(updated);
+  }
+
+  // Only succeeds while no product still references it. This check has to
+  // be explicit: Product.inventoryItemId is an OPTIONAL relation, so its
+  // implicit default referential action is SetNull, not Restrict -- the
+  // delete would otherwise silently succeed and orphan every product still
+  // pointing at it (breaking their shared-stock link) instead of refusing.
+  async deleteInventoryItem(id) {
+    const stillUsed = await prisma.product.count({ where: { inventoryItemId: id } });
+    if (stillUsed > 0) return false;
+    await prisma.inventoryItem.delete({ where: { id } }).catch(() => null);
+    return !(await prisma.inventoryItem.findUnique({ where: { id } }));
+  }
+
   // Returns null on a duplicate name (route turns that into a 400 -- see
   // the global error handler in index.js, which doesn't inspect thrown
   // errors and always answers 500, so validation problems have to be

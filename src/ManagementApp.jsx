@@ -152,6 +152,26 @@ export default function ManagementApp() {
     }
   };
 
+  const handleUpdateInventoryItem = async (id, updates) => {
+    try {
+      await axios.put(`/api/admin/inventory-items/${id}`, updates, authHeaders);
+      fetchInventoryItems();
+      fetchAdminCatalog(selectedStorefrontId); // same shared stock as this storefront's own products
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du stock.');
+    }
+  };
+
+  const handleDeleteInventoryItem = async id => {
+    if (!confirm('Supprimer cette ligne de stock ?')) return;
+    try {
+      await axios.delete(`/api/admin/inventory-items/${id}`, authHeaders);
+      fetchInventoryItems();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la suppression.');
+    }
+  };
+
   const handleAddStockItem = async data => {
     try {
       await axios.post('/api/admin/stock-items', data, authHeaders);
@@ -723,6 +743,9 @@ export default function ManagementApp() {
               onAddStockItem={handleAddStockItem}
               onUpdateStockItem={handleUpdateStockItem}
               onDeleteStockItem={handleDeleteStockItem}
+              onOpenAddProductModal={() => setAdminModalState({ isOpen: true, item: null, type: 'product' })}
+              onUpdateInventoryItem={handleUpdateInventoryItem}
+              onDeleteInventoryItem={handleDeleteInventoryItem}
             />
           )}
           {activeSection === 'courses' && (
