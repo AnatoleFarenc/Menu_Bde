@@ -85,9 +85,11 @@ midterm, a party...) keeps its own catalog, orders, and history —
 reusable as-is by another team the following year. Foundation for 02 and 03
 below.
 
-### 02 — Statistics & graphs per event — 🔜 Next
+### 02 — Statistics & graphs per event — ✅ Done
 
-Visualize sales trends from one event to the next, compare editions.
+Shipped as part of the `/gestion` redesign: per-event bilan (revenue/cost/
+profit/product count), sales & category charts, a shopping-list history per
+event, and a cross-event averaged shopping list with an adjustable duration.
 
 *Depends on: 01*
 
@@ -142,4 +144,4 @@ sudo infra/add-team-member.sh <username> <github-username> ops
 
 ---
 
-*Last updated: 2026-09-12*
+*Last updated: 2026-09-17*
