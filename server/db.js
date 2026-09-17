@@ -915,6 +915,38 @@ class DB {
       .filter(g => g.perDayQuantity !== null || g.perDayCost !== null)
       .sort((a, b) => (b.perDayCost ?? 0) - (a.perDayCost ?? 0));
   }
+
+  // Pre-fills a storefront's shopping list from the cross-event average,
+  // scaled to `days`. Skips any item already on the list (matched the same
+  // way getAverageShoppingList groups items: name + unit, trimmed/
+  // lowercased) so clicking it twice, or generating after already adding a
+  // few items by hand, never creates duplicate lines -- the admin edits or
+  // deletes individual rows from here on, same as a manually-added one.
+  async generateShoppingList(storefrontId, days) {
+    const [average, existing] = await Promise.all([
+      this.getAverageShoppingList(),
+      prisma.shoppingListItem.findMany({ where: { storefrontId }, select: { name: true, unit: true } })
+    ]);
+    const keyOf = (name, unit) => `${name.trim().toLowerCase()} ${(unit || '').trim().toLowerCase()}`;
+    const existingKeys = new Set(existing.map(it => keyOf(it.name, it.unit)));
+    const toCreate = average.filter(g => !existingKeys.has(keyOf(g.name, g.unit)));
+
+    if (toCreate.length > 0) {
+      await prisma.shoppingListItem.createMany({
+        data: toCreate.map(g => ({
+          storefrontId,
+          name: g.name,
+          unit: g.unit || null,
+          quantity: g.perDayQuantity != null ? Math.round(g.perDayQuantity * days * 10) / 10 : null,
+          forDays: days,
+          totalCost: g.perDayCost != null ? Math.round(g.perDayCost * days * 100) / 100 : null,
+          purchaseLocation: g.purchaseLocation || null
+        }))
+      });
+    }
+
+    return { created: toCreate.length, skipped: average.length - toCreate.length };
+  }
 }
 
 // Rebuilds a meal deal's choice groups from the admin input.

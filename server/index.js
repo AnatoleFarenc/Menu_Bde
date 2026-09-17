@@ -331,6 +331,14 @@ app.post('/api/admin/storefronts/:id/shopping-list', requireManager, ah(async (r
   res.status(201).json({ item });
 }));
 
+// Pre-fills this storefront's shopping list from the cross-event average,
+// scaled to the given number of days.
+app.post('/api/admin/storefronts/:id/shopping-list/generate', requireManager, ah(async (req, res) => {
+  const days = Math.max(1, Math.min(60, Math.round(Number(req.body.days)) || 1));
+  const result = await db.generateShoppingList(req.params.id, days);
+  res.json(result);
+}));
+
 app.put('/api/admin/shopping-list/:id', requireManager, ah(async (req, res) => {
   const updated = await db.updateShoppingListItem(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Article introuvable' });

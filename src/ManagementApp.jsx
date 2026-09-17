@@ -176,6 +176,17 @@ export default function ManagementApp() {
     }
   };
 
+  const handleGenerateShoppingList = async days => {
+    try {
+      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/generate`, { days }, authHeaders);
+      fetchShoppingList(selectedStorefrontId);
+      return res.data;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la génération de la liste.');
+      return null;
+    }
+  };
+
   const fetchDailyReport = async (from, to) => {
     try {
       const res = await axios.get('/api/admin/report', { params: { from, to: to || from, storefrontId: selectedStorefrontId }, ...authHeaders });
@@ -515,6 +526,7 @@ export default function ManagementApp() {
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
+              onGenerateShoppingList={handleGenerateShoppingList}
             />
           )}
           {activeSection === 'bilan' && (
