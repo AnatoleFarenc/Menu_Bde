@@ -201,7 +201,10 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
           <div style={{ width: '100%', fontSize: '0.8rem', color: result.created > 0 ? 'var(--color-success)' : 'var(--text-muted)' }}>
             {result.created > 0
               ? `${result.created} article${result.created > 1 ? 's' : ''} ajouté${result.created > 1 ? 's' : ''}${result.skipped > 0 ? ` (${result.skipped} déjà présent${result.skipped > 1 ? 's' : ''})` : ''}.`
-              : 'Rien à ajouter : tout est déjà dans la liste, ou aucun historique disponible.'}
+              : 'Rien à ajouter automatiquement : tout est déjà dans la liste, ou aucun historique vérifié pour ce catalogue.'}
+            {result.unverified > 0 && (
+              <> {result.unverified} article{result.unverified > 1 ? 's' : ''} de plus dans l'historique, jamais lié{result.unverified > 1 ? 's' : ''} à un produit -- vois l'aperçu pour les ajouter à la main si pertinent.</>
+            )}
           </div>
         )}
         {showPreview && (
@@ -214,6 +217,7 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
               <div className="data-table-wrap">
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '0.4rem' }}>
                   "Vendu au dernier événement" est indicatif (articles liés à un produit du catalogue) -- n'influence pas la quantité/coût estimés, calculés depuis l'historique d'achats.
+                  Seuls les articles <strong>vérifiés</strong> (liés à un produit de ce catalogue) sont ajoutés automatiquement par "Générer" -- les autres restent à ajouter à la main.
                 </p>
                 <table>
                   <thead>
@@ -222,6 +226,7 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
                       <th className="num">Quantité estimée</th>
                       <th className="num">Coût estimé</th>
                       <th>Vendu au dernier événement</th>
+                      <th>Statut</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -234,6 +239,11 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
                           {it.soldLastEvent
                             ? `${it.soldLastEvent.quantity} vendu${it.soldLastEvent.quantity > 1 ? 's' : ''} (${it.soldLastEvent.eventName})`
                             : '—'}
+                        </td>
+                        <td>
+                          {it.linked
+                            ? <span className="badge-chip" style={{ background: 'rgba(76,122,63,0.1)', color: 'var(--color-success)' }}>Vérifié</span>
+                            : <span className="badge-chip" style={{ background: 'rgba(180,121,15,0.12)', color: 'var(--color-warning)' }}>Non lié</span>}
                         </td>
                       </tr>
                     ))}

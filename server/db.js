@@ -1083,7 +1083,14 @@ class DB {
           perDayQuantity: g.qtyCount ? g.qtySum / g.qtyCount : null,
           perDayCost: g.costCount ? g.costSum / g.costCount : null,
           sampleSize: Math.max(g.qtyCount, g.costCount),
-          soldLastEvent: g.inventoryItemIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null
+          soldLastEvent: g.inventoryItemIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null,
+          // Was this article ever linked to a real catalog product? Only
+          // generateShoppingList's one-click auto-add cares -- it only
+          // trusts a group it can verify is genuinely tied to something in
+          // THIS event, see there. The Aperçu preview shows every group
+          // regardless, this is just a signal for the UI to flag one as
+          // "not verified" rather than hide it.
+          linked: g.inventoryItemIds.size > 0
         };
       })
       .filter(g => g.perDayQuantity !== null || g.perDayCost !== null)
@@ -1194,7 +1201,16 @@ class DB {
     ]);
     const keyOf = (name, unit) => `${name.trim().toLowerCase()} ${(unit || '').trim().toLowerCase()}`;
     const existingKeys = new Set(existing.map(it => keyOf(it.name, it.unit)));
-    const toCreate = average.filter(g => !existingKeys.has(keyOf(g.name, g.unit)));
+
+    // The one-click auto-add only trusts a group it can VERIFY belongs to
+    // this event -- linked to a real product in the current catalog (see
+    // getAverageShoppingList's storefrontId filter, which already drops
+    // anything linked ELSEWHERE). An unlinked group (no product link at
+    // all, ever) can't be verified either way, so it's left for the admin
+    // to add by hand from the Aperçu preview if it's actually relevant,
+    // rather than guessed into the list automatically.
+    const unlinked = average.filter(g => !g.linked && !existingKeys.has(keyOf(g.name, g.unit)));
+    const toCreate = average.filter(g => g.linked && !existingKeys.has(keyOf(g.name, g.unit)));
 
     if (toCreate.length > 0) {
       await prisma.shoppingListItem.createMany({
@@ -1211,7 +1227,11 @@ class DB {
       });
     }
 
-    return { created: toCreate.length, skipped: average.length - toCreate.length };
+    return {
+      created: toCreate.length,
+      skipped: average.length - toCreate.length - unlinked.length,
+      unverified: unlinked.length
+    };
   }
 
   // Role hierarchy (see resolveRole() in auth42.js for how a login's role is
