@@ -12,7 +12,7 @@ function formatMoney(value) {
   return `${value.toFixed(2).replace('.', ',')} €`;
 }
 
-export default function StockPanel({ products, categories, shoppingList, onAddShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onFetchAverageShoppingList, onUpdateStock }) {
+export default function StockPanel({ products, categories, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onFetchAverageShoppingList, onUpdateStock }) {
   const [days, setDays] = useState(3);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
@@ -246,6 +246,7 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
         items={shoppingList}
         products={products}
         onAddItem={onAddShoppingListItem}
+        onUpdateItem={onUpdateShoppingListItem}
         onDeleteItem={onDeleteShoppingListItem}
       />
     </div>

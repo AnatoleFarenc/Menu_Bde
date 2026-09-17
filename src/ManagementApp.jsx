@@ -169,6 +169,17 @@ export default function ManagementApp() {
     }
   };
 
+  const handleUpdateShoppingListItem = async (id, updates) => {
+    try {
+      await axios.put(`/api/admin/shopping-list/${id}`, updates, authHeaders);
+      fetchShoppingList(selectedStorefrontId);
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la modification de l\'article.');
+      return false;
+    }
+  };
+
   const handleDeleteShoppingListItem = async id => {
     try {
       await axios.delete(`/api/admin/shopping-list/${id}`, authHeaders);
@@ -572,6 +583,7 @@ export default function ManagementApp() {
               categories={categories}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
+              onUpdateShoppingListItem={handleUpdateShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
               onGenerateShoppingList={handleGenerateShoppingList}
               onFetchAverageShoppingList={fetchAverageShoppingList}
