@@ -287,7 +287,7 @@ export default function ManagementApp() {
 
   const fetchAverageShoppingList = async () => {
     try {
-      const res = await axios.get('/api/admin/shopping-list/average', authHeaders);
+      const res = await axios.get('/api/admin/shopping-list/average', { params: { storefrontId: selectedStorefrontId }, ...authHeaders });
       return res.data.items || [];
     } catch (e) {
       console.error('Error fetching average shopping list:', e);

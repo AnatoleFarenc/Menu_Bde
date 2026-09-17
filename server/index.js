@@ -738,7 +738,7 @@ app.get('/api/admin/events/:id/shopping-list', requireManager, ah(async (req, re
 // Averaged shopping list across every COMPLETED event, as a per-day rate --
 // the Historique tab scales it to however many days the next event needs.
 app.get('/api/admin/shopping-list/average', requireManager, ah(async (req, res) => {
-  res.json({ items: await db.getAverageShoppingList() });
+  res.json({ items: await db.getAverageShoppingList(req.query.storefrontId) });
 }));
 
 // Ventes par jour, par catégorie, et produits les plus vendus sur une

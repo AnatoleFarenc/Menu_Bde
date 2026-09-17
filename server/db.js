@@ -1028,17 +1028,25 @@ class DB {
   // count toward a rate; a group is kept as soon as EITHER its quantity or
   // its cost produced one, so an item tracked without a cost (or without a
   // quantity) still shows up instead of being silently dropped.
-  async getAverageShoppingList() {
+  // `storefrontId`, when given, filters out groups whose ONLY product links
+  // point to something outside that storefront's own catalog -- e.g. an
+  // old event that also happened to buy orange juice, suggested for a
+  // current one that doesn't sell it. A group with no product link at all
+  // (a generic/untracked ingredient) is always kept: there's no way to
+  // tell either way. Matched via the shared InventoryItem (see
+  // getOrCreateInventoryItem), not the historical item's own Product.id
+  // row, since the "same" product is a different row per storefront.
+  async getAverageShoppingList(storefrontId) {
     const items = await prisma.shoppingListItem.findMany({
       where: { storefront: { event: { status: 'completed' } }, forDays: { not: null, gt: 0 } },
-      include: { products: true }
+      include: { products: { include: { product: { select: { inventoryItemId: true } } } } }
     });
 
     const groups = new Map();
     for (const item of items) {
       const key = `${item.name.trim().toLowerCase()} ${(item.unit || '').trim().toLowerCase()}`;
       if (!groups.has(key)) {
-        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation, productIds: new Set() });
+        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation, inventoryItemIds: new Set() });
       }
       const group = groups.get(key);
       if (item.quantity !== null && item.quantity !== undefined) {
@@ -1049,7 +1057,13 @@ class DB {
         group.costSum += item.totalCost / item.forDays;
         group.costCount += 1;
       }
-      (item.products || []).forEach(link => group.productIds.add(link.productId));
+      (item.products || []).forEach(link => { if (link.product?.inventoryItemId) group.inventoryItemIds.add(link.product.inventoryItemId); });
+    }
+
+    let currentInventoryItemIds = null;
+    if (storefrontId) {
+      const currentProducts = await prisma.product.findMany({ where: { storefrontId }, select: { inventoryItemId: true } });
+      currentInventoryItemIds = new Set(currentProducts.map(p => p.inventoryItemId).filter(Boolean));
     }
 
     // Sales context (informational only, see getLastCompletedEventProductSales)
@@ -1059,8 +1073,9 @@ class DB {
     const { eventName: lastEventName, sales: lastEventSales } = await this.getLastCompletedEventProductSales();
 
     return Array.from(groups.values())
+      .filter(g => !currentInventoryItemIds || g.inventoryItemIds.size === 0 || [...g.inventoryItemIds].some(id => currentInventoryItemIds.has(id)))
       .map(g => {
-        const soldLastEvent = [...g.productIds].reduce((sum, id) => sum + (lastEventSales[id] || 0), 0);
+        const soldLastEvent = [...g.inventoryItemIds].reduce((sum, id) => sum + (lastEventSales[id] || 0), 0);
         return {
           name: g.name,
           unit: g.unit,
@@ -1068,7 +1083,7 @@ class DB {
           perDayQuantity: g.qtyCount ? g.qtySum / g.qtyCount : null,
           perDayCost: g.costCount ? g.costSum / g.costCount : null,
           sampleSize: Math.max(g.qtyCount, g.costCount),
-          soldLastEvent: g.productIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null
+          soldLastEvent: g.inventoryItemIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null
         };
       })
       .filter(g => g.perDayQuantity !== null || g.perDayCost !== null)
@@ -1080,7 +1095,10 @@ class DB {
   // shopping-list generation (see getAverageShoppingList above). There is no
   // quantified recipe linking a sold product to how much of a given
   // shopping-list article it consumes, so this never feeds the actual
-  // per-day quantity/cost math, only shown alongside it.
+  // per-day quantity/cost math, only shown alongside it. Keyed by
+  // inventoryItemId (shared stock identity), not the order's own raw
+  // Product.id, so it still matches a shopping-list link from a different
+  // storefront/event's product row for the same physical item.
   async getLastCompletedEventProductSales() {
     const lastEvent = await prisma.event.findFirst({
       where: { status: 'completed' },
@@ -1089,8 +1107,29 @@ class DB {
     if (!lastEvent) return { eventName: null, sales: {} };
 
     const orders = await this.getEventOrders(lastEvent.id);
+    const soldProductIds = new Set();
+    for (const order of orders) {
+      if (order.status !== 'completed') continue;
+      for (const item of order.items) {
+        if (item.type === 'menu' && item.choices) {
+          item.choices.forEach(choice => { if (choice.product?.id) soldProductIds.add(choice.product.id); });
+        } else if (item.id) {
+          soldProductIds.add(item.id);
+        }
+      }
+    }
+    const productRows = await prisma.product.findMany({
+      where: { id: { in: [...soldProductIds] } },
+      select: { id: true, inventoryItemId: true }
+    });
+    const productToInventoryItem = new Map(productRows.map(p => [p.id, p.inventoryItemId]));
+
     const sales = {};
-    const add = (productId, qty) => { if (productId) sales[productId] = (sales[productId] || 0) + qty; };
+    const add = (productId, qty) => {
+      const inventoryItemId = productToInventoryItem.get(productId);
+      if (!inventoryItemId) return;
+      sales[inventoryItemId] = (sales[inventoryItemId] || 0) + qty;
+    };
     for (const order of orders) {
       if (order.status !== 'completed') continue;
       for (const item of order.items) {
@@ -1150,7 +1189,7 @@ class DB {
   async generateShoppingList(storefrontId, days) {
     const trip = await this.getOrCreateOpenTrip(storefrontId);
     const [average, existing] = await Promise.all([
-      this.getAverageShoppingList(),
+      this.getAverageShoppingList(storefrontId),
       prisma.shoppingListItem.findMany({ where: { tripId: trip.id }, select: { name: true, unit: true } })
     ]);
     const keyOf = (name, unit) => `${name.trim().toLowerCase()} ${(unit || '').trim().toLowerCase()}`;

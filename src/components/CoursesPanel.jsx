@@ -9,34 +9,38 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// A low/out-of-stock product not yet on the shopping list, with a "add to
-// the list" quantity defaulting to just enough to bring stock back up to
-// its own threshold -- editable before adding, never assumed final.
-const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '', menuId: '' };
+const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '', productId: '', menuId: '' };
 
-// Quick-add form for the checklist: the name field suggests existing
-// catalog products (native <datalist>, so free typing still works for
-// something new) -- picking one links the item to that product, which is
-// what lets closing the trip restock it automatically. A separate "pour
-// quelle formule" dropdown links it to a meal deal instead/as well
-// (informational only -- a Menu has no stock of its own to restock).
-// Deliberately lighter than ShoppingListManager's full form (no forDays/
-// forPeople/note): this is for adding one more thing while already at the
-// store, not planning ahead.
+// Quick-add form for the checklist. Which catalog product this is for is
+// an explicit dropdown, not guessed from the typed name -- matching by
+// text was silent about whether it actually found anything, so there was
+// no way to tell which product (if any) an article ended up linked to.
+// Picking one also fills the name if it's still empty, but the two stay
+// independent (e.g. "Jus d'orange 1L x6" as the display name, linked to
+// the "Jus d'orange" product) -- and this is what lets closing the trip
+// restock it automatically. A separate "pour quelle formule" dropdown
+// links it to a meal deal instead/as well (informational only -- a Menu
+// has no stock of its own to restock). Deliberately lighter than
+// ShoppingListManager's full form (no forDays/forPeople/note): this is for
+// adding one more thing while already at the store, not planning ahead.
 function AddItemForm({ products, menus, onAdd, onClose }) {
   const [form, setForm] = useState(emptyItemForm);
+
+  const handleProductChange = productId => {
+    const product = products.find(p => p.id === productId);
+    setForm(prev => ({ ...prev, productId, name: !prev.name.trim() && product ? product.name : prev.name }));
+  };
 
   const handleSubmit = async e => {
     e.preventDefault();
     const trimmed = form.name.trim();
     if (!trimmed) return;
-    const matched = products.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
     const saved = await onAdd({
       name: trimmed,
       quantity: form.quantity,
       unit: form.unit,
       totalCost: form.totalCost,
-      productIds: matched ? [matched.id] : [],
+      productIds: form.productId ? [form.productId] : [],
       menuIds: form.menuId ? [form.menuId] : []
     });
     if (saved) { setForm(emptyItemForm); onClose(); }
@@ -44,15 +48,19 @@ function AddItemForm({ products, menus, onAdd, onClose }) {
 
   return (
     <form onSubmit={handleSubmit} className="synthesis-card" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
-      <div style={{ flex: '1 1 180px' }}>
-        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Article</label>
+      <div style={{ flex: '1 1 160px' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Produit du catalogue</label>
+        <select className="form-select" value={form.productId} onChange={e => handleProductChange(e.target.value)}>
+          <option value="">— (optionnel, article libre)</option>
+          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <div style={{ flex: '1 1 160px' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Nom de l'article</label>
         <input
-          className="form-input" list="courses-product-suggestions" placeholder="Nom (produit existant ou nouveau)"
+          className="form-input" placeholder="ex: Jus d'orange 1L x6"
           value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required autoFocus
         />
-        <datalist id="courses-product-suggestions">
-          {products.map(p => <option key={p.id} value={p.name} />)}
-        </datalist>
       </div>
       <div style={{ width: '80px' }}>
         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Quantité</label>
@@ -83,6 +91,9 @@ function AddItemForm({ products, menus, onAdd, onClose }) {
   );
 }
 
+// A low/out-of-stock product not yet on the shopping list, with a "add to
+// the list" quantity defaulting to just enough to bring stock back up to
+// its own threshold -- editable before adding, never assumed final.
 function RestockSuggestion({ product, alreadyListed, onAdd }) {
   const stock = product.stock ?? 0;
   const defaultQty = Math.max(1, product.lowStockThreshold - stock);
@@ -113,7 +124,7 @@ function RestockSuggestion({ product, alreadyListed, onAdd }) {
 // One shopping-list line as a checklist row: check it off once bought, with
 // quantity/cost editable inline (real purchases at the store often differ
 // slightly from what was planned) rather than reopening the full form.
-function TripItem({ item, onToggleBought, onUpdateField, onDelete }) {
+function TripItem({ item, products, menus, onToggleBought, onUpdateField, onDelete }) {
   const [pending, setPending] = useState({});
 
   const commit = (field, rawValue, parse) => {
@@ -124,6 +135,11 @@ function TripItem({ item, onToggleBought, onUpdateField, onDelete }) {
     onUpdateField(item.id, { [field]: value });
   };
 
+  const linkedNames = [
+    ...item.productIds.map(id => products.find(p => p.id === id)?.name).filter(Boolean),
+    ...item.menuIds.map(id => `${menus.find(m => m.id === id)?.name} (formule)`)
+  ];
+
   return (
     <div className={`shopping-trip-item ${item.bought ? 'is-bought' : ''}`}>
       <input type="checkbox" className="shopping-trip-checkbox" checked={item.bought} onChange={() => onToggleBought(item)} title="Acheté" />
@@ -131,6 +147,9 @@ function TripItem({ item, onToggleBought, onUpdateField, onDelete }) {
         <div style={{ fontWeight: 700, fontSize: '0.9rem', textDecoration: item.bought ? 'line-through' : 'none', color: item.bought ? 'var(--text-dim)' : 'inherit' }}>
           {item.name}
         </div>
+        {linkedNames.length > 0 && (
+          <div style={{ fontSize: '0.7rem', color: 'var(--color-primary-text)' }}>↳ {linkedNames.join(', ')}</div>
+        )}
         {item.purchaseLocation && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{item.purchaseLocation}</div>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -324,7 +343,7 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
             <div style={{ marginBottom: '1.25rem' }}>
               <div className="catalog-section-label">À acheter ({remaining.length})</div>
               {remaining.map(item => (
-                <TripItem key={item.id} item={item} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
+                <TripItem key={item.id} item={item} products={products} menus={menus} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
               ))}
             </div>
           )}
@@ -332,7 +351,7 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
             <div>
               <div className="catalog-section-label">Acheté ({bought.length})</div>
               {bought.map(item => (
-                <TripItem key={item.id} item={item} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
+                <TripItem key={item.id} item={item} products={products} menus={menus} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
               ))}
             </div>
           )}
