@@ -556,9 +556,16 @@ class DB {
     // ingredient's stock -- an unset (null) stock is treated as 0 and
     // initialized, since for StockItem null just means "not counted yet",
     // not "deliberately untracked" (there's no illimité toggle for
-    // ingredients like there is for products). A bought item linked to
-    // exactly one catalog Product instead (something bought as-is, e.g. a
-    // canned drink) adds it to that product's SHARED stock (InventoryItem),
+    // ingredients like there is for products). Its unitCost is refreshed
+    // from this purchase every time (not just backfilled once): a real
+    // price just paid is a better number than whatever was there before,
+    // and prices drift -- unlike fullStock/lowStockThreshold, which are a
+    // deliberate policy choice a purchase should never silently overwrite.
+    // The Courses checklist only ever asks for a line's total cost, not a
+    // per-unit one, so it's derived from totalCost/quantity when there's
+    // no unitCost directly on the item. A bought item linked to exactly one
+    // catalog Product instead (something bought as-is, e.g. a canned
+    // drink) adds it to that product's SHARED stock (InventoryItem),
     // cascading `available` to every product of the same name -- there,
     // null stock DOES mean deliberately untracked/illimité, so it's left
     // alone. An item linked to several things of either kind is skipped:
@@ -572,6 +579,7 @@ class DB {
     const restocked = [];
     for (const item of trip.items) {
       if (!item.bought || item.quantity == null) continue;
+      const purchaseUnitCost = item.unitCost ?? (item.totalCost != null && item.quantity > 0 ? item.totalCost / item.quantity : null);
 
       if (item.stockItems.length === 1) {
         const stockItemId = item.stockItems[0].stockItemId;
@@ -579,8 +587,9 @@ class DB {
         if (!stockItem) continue;
         const newStock = (stockItem.stock ?? 0) + item.quantity;
         const data = { stock: newStock };
-        if (stockItem.unitCost == null && item.unitCost != null) data.unitCost = item.unitCost;
+        if (purchaseUnitCost != null) data.unitCost = Math.round(purchaseUnitCost * 100) / 100;
         await prisma.stockItem.update({ where: { id: stockItemId }, data });
+        if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(stockItemId);
         restocked.push({ stockItemId, name: stockItem.name, added: item.quantity, newStock });
         continue;
       }
@@ -601,7 +610,7 @@ class DB {
         const newStock = (stockItem.stock ?? 0) + item.quantity;
         const data = { stock: newStock };
         if (stockItem.unit == null && item.unit) data.unit = item.unit;
-        if (stockItem.unitCost == null && item.unitCost != null) data.unitCost = item.unitCost;
+        if (purchaseUnitCost != null) data.unitCost = Math.round(purchaseUnitCost * 100) / 100;
         if (created) {
           // Same rule of thumb as the manual "Ajouter un ingrédient" form:
           // stock plein = what was just bought, seuil bas = a quarter of
@@ -612,6 +621,7 @@ class DB {
           data.lowStockThreshold = Math.max(0.1, Math.round((newStock / 4) * 10) / 10);
         }
         await prisma.stockItem.update({ where: { id: stockItem.id }, data });
+        if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(stockItem.id);
         await prisma.shoppingListItemStockItem.upsert({
           where: { shoppingListItemId_stockItemId: { shoppingListItemId: item.id, stockItemId: stockItem.id } },
           create: { shoppingListItemId: item.id, stockItemId: stockItem.id },
@@ -888,15 +898,17 @@ class DB {
     if (updates.unitCost !== undefined) data.unitCost = (updates.unitCost === '' || updates.unitCost === null) ? null : parseFloat(updates.unitCost);
 
     const updated = await prisma.stockItem.update({ where: { id }, data });
-
-    // A changed unit cost changes the derived cost of every product whose
-    // recipe uses this ingredient -- see recomputeProductCost.
-    if (updates.unitCost !== undefined) {
-      const links = await prisma.productIngredient.findMany({ where: { stockItemId: id }, select: { productId: true } });
-      for (const link of links) await this.recomputeProductCost(link.productId);
-    }
-
+    if (updates.unitCost !== undefined) await this.recomputeProductsUsingStockItem(id);
     return serializeStockItem(updated);
+  }
+
+  // A changed ingredient cost changes the derived cost of every product
+  // whose recipe uses it -- see recomputeProductCost. Shared by
+  // updateStockItem (manual edit) and closeShoppingTrip (a purchase's real
+  // price refreshing it), the two places a StockItem's unitCost can change.
+  async recomputeProductsUsingStockItem(stockItemId) {
+    const links = await prisma.productIngredient.findMany({ where: { stockItemId }, select: { productId: true } });
+    for (const link of links) await this.recomputeProductCost(link.productId);
   }
 
   async deleteStockItem(id) {
