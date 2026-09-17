@@ -211,6 +211,28 @@ export default function ManagementApp() {
     }
   };
 
+  const handleCloseShoppingTrip = async () => {
+    if (!confirm('Clôturer la liste de courses actuelle ? Elle passera dans l\'historique et une nouvelle liste vide démarrera.')) return false;
+    try {
+      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
+      fetchShoppingList(selectedStorefrontId);
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');
+      return false;
+    }
+  };
+
+  const fetchShoppingTripHistory = async () => {
+    try {
+      const res = await axios.get(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/history`, authHeaders);
+      return res.data.trips || [];
+    } catch (e) {
+      console.error('Error fetching shopping trip history:', e);
+      return [];
+    }
+  };
+
   const fetchDailyReport = async (from, to) => {
     try {
       const res = await axios.get('/api/admin/report', { params: { from, to: to || from, storefrontId: selectedStorefrontId }, ...authHeaders });
@@ -626,6 +648,8 @@ export default function ManagementApp() {
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
+              onCloseTrip={handleCloseShoppingTrip}
+              onFetchTripHistory={fetchShoppingTripHistory}
             />
           )}
           {activeSection === 'bilan' && (

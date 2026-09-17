@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, ShoppingCart, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, History, Lock, ShoppingCart, Trash2 } from 'lucide-react';
 
 function formatMoney(value) {
   return `${(value || 0).toFixed(2).replace('.', ',')} €`;
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // A low/out-of-stock product not yet on the shopping list, with a "add to
@@ -67,19 +71,56 @@ function TripItem({ item, onToggleBought, onUpdateField, onDelete }) {
           onBlur={e => commit('quantity', e.target.value, parseFloat)}
           onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{item.unit || ''}</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', minWidth: '1.5em' }}>{item.unit || ''}</span>
       </div>
-      <input
-        type="number" step="0.01" className="form-input" style={{ width: '72px', textAlign: 'right', padding: '0.3rem 0.4rem', fontSize: '0.8rem' }}
-        value={pending.totalCost !== undefined ? pending.totalCost : (item.totalCost ?? '')}
-        placeholder="Coût €"
-        onChange={e => setPending(prev => ({ ...prev, totalCost: e.target.value }))}
-        onBlur={e => commit('totalCost', e.target.value, parseFloat)}
-        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <input
+          type="number" step="0.01" className="form-input" style={{ width: '68px', textAlign: 'right', padding: '0.3rem 0.4rem', fontSize: '0.8rem' }}
+          value={pending.totalCost !== undefined ? pending.totalCost : (item.totalCost ?? '')}
+          placeholder="Coût"
+          title="Prix payé"
+          onChange={e => setPending(prev => ({ ...prev, totalCost: e.target.value }))}
+          onBlur={e => commit('totalCost', e.target.value, parseFloat)}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+        />
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>€</span>
+      </div>
       <button type="button" className="btn btn-danger" style={{ padding: '0.3rem 0.5rem' }} onClick={() => onDelete(item.id)} title="Supprimer">
         <Trash2 size={13} />
       </button>
+    </div>
+  );
+}
+
+// One closed trip in the history: date, totals, and its items on demand.
+function TripHistoryRow({ trip }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="shopping-trip-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+      <div
+        role="button" tabIndex={0}
+        style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }}
+        onClick={() => setIsOpen(v => !v)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(v => !v); } }}
+      >
+        <History size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>Clôturée le {formatDate(trip.closedAt)}</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{trip.items.length} article{trip.items.length > 1 ? 's' : ''}</div>
+        </div>
+        <div style={{ fontWeight: 700 }}>{formatMoney(trip.total)}</div>
+        <ChevronDown size={16} color="var(--text-dim)" style={{ transition: 'transform 0.15s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+      </div>
+      {isOpen && (
+        <div style={{ marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: '1px solid var(--border-color)' }}>
+          {trip.items.map(it => (
+            <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.2rem 0' }}>
+              <span>{it.name} {it.quantity != null && <span className="dim">({it.quantity} {it.unit || ''})</span>}</span>
+              <span style={{ fontWeight: 700 }}>{it.totalCost != null ? formatMoney(it.totalCost) : '—'}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -88,14 +129,19 @@ function TripItem({ item, onToggleBought, onUpdateField, onDelete }) {
 // from Stock's dense management table, meant to be used from a phone while
 // walking through a store: check items off, adjust quantity/cost on the
 // spot, and see low-stock catalog products worth adding before you go.
-export default function CoursesPanel({ products, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem }) {
+export default function CoursesPanel({ products, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onCloseTrip, onFetchTripHistory }) {
+  const [showRestock, setShowRestock] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState(null);
+  const [isClosing, setIsClosing] = useState(false);
+
   const listedNames = new Set(shoppingList.map(it => it.name.trim().toLowerCase()));
   const restockCandidates = products
     .filter(p => p.stock !== null && p.stock !== undefined && p.stock <= p.lowStockThreshold)
     .sort((a, b) => a.stock - b.stock);
 
   const boughtCount = shoppingList.filter(it => it.bought).length;
-  const spent = shoppingList.filter(it => it.bought).reduce((sum, it) => sum + (it.totalCost || 0), 0);
+  const selectedTotal = shoppingList.filter(it => it.bought).reduce((sum, it) => sum + (it.totalCost || 0), 0);
   const plannedTotal = shoppingList.reduce((sum, it) => sum + (it.totalCost || 0), 0);
 
   const remaining = shoppingList.filter(it => !it.bought);
@@ -112,6 +158,20 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
   const handleToggleBought = item => onUpdateShoppingListItem(item.id, { bought: !item.bought });
   const handleUpdateField = (id, patch) => onUpdateShoppingListItem(id, patch);
 
+  const handleClose = async () => {
+    setIsClosing(true);
+    const closed = await onCloseTrip();
+    setIsClosing(false);
+    if (closed) setHistory(null); // stale -- next open re-fetches with the newly closed trip
+  };
+
+  const handleToggleHistory = async () => {
+    if (showHistory) { setShowHistory(false); return; }
+    setShowHistory(true);
+    if (history !== null) return;
+    setHistory(await onFetchTripHistory());
+  };
+
   return (
     <div className="fade-in">
       <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -122,22 +182,34 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
       </p>
 
       {shoppingList.length > 0 && (
-        <div className="synthesis-card" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
-            <Check size={16} color="var(--color-success)" /> {boughtCount} / {shoppingList.length} articles achetés
+        <div className="synthesis-card" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{formatMoney(selectedTotal)}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Check size={13} color="var(--color-success)" /> Total des articles cochés ({boughtCount}/{shoppingList.length}){plannedTotal > 0 && <> -- {formatMoney(plannedTotal)} prévus au total</>}
+            </div>
           </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {formatMoney(spent)} dépensés {plannedTotal > 0 && <>/ {formatMoney(plannedTotal)} prévus</>}
-          </div>
+          <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={isClosing} title="Archive cette liste et en commence une nouvelle">
+            <Lock size={14} /> {isClosing ? 'Clôture...' : 'Clôturer cette liste'}
+          </button>
         </div>
       )}
 
       {restockCandidates.length > 0 && (
         <div style={{ marginBottom: '1.5rem' }}>
-          <div className="catalog-section-label">Produits à racheter (stock bas)</div>
-          {restockCandidates.map(p => (
-            <RestockSuggestion key={p.id} product={p} alreadyListed={listedNames.has(p.name.trim().toLowerCase())} onAdd={handleAddSuggestion} />
-          ))}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="catalog-section-label" style={{ marginBottom: 0 }}>Produits à racheter (stock bas)</div>
+            <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => setShowRestock(v => !v)}>
+              {showRestock ? 'Masquer' : `Afficher (${restockCandidates.length})`}
+            </button>
+          </div>
+          {showRestock && (
+            <div style={{ marginTop: '0.5rem' }}>
+              {restockCandidates.map(p => (
+                <RestockSuggestion key={p.id} product={p} alreadyListed={listedNames.has(p.name.trim().toLowerCase())} onAdd={handleAddSuggestion} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -165,6 +237,23 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
           )}
         </>
       )}
+
+      <div style={{ marginTop: '2rem' }}>
+        <button type="button" className="btn btn-secondary" onClick={handleToggleHistory}>
+          <History size={14} /> Historique des courses <ChevronDown size={14} style={{ transition: 'transform 0.15s', transform: showHistory ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+        </button>
+        {showHistory && (
+          <div style={{ marginTop: '0.75rem' }}>
+            {history === null ? (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Chargement...</div>
+            ) : history.length === 0 ? (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Aucune liste clôturée pour l'instant.</div>
+            ) : (
+              history.map(trip => <TripHistoryRow key={trip.id} trip={trip} />)
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -361,6 +361,18 @@ app.delete('/api/admin/shopping-list/:id', requireManager, ah(async (req, res) =
   res.json({ success: true });
 }));
 
+// Closes the storefront's current shopping trip (Courses tab): freezes it
+// into history, the next item added opens a fresh one.
+app.post('/api/admin/storefronts/:id/shopping-list/close', requireManager, ah(async (req, res) => {
+  const trip = await db.closeShoppingTrip(req.params.id);
+  if (!trip) return res.status(400).json({ error: 'Aucune liste en cours pour cette vitrine' });
+  res.json({ trip });
+}));
+
+app.get('/api/admin/storefronts/:id/shopping-list/history', requireManager, ah(async (req, res) => {
+  res.json({ trips: await db.getShoppingTripHistory(req.params.id) });
+}));
+
 app.post('/api/admin/categories', requireManager, ah(async (req, res) => {
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de la catégorie est obligatoire' });
   const category = await db.addCategory(req.body);

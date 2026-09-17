@@ -488,19 +488,56 @@ class DB {
   // SHOPPING LIST -- one storefront's resource list ("what we bought to run
   // this"), so another team can rebuild it later. Every field but name is
   // optional: the info isn't always known.
+  //
+  // Items belong to a ShoppingTrip (Courses tab): getShoppingList and
+  // addShoppingListItem always operate on the current OPEN trip, created
+  // lazily on first use. closeShoppingTrip freezes it into history and the
+  // next item added opens a fresh one. Exactly one open trip per
+  // storefront at a time.
+  async getOrCreateOpenTrip(storefrontId) {
+    const open = await prisma.shoppingTrip.findFirst({ where: { storefrontId, closedAt: null } });
+    if (open) return open;
+    return prisma.shoppingTrip.create({ data: { storefrontId, closedAt: null } });
+  }
+
   async getShoppingList(storefrontId) {
+    const trip = await this.getOrCreateOpenTrip(storefrontId);
     const items = await prisma.shoppingListItem.findMany({
-      where: { storefrontId },
+      where: { tripId: trip.id },
       include: { products: true },
       orderBy: { createdAt: 'asc' }
     });
     return items.map(serializeShoppingListItem);
   }
 
+  async closeShoppingTrip(storefrontId) {
+    const trip = await prisma.shoppingTrip.findFirst({ where: { storefrontId, closedAt: null } });
+    if (!trip) return null;
+    const updated = await prisma.shoppingTrip.update({ where: { id: trip.id }, data: { closedAt: new Date() } });
+    return { id: updated.id, closedAt: updated.closedAt.toISOString() };
+  }
+
+  async getShoppingTripHistory(storefrontId) {
+    const trips = await prisma.shoppingTrip.findMany({
+      where: { storefrontId, closedAt: { not: null } },
+      orderBy: { closedAt: 'desc' },
+      include: { items: { include: { products: true }, orderBy: { createdAt: 'asc' } } }
+    });
+    return trips.map(trip => ({
+      id: trip.id,
+      createdAt: trip.createdAt.toISOString(),
+      closedAt: trip.closedAt.toISOString(),
+      items: trip.items.map(serializeShoppingListItem),
+      total: trip.items.reduce((sum, it) => sum + (it.totalCost || 0), 0)
+    }));
+  }
+
   async addShoppingListItem(storefrontId, item) {
+    const trip = await this.getOrCreateOpenTrip(storefrontId);
     const created = await prisma.shoppingListItem.create({
       data: {
         storefrontId,
+        tripId: trip.id,
         name: item.name.trim(),
         quantity: item.quantity === '' || item.quantity === undefined || item.quantity === null ? null : parseFloat(item.quantity),
         unit: item.unit || null,
@@ -1008,9 +1045,10 @@ class DB {
   // few items by hand, never creates duplicate lines -- the admin edits or
   // deletes individual rows from here on, same as a manually-added one.
   async generateShoppingList(storefrontId, days) {
+    const trip = await this.getOrCreateOpenTrip(storefrontId);
     const [average, existing] = await Promise.all([
       this.getAverageShoppingList(),
-      prisma.shoppingListItem.findMany({ where: { storefrontId }, select: { name: true, unit: true } })
+      prisma.shoppingListItem.findMany({ where: { tripId: trip.id }, select: { name: true, unit: true } })
     ]);
     const keyOf = (name, unit) => `${name.trim().toLowerCase()} ${(unit || '').trim().toLowerCase()}`;
     const existingKeys = new Set(existing.map(it => keyOf(it.name, it.unit)));
@@ -1020,6 +1058,7 @@ class DB {
       await prisma.shoppingListItem.createMany({
         data: toCreate.map(g => ({
           storefrontId,
+          tripId: trip.id,
           name: g.name,
           unit: g.unit || null,
           quantity: g.perDayQuantity != null ? Math.round(g.perDayQuantity * days * 10) / 10 : null,

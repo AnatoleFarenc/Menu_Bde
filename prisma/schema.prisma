@@ -61,22 +61,42 @@ model Storefront {
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  products     Product[]
-  menus        Menu[]
-  orders       Order[]
-  shoppingList ShoppingListItem[]
+  products      Product[]
+  menus         Menu[]
+  orders        Order[]
+  shoppingList  ShoppingListItem[]
+  shoppingTrips ShoppingTrip[]
 
   @@index([eventId])
   @@index([isActive])
 }
 
-// One line of a storefront's shopping/resource list: what was bought to run
-// it, so another team can rebuild the same storefront later. Every field but
-// name is optional -- the info isn't always known or tracked.
+// One shopping trip for a storefront: items added while it's open belong to
+// it; "closing" it (Courses tab) freezes it as one entry in the shopping-
+// list history and the next item added lazily opens a new one. Exactly one
+// open (closedAt: null) trip exists per storefront at a time -- see
+// getOrCreateOpenTrip in db.js.
+model ShoppingTrip {
+  id           String     @id @default(cuid())
+  storefrontId String
+  storefront   Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  closedAt     DateTime?
+  createdAt    DateTime   @default(now())
+
+  items ShoppingListItem[]
+
+  @@index([storefrontId])
+}
+
+// One line of a shopping trip: what was bought to run the storefront, so
+// another team can rebuild it later. Every field but name is optional --
+// the info isn't always known or tracked.
 model ShoppingListItem {
-  id               String     @id @default(cuid())
+  id               String       @id @default(cuid())
   storefrontId     String
-  storefront       Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  storefront       Storefront   @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  tripId           String
+  trip             ShoppingTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
   name             String
   quantity         Float?
   unit             String?
@@ -85,13 +105,14 @@ model ShoppingListItem {
   unitCost         Float?
   totalCost        Float?
   purchaseLocation String?
-  note             String?    @db.Text
-  bought           Boolean    @default(false)
-  createdAt        DateTime   @default(now())
+  note             String?      @db.Text
+  bought           Boolean      @default(false)
+  createdAt        DateTime     @default(now())
 
   products ShoppingListItemProduct[]
 
   @@index([storefrontId])
+  @@index([tripId])
 }
 
 // A shopping list line can be destined for several catalog products (e.g.
