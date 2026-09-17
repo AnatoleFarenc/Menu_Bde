@@ -888,7 +888,7 @@ class DB {
 
     const groups = new Map();
     for (const item of items) {
-      const key = `${item.name.trim().toLowerCase()} ${(item.unit || '').trim().toLowerCase()}`;
+      const key = `${item.name.trim().toLowerCase()} ${(item.unit || '').trim().toLowerCase()}`;
       if (!groups.has(key)) {
         groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation });
       }
