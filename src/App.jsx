@@ -31,7 +31,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
-  // Live order tracking (site-themed "Admin" tab): always follows whichever
+  // Live order tracking (site-themed "Staff" tab): always follows whichever
   // storefront is currently active. Event/storefront creation, catalog and
   // stock management live entirely on the separate /gestion page instead.
   const [activeStorefront, setActiveStorefront] = useState(null);
@@ -107,7 +107,7 @@ export default function App() {
     }
   }, [authToken]);
 
-  // "Admin" tab (site-themed order tracking) always follows the live
+  // "Staff" tab (site-themed order tracking) always follows the live
   // storefront, refreshed regularly in case staff switch it while open.
   useEffect(() => {
     if (user && user.isAdmin && activeTab === 'admin') {
@@ -174,7 +174,7 @@ export default function App() {
   };
 
   // Whichever storefront is currently live for students -- the site-themed
-  // "Admin" order tracking tab always follows this, not a manually browsed one.
+  // "Staff" order tracking tab always follows this, not a manually browsed one.
   const fetchActiveStorefront = async () => {
     try {
       const res = await axios.get('/api/admin/active-storefront', { headers: { Authorization: `Bearer ${authToken}` } });
@@ -327,7 +327,7 @@ export default function App() {
   };
 
   // Order-tracking handlers below all operate on the currently ACTIVE
-  // storefront (the site-themed "Admin" tab), not the one browsed in the
+  // storefront (the site-themed "Staff" tab), not the one browsed in the
   // management tool.
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {

@@ -28,8 +28,8 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, className }) {
           onClick={() => setActiveTab('admin')}
         >
           <ShieldCheck size={16} />
-          <span className="tab-text-long">Espace Admin BDE</span>
-          <span className="tab-text-short">Admin</span>
+          <span className="tab-text-long">Espace Staff BDE</span>
+          <span className="tab-text-short">Staff</span>
         </button>
       )}
 
