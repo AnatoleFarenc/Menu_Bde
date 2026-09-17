@@ -574,6 +574,7 @@ export default function ManagementApp() {
               onAddShoppingListItem={handleAddShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
               onGenerateShoppingList={handleGenerateShoppingList}
+              onFetchAverageShoppingList={fetchAverageShoppingList}
               onUpdateStock={handleUpdateStock}
             />
           )}

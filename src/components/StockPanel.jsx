@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { InfinityIcon, Wand2 } from 'lucide-react';
+import { ChevronDown, InfinityIcon, Wand2 } from 'lucide-react';
 import ShoppingListManager from './ShoppingListManager';
 
-export default function StockPanel({ products, categories, shoppingList, onAddShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onUpdateStock }) {
+function formatQty(value, unit) {
+  const rounded = Math.round(value * 10) / 10;
+  const label = Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
+  return `${label}${unit ? ` ${unit}` : ''}`;
+}
+
+function formatMoney(value) {
+  return `${value.toFixed(2).replace('.', ',')} €`;
+}
+
+export default function StockPanel({ products, categories, shoppingList, onAddShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onFetchAverageShoppingList, onUpdateStock }) {
   const [days, setDays] = useState(3);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewItems, setPreviewItems] = useState(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   // Value currently being typed into a stock cell, keyed by product id --
   // stays local until blur/Enter commits it, so re-renders from a fresh
   // fetch never fight the admin mid-keystroke.
@@ -32,6 +45,16 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
     setIsGenerating(true);
     setResult(await onGenerateShoppingList(days));
     setIsGenerating(false);
+    setPreviewItems(null); // stale after generating -- next open re-fetches
+  };
+
+  const handleTogglePreview = async () => {
+    if (showPreview) { setShowPreview(false); return; }
+    setShowPreview(true);
+    if (previewItems !== null) return;
+    setIsPreviewLoading(true);
+    setPreviewItems(await onFetchAverageShoppingList());
+    setIsPreviewLoading(false);
   };
 
   const rows = [...products].sort((a, b) => {
@@ -133,6 +156,9 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
             <span className="day-stepper-value">{days} j</span>
             <button type="button" onClick={() => changeDays(1)}>+</button>
           </div>
+          <button type="button" className="btn btn-secondary" onClick={handleTogglePreview}>
+            Aperçu <ChevronDown size={14} style={{ transition: 'transform 0.15s', transform: showPreview ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+          </button>
           <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={isGenerating}>
             {isGenerating ? 'Génération...' : 'Générer'}
           </button>
@@ -142,6 +168,45 @@ export default function StockPanel({ products, categories, shoppingList, onAddSh
             {result.created > 0
               ? `${result.created} article${result.created > 1 ? 's' : ''} ajouté${result.created > 1 ? 's' : ''}${result.skipped > 0 ? ` (${result.skipped} déjà présent${result.skipped > 1 ? 's' : ''})` : ''}.`
               : 'Rien à ajouter : tout est déjà dans la liste, ou aucun historique disponible.'}
+          </div>
+        )}
+        {showPreview && (
+          <div style={{ width: '100%' }}>
+            {isPreviewLoading || previewItems === null ? (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Chargement...</div>
+            ) : previewItems.length === 0 ? (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Aucun historique de listes de courses disponible pour l'instant.</div>
+            ) : (
+              <div className="data-table-wrap">
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '0.4rem' }}>
+                  "Vendu au dernier événement" est indicatif (articles liés à un produit du catalogue) -- n'influence pas la quantité/coût estimés, calculés depuis l'historique d'achats.
+                </p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Article</th>
+                      <th className="num">Quantité estimée</th>
+                      <th className="num">Coût estimé</th>
+                      <th>Vendu au dernier événement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewItems.map(it => (
+                      <tr key={`${it.name}-${it.unit || ''}`}>
+                        <td style={{ fontWeight: 700 }}>{it.name}</td>
+                        <td className="num">{it.perDayQuantity != null ? formatQty(it.perDayQuantity * days, it.unit) : '—'}</td>
+                        <td className="num">{it.perDayCost != null ? formatMoney(it.perDayCost * days) : '—'}</td>
+                        <td className="dim" style={{ fontSize: '0.8rem' }}>
+                          {it.soldLastEvent
+                            ? `${it.soldLastEvent.quantity} vendu${it.soldLastEvent.quantity > 1 ? 's' : ''} (${it.soldLastEvent.eventName})`
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
