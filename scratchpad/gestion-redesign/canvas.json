@@ -1,0 +1,33 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Résultat" },
+    { "id": "page-2", "name": "Pistes" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 700, "page": "page-1" },
+    { "file": "MainCatalogue.dc.html", "x": 1560, "y": 0, "w": 1440, "h": 660, "page": "page-1" },
+    { "file": "MainStock.dc.html", "x": 3120, "y": 0, "w": 1440, "h": 720, "page": "page-1" },
+    { "file": "MainBilan.dc.html", "x": 4680, "y": 0, "w": 1440, "h": 700, "page": "page-1" },
+    { "file": "MainStats.dc.html", "x": 6240, "y": 0, "w": 1440, "h": 820, "page": "page-1" },
+    { "file": "MainHistorique.dc.html", "x": 7800, "y": 0, "w": 1440, "h": 680, "page": "page-1", "is_interactive": true },
+    { "file": "MainAvis.dc.html", "x": 9360, "y": 0, "w": 1440, "h": 640, "page": "page-1" },
+    { "file": "EventSwitcherOpen.dc.html", "x": 0, "y": 960, "w": 460, "h": 500, "page": "page-1" },
+    { "file": "ProductModal.dc.html", "x": 600, "y": 960, "w": 1160, "h": 740, "page": "page-1" },
+    { "file": "DirectionA.dc.html", "x": 0, "y": 0, "w": 1440, "h": 680, "page": "page-2" },
+    { "file": "DirectionB.dc.html", "x": 1560, "y": 0, "w": 1440, "h": 600, "page": "page-2" },
+    { "file": "DirectionC.dc.html", "x": 3120, "y": 0, "w": 1440, "h": 560, "page": "page-2" }
+  ],
+  "annotations": [
+    { "id": "note-main", "x": 0, "y": -140, "w": 1440, "text": "Tableau de bord — 6 cartes de section (Catalogue, Stock, Bilan, Statistiques, Historique, Avis).", "page": "page-1" },
+    { "id": "note-catalogue", "x": 1560, "y": -140, "w": 1440, "text": "Onglet Catalogue.", "page": "page-1" },
+    { "id": "note-stock", "x": 3120, "y": -140, "w": 1440, "text": "Onglet Stock — niveaux de stock + liste de courses de l'événement en cours. L'historique et la moyenne sont maintenant dans l'onglet Historique. Chiffres d'exemple.", "page": "page-1" },
+    { "id": "note-bilan", "x": 4680, "y": -140, "w": 1440, "text": "Onglet Bilan — chiffres d'exemple, pas des données réelles.", "page": "page-1" },
+    { "id": "note-stats", "x": 6240, "y": -140, "w": 1440, "text": "Nouvel onglet Statistiques — ventes par jour, répartition par catégorie, produits les plus vendus. Chiffres d'exemple, cohérents avec le Bilan (186,50 €).", "page": "page-1" },
+    { "id": "note-historique", "x": 7800, "y": -140, "w": 1440, "text": "Onglet Historique — cliquable : l'événement en cours déplie son bilan + une liste de courses moyenne ajustable (+/− jours) ; chaque événement terminé déplie son bilan + sa vraie liste de courses.", "page": "page-1" },
+    { "id": "note-avis", "x": 9360, "y": -140, "w": 1440, "text": "Onglet Avis — avis d'exemple (logins et commentaires fictifs).", "page": "page-1" },
+    { "id": "note-switcher", "x": 0, "y": 900, "w": 460, "text": "Le sélecteur d'événement ouvert.", "page": "page-1" },
+    { "id": "note-modal", "x": 600, "y": 900, "w": 1160, "text": "Le formulaire produit/formule — sans emoji, palette neutre.", "page": "page-1" },
+    { "id": "note-pistes", "x": 0, "y": -140, "w": 1440, "text": "Pistes explorées avant de choisir — gardées ici pour référence.", "page": "page-2" }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

@@ -28,8 +28,8 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, className }) {
           onClick={() => setActiveTab('admin')}
         >
           <ShieldCheck size={16} />
-          <span className="tab-text-long">Espace Admin BDE</span>
-          <span className="tab-text-short">Admin</span>
+          <span className="tab-text-long">Espace Staff BDE</span>
+          <span className="tab-text-short">Staff</span>
         </button>
       )}
 
@@ -62,17 +62,10 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // BDE Admin (order tracking) and BDE Gestion (event/catalog management)
-  // are independent roles -- show whichever one(s) this account actually has.
-  const rolePillLabel = isAdmin && isManager
-    ? 'BDE Admin + Gestion'
-    : isAdmin
-      ? 'BDE Admin'
-      : isManager
-        ? 'BDE Gestion'
-        : user?.role === 'kiosk_guest'
-          ? 'Commande borne'
-          : 'Étudiant 42';
+  // Role hierarchy (see ROLE_RANK in server/auth42.js): board > admin > staff.
+  const ROLE_LABELS = { board: 'Bureau BDE', admin: 'Gestion BDE', staff: 'Suivi commandes BDE' };
+  const rolePillLabel = ROLE_LABELS[user?.role]
+    || (user?.role === 'kiosk_guest' ? 'Commande borne' : 'Étudiant 42');
 
   return (
     <>

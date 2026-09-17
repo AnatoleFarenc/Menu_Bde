@@ -10,6 +10,19 @@ datasource db {
 // Storefront
 // ---------------------------------------------------------------------------
 
+// A BDE member's role, assigned by a Board member from the /gestion team
+// screen. Keyed by 42 login (lowercase) and looked up at login time. A login
+// with no row here is a plain Member (no admin rights) unless it's still
+// covered by the legacy ADMIN_LOGINS/MANAGER_LOGINS env fallback -- see
+// resolveRole() in auth42.js.
+model TeamMember {
+  login     String   @id
+  role      String   // 'board' | 'admin' | 'staff'
+  addedBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Category {
   id        String    @id
   name      String
@@ -102,6 +115,10 @@ model Product {
   extraMenuPrice Float      @default(0)
   costPrice      Float?
   stock          Int?
+  // Below this stock count the Stock tab flags the product as "low" --
+  // customizable per product since a sensible threshold varies a lot (a few
+  // units for an expensive item, dozens for bread).
+  lowStockThreshold Int     @default(5)
   description    String?    @db.Text
   badge          String     @default("")
   available      Boolean    @default(true)

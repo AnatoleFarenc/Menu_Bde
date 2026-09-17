@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f7f6f2; color: #262220; }
+    a { color: #2b4f76; text-decoration: none; }
+    a:hover { color: #35618f; }
+    .icon { display: block; flex-shrink: 0; }
+    .chart-card { background: #fcfcfb; border: 1px solid #e6e1d6; border-radius: 12px; padding: 18px 20px; }
+    .chart-title { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+    .chart-subtitle { font-size: 11.5px; color: #7a7269; margin-bottom: 14px; }
+    .axis-label { font-size: 10px; fill: #898781; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .value-label { font-size: 11px; font-weight: 700; fill: #0b0b0b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .cat-label { font-size: 11px; font-weight: 600; fill: #52514e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .legend-row { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #52514e; font-weight: 600; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 780px; background: #f7f6f2; display: flex; flex-direction: column;">
+
+  <!-- TOP BAR -->
+  <div style="height: 64px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6; display: flex; align-items: center; padding: 0 28px; gap: 20px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 32px; height: 32px; border-radius: 8px; background: #35618f; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">42</div>
+      <span style="font-weight: 700; font-size: 15px; letter-spacing: -0.01em;">Gestion BDE</span>
+    </div>
+    <div style="width: 1px; height: 24px; background: #e6e1d6;"></div>
+    <button style="display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; cursor: pointer; font-size: 13px; font-weight: 600; color: #262220;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #4c7a3f; flex-shrink: 0;"></span>
+      Sandwich Piscine Septembre 2026
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; color: #a39a8d; width: 220px;">
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="font-size: 13px;">Rechercher...</span>
+    </div>
+    <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(53,97,143,0.14); color: #2b4f76; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">AF</div>
+  </div>
+
+  <!-- BREADCRUMB + TABS -->
+  <div style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 28px; height: 46px;">
+      <a href="#" style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #7a7269;">
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Tableau de bord
+      </a>
+      <span style="color: #e6e1d6;">/</span>
+      <span style="font-size: 12.5px; font-weight: 700;">Statistiques</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 4px; padding: 0 28px; overflow-x: auto;">
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Catalogue</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Stock</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Bilan</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: #2b4f76; border-bottom: 2px solid #35618f; white-space: nowrap;">Statistiques</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Historique</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Avis</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div style="flex: 1; padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 18px;">
+
+    <!-- DATE RANGE -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <label style="display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #7a7269; font-weight: 600;">
+        Du
+        <span style="padding: 6px 10px; border: 1px solid #e6e1d6; border-radius: 7px; background: #ffffff; font-size: 12.5px; color: #262220;">08/09/2026</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #7a7269; font-weight: 600;">
+        Au
+        <span style="padding: 6px 10px; border: 1px solid #e6e1d6; border-radius: 7px; background: #ffffff; font-size: 12.5px; color: #262220;">14/09/2026</span>
+      </label>
+    </div>
+
+    <!-- LINE CHART: VENTES PAR JOUR -->
+    <div class="chart-card">
+      <div class="chart-title">Ventes par jour</div>
+      <div class="chart-subtitle">Du 8 au 14 septembre 2026 — 186,50 € sur la période</div>
+      <svg viewBox="0 0 640 210" style="width: 100%; height: auto; display: block; overflow: visible;">
+        <!-- gridlines -->
+        <line x1="44" y1="170" x2="616" y2="170" stroke="#e1e0d9" stroke-width="1"/>
+        <line x1="44" y1="130" x2="616" y2="130" stroke="#e1e0d9" stroke-width="1"/>
+        <line x1="44" y1="90" x2="616" y2="90" stroke="#e1e0d9" stroke-width="1"/>
+        <line x1="44" y1="50" x2="616" y2="50" stroke="#e1e0d9" stroke-width="1"/>
+        <line x1="44" y1="10" x2="616" y2="10" stroke="#e1e0d9" stroke-width="1"/>
+        <!-- y labels -->
+        <text class="axis-label" x="38" y="174" text-anchor="end">0 €</text>
+        <text class="axis-label" x="38" y="134" text-anchor="end">10 €</text>
+        <text class="axis-label" x="38" y="94" text-anchor="end">20 €</text>
+        <text class="axis-label" x="38" y="54" text-anchor="end">30 €</text>
+        <text class="axis-label" x="38" y="14" text-anchor="end">40 €</text>
+        <!-- area fill -->
+        <path d="M44,98 L139.33,80 L234.67,70 L330,44 L425.33,58 L520.67,34 L616,60 L616,170 L44,170 Z" fill="#2a78d6" opacity="0.1"/>
+        <!-- line -->
+        <path d="M44,98 L139.33,80 L234.67,70 L330,44 L425.33,58 L520.67,34 L616,60" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- points -->
+        <circle cx="44" cy="98" r="3" fill="#2a78d6"/>
+        <circle cx="139.33" cy="80" r="3" fill="#2a78d6"/>
+        <circle cx="234.67" cy="70" r="3" fill="#2a78d6"/>
+        <circle cx="330" cy="44" r="3" fill="#2a78d6"/>
+        <circle cx="425.33" cy="58" r="3" fill="#2a78d6"/>
+        <!-- peak (13/09) -->
+        <circle cx="520.67" cy="34" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+        <text class="value-label" x="520.67" y="22" text-anchor="middle">34,00 €</text>
+        <!-- endpoint (14/09) -->
+        <circle cx="616" cy="60" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+        <text class="value-label" x="608" y="48" text-anchor="end">27,50 €</text>
+        <!-- x labels -->
+        <text class="axis-label" x="44" y="190" text-anchor="middle">08/09</text>
+        <text class="axis-label" x="139.33" y="190" text-anchor="middle">09/09</text>
+        <text class="axis-label" x="234.67" y="190" text-anchor="middle">10/09</text>
+        <text class="axis-label" x="330" y="190" text-anchor="middle">11/09</text>
+        <text class="axis-label" x="425.33" y="190" text-anchor="middle">12/09</text>
+        <text class="axis-label" x="520.67" y="190" text-anchor="middle">13/09</text>
+        <text class="axis-label" x="616" y="190" text-anchor="middle">14/09</text>
+      </svg>
+    </div>
+
+    <!-- TWO CHARTS SIDE BY SIDE -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+
+      <!-- BAR CHART: CA PAR CATEGORIE -->
+      <div class="chart-card">
+        <div class="chart-title">Chiffre d'affaires par catégorie</div>
+        <div class="chart-subtitle">186,50 € au total sur la période</div>
+        <div class="legend-row">
+          <span class="legend-item"><span class="legend-dot" style="background:#2a78d6;"></span>Boisson</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#eb6834;"></span>Dessert</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#1baf7a;"></span>Plat</span>
+        </div>
+        <svg viewBox="0 0 340 210" style="width: 100%; height: auto; display: block; overflow: visible;">
+          <line x1="0" y1="170" x2="340" y2="170" stroke="#c3c2b7" stroke-width="1"/>
+          <!-- Boisson -->
+          <rect x="56" y="120" width="28" height="50" rx="4" fill="#2a78d6"/>
+          <rect x="56" y="145" width="28" height="25" fill="#2a78d6"/>
+          <text class="value-label" x="70" y="112" text-anchor="middle">42,00 €</text>
+          <text class="cat-label" x="70" y="188" text-anchor="middle">Boisson</text>
+          <!-- Dessert -->
+          <rect x="156" y="148" width="28" height="22" rx="4" fill="#eb6834"/>
+          <rect x="156" y="159" width="28" height="11" fill="#eb6834"/>
+          <text class="value-label" x="170" y="140" text-anchor="middle">18,50 €</text>
+          <text class="cat-label" x="170" y="188" text-anchor="middle">Dessert</text>
+          <!-- Plat -->
+          <rect x="256" y="20" width="28" height="150" rx="4" fill="#1baf7a"/>
+          <rect x="256" y="95" width="28" height="75" fill="#1baf7a"/>
+          <text class="value-label" x="270" y="12" text-anchor="middle">126,00 €</text>
+          <text class="cat-label" x="270" y="188" text-anchor="middle">Plat</text>
+        </svg>
+      </div>
+
+      <!-- HORIZONTAL BAR: TOP PRODUITS -->
+      <div class="chart-card">
+        <div class="chart-title">Produits les plus vendus</div>
+        <div class="chart-subtitle">Quantité vendue sur la période</div>
+        <svg viewBox="0 0 340 210" style="width: 100%; height: auto; display: block; overflow: visible;">
+          <text class="cat-label" x="0" y="14" text-anchor="start">Café/Thé</text>
+          <rect x="0" y="20" width="260" height="16" rx="4" fill="#2a78d6"/>
+          <rect x="130" y="20" width="130" height="16" fill="#2a78d6"/>
+          <text class="value-label" x="268" y="32" text-anchor="start">31</text>
+
+          <text class="cat-label" x="0" y="54" text-anchor="start">Formule Jaws</text>
+          <rect x="0" y="60" width="234.8" height="16" rx="4" fill="#2a78d6"/>
+          <rect x="117.4" y="60" width="117.4" height="16" fill="#2a78d6"/>
+          <text class="value-label" x="242.8" y="72" text-anchor="start">28</text>
+
+          <text class="cat-label" x="0" y="94" text-anchor="start">Formule Plouf</text>
+          <rect x="0" y="100" width="159.4" height="16" rx="4" fill="#2a78d6"/>
+          <rect x="79.7" y="100" width="79.7" height="16" fill="#2a78d6"/>
+          <text class="value-label" x="167.4" y="112" text-anchor="start">19</text>
+
+          <text class="cat-label" x="0" y="134" text-anchor="start">Club sandwich thon</text>
+          <rect x="0" y="140" width="117.4" height="16" rx="4" fill="#2a78d6"/>
+          <rect x="58.7" y="140" width="58.7" height="16" fill="#2a78d6"/>
+          <text class="value-label" x="125.4" y="152" text-anchor="start">14</text>
+
+          <text class="cat-label" x="0" y="174" text-anchor="start">Chips</text>
+          <rect x="0" y="180" width="75.5" height="16" rx="4" fill="#2a78d6"/>
+          <rect x="37.7" y="180" width="37.8" height="16" fill="#2a78d6"/>
+          <text class="value-label" x="83.5" y="192" text-anchor="start">9</text>
+        </svg>
+      </div>
+
+    </div>
+
+    <p style="font-size: 11.5px; color: #a39a8d; margin: 0;">Chiffres d'exemple pour illustrer la mise en page. Au clic sur un point ou une barre, la vraie version affichera une infobulle avec le détail.</p>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

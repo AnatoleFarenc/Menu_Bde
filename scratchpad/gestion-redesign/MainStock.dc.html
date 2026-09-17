@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f7f6f2; color: #262220; }
+    a { color: #2b4f76; text-decoration: none; }
+    a:hover { color: #35618f; }
+    .icon { display: block; flex-shrink: 0; }
+    td, th { text-align: left; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 680px; background: #f7f6f2; display: flex; flex-direction: column;">
+
+  <!-- TOP BAR -->
+  <div style="height: 64px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6; display: flex; align-items: center; padding: 0 28px; gap: 20px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 32px; height: 32px; border-radius: 8px; background: #35618f; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">42</div>
+      <span style="font-weight: 700; font-size: 15px; letter-spacing: -0.01em;">Gestion BDE</span>
+    </div>
+    <div style="width: 1px; height: 24px; background: #e6e1d6;"></div>
+    <button style="display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; cursor: pointer; font-size: 13px; font-weight: 600; color: #262220;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #4c7a3f; flex-shrink: 0;"></span>
+      Sandwich Piscine Septembre 2026
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; color: #a39a8d; width: 220px;">
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="font-size: 13px;">Rechercher...</span>
+    </div>
+    <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(53,97,143,0.14); color: #2b4f76; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">AF</div>
+  </div>
+
+  <!-- BREADCRUMB + TABS -->
+  <div style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 28px; height: 46px;">
+      <a href="#" style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #7a7269;">
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Tableau de bord
+      </a>
+      <span style="color: #e6e1d6;">/</span>
+      <span style="font-size: 12.5px; font-weight: 700;">Stock</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 4px; padding: 0 28px; overflow-x: auto;">
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Catalogue</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: #2b4f76; border-bottom: 2px solid #35618f; white-space: nowrap;">Stock</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Bilan</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Statistiques</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Historique</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Avis</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div style="flex: 1; padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 28px;">
+
+    <!-- STOCK ACTUEL -->
+    <div>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;">
+        <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #a39a8d;">Stock actuel</div>
+        <span style="font-size: 11.5px; color: #a39a8d;">Chiffres d'exemple — tous les produits sont réellement en stock illimité pour le moment</span>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #f2f0e9;">
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Produit</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Catégorie</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d; text-align: right;">Stock</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Chips</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Plat</td>
+              <td style="padding: 9px 14px; text-align: right; font-weight: 700; color: #b4790f;">6</td>
+              <td style="padding: 9px 14px;"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(180,121,15,0.12); color: #b4790f;">Stock bas</span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Œuf Mimosa</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Plat</td>
+              <td style="padding: 9px 14px; text-align: right; font-weight: 700;">14</td>
+              <td style="padding: 9px 14px;"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(76,122,63,0.1); color: #4c7a3f;">OK</span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Club sandwich thon</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Plat</td>
+              <td style="padding: 9px 14px; text-align: right; font-weight: 700;">22</td>
+              <td style="padding: 9px 14px;"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(76,122,63,0.1); color: #4c7a3f;">OK</span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Café/Thé</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Boisson</td>
+              <td style="padding: 9px 14px; text-align: right; color: #a39a8d;">Illimité</td>
+              <td style="padding: 9px 14px;"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(76,122,63,0.1); color: #4c7a3f;">OK</span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700; color: #a39a8d; text-decoration: line-through;">Croissant</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Dessert</td>
+              <td style="padding: 9px 14px; text-align: right; color: #a39a8d;">Illimité</td>
+              <td style="padding: 9px 14px;"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(179,64,46,0.1); color: #b3402e;">Indisponible</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LISTE DE COURSES -->
+    <div>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #a39a8d;">Liste de courses</div>
+        <button style="display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid #35618f; background: #35618f; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer;">
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter un article
+        </button>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #f2f0e9;">
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Article</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Pour</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d; text-align: right;">Quantité</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Lieu d'achat</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d; text-align: right;">Prix total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Pain de mie</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Club sandwich thon</td>
+              <td style="padding: 9px 14px; text-align: right;">24 tranches · 3 jours</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Carrefour</td>
+              <td style="padding: 9px 14px; text-align: right; font-weight: 700;">8,40 €</td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Thon en boîte</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Club sandwich thon</td>
+              <td style="padding: 9px 14px; text-align: right;">12 boîtes</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Metro</td>
+              <td style="padding: 9px 14px; text-align: right; font-weight: 700;">14,00 €</td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 9px 14px; font-weight: 700;">Café en grains</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Café/Thé</td>
+              <td style="padding: 9px 14px; text-align: right;">2 kg · 5 jours</td>
+              <td style="padding: 9px 14px; color: #7a7269;">Carrefour</td>
+              <td style="padding: 9px 14px; text-align: right; font-weight: 700;">22,00 €</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

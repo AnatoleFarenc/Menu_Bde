@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f7f6f2; color: #262220; }
+    .icon { display: block; flex-shrink: 0; }
+    .field-label { display: block; font-size: 12px; font-weight: 600; color: #7a7269; margin-bottom: 6px; }
+    .field-input { width: 100%; padding: 9px 11px; border: 1px solid #e6e1d6; border-radius: 8px; font-size: 13.5px; color: #262220; background: #ffffff; font-family: inherit; }
+  </style>
+</helmet>
+
+<div style="width: 1160px; min-height: 720px; background: #ece9e1; position: relative; display: flex; align-items: flex-start; justify-content: center; padding-top: 40px;">
+
+  <!-- dimmed backdrop hint -->
+  <div style="position: absolute; inset: 0; background: rgba(38,34,32,0.45);"></div>
+
+  <!-- MODAL -->
+  <div style="position: relative; width: 620px; background: #ffffff; border-radius: 16px; box-shadow: 0 24px 60px rgba(38,34,32,0.3); padding: 26px 28px 24px; max-height: 660px; overflow-y: auto;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 800;">Modifier le produit</h2>
+      <button style="width: 30px; height: 30px; border-radius: 50%; border: none; background: #f2f0e9; color: #7a7269; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+        <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+
+      <div>
+        <label class="field-label">Nom du produit</label>
+        <input class="field-input" value="Club sandwich thon" />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <label class="field-label">Catégorie</label>
+          <select class="field-input">
+            <option>Plat</option>
+            <option>Boisson</option>
+            <option>Dessert</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Badge (optionnel)</label>
+          <input class="field-input" placeholder="Ex : Bestseller, Végétarien..." />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <label class="field-label">Prix à l'unité (€)</label>
+          <input class="field-input" value="2,00" />
+        </div>
+        <div>
+          <label class="field-label">Supplément en formule (€)</label>
+          <input class="field-input" value="-0,50" />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <label class="field-label">Prix d'achat (optionnel)</label>
+          <input class="field-input" placeholder="Sert au calcul de la marge" />
+          <p style="font-size: 11px; color: #a39a8d; margin: 6px 0 0;">Ce que ce produit coûte au BDE à l'achat.</p>
+        </div>
+        <div>
+          <label class="field-label">Stock (optionnel)</label>
+          <input class="field-input" placeholder="Vide = toujours disponible" />
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">Description</label>
+        <textarea class="field-input" rows="3" style="resize: vertical;">Pain de mie, mélange thon (thon, cornichon, échalotte, mayonnaise), salade</textarea>
+      </div>
+
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-top: 24px;">
+      <button style="flex: 1; padding: 10px; border-radius: 9px; border: 1px solid #e6e1d6; background: #ffffff; font-size: 13.5px; font-weight: 700; color: #262220; cursor: pointer;">Annuler</button>
+      <button style="flex: 2; padding: 10px; border-radius: 9px; border: none; background: #35618f; color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;">
+        <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Enregistrer
+      </button>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

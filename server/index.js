@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
-import { get42AuthUrl, handle42Callback } from './auth42.js';
+import { get42AuthUrl, handle42Callback, ROLE_RANK } from './auth42.js';
 
 dotenv.config();
 
@@ -133,6 +133,16 @@ const requireAdminOrManager = (req, res, next) => {
   next();
 };
 
+// Top of the role hierarchy (see ROLE_RANK in auth42.js): gates the team
+// screen where roles are assigned, so only a Board member can grant
+// admin/manager access to someone else.
+const requireBoard = (req, res, next) => {
+  const user = getUserFromReq(req);
+  if (!user || !user.isBoard) return res.status(403).json({ error: 'Accès réservé au bureau BDE' });
+  req.user = user;
+  next();
+};
+
 // Anti-CSRF state for the 42 OAuth flow (state param), single-use short-lived tokens.
 const oauthStates = new Map(); // state -> expiresAt
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
@@ -205,6 +215,7 @@ app.post('/api/auth/kiosk-login', authLimiter, (req, res) => {
     campus: 'Borne',
     isAdmin: false,
     isManager: false,
+    isBoard: false,
     role: 'kiosk_guest'
   };
   const token = createSession(user);
@@ -329,6 +340,14 @@ app.post('/api/admin/storefronts/:id/shopping-list', requireManager, ah(async (r
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'article est obligatoire' });
   const item = await db.addShoppingListItem(req.params.id, req.body);
   res.status(201).json({ item });
+}));
+
+// Pre-fills this storefront's shopping list from the cross-event average,
+// scaled to the given number of days.
+app.post('/api/admin/storefronts/:id/shopping-list/generate', requireManager, ah(async (req, res) => {
+  const days = Math.max(1, Math.min(60, Math.round(Number(req.body.days)) || 1));
+  const result = await db.generateShoppingList(req.params.id, days);
+  res.json(result);
 }));
 
 app.put('/api/admin/shopping-list/:id', requireManager, ah(async (req, res) => {
@@ -777,6 +796,31 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
     .slice(0, 8);
 
   res.json({ from, to, dailySales, byCategory, topProducts });
+}));
+
+// ----------------------------------------------------
+// TEAM / ROLES (roadmap 06) -- Board-only. Assigns a login's role, which
+// resolveRole() in auth42.js consults on their NEXT login (an already-open
+// session keeps whatever access it started with until it re-authenticates).
+// ----------------------------------------------------
+const TEAM_ROLES = ['staff', 'admin', 'board'];
+
+app.get('/api/admin/team', requireBoard, ah(async (req, res) => {
+  res.json({ members: await db.listTeamMembers() });
+}));
+
+app.post('/api/admin/team', requireBoard, ah(async (req, res) => {
+  const login = (req.body.login || '').trim().toLowerCase();
+  const role = req.body.role;
+  if (!/^[a-z0-9_-]{1,30}$/.test(login)) return res.status(400).json({ error: 'Login 42 invalide' });
+  if (!TEAM_ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+  const member = await db.setTeamMemberRole(login, role, req.user.login);
+  res.json({ member });
+}));
+
+app.delete('/api/admin/team/:login', requireBoard, ah(async (req, res) => {
+  await db.removeTeamMember(req.params.login.toLowerCase());
+  res.json({ success: true });
 }));
 
 // In production, serve the built React application from the same origin as the API.

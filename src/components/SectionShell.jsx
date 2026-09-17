@@ -10,10 +10,16 @@ const SECTIONS = [
   { id: 'avis', label: 'Avis' }
 ];
 
+// 'Équipe' (role management) is Board-only -- see ROLE_RANK in
+// server/auth42.js -- so it's appended rather than listed above, instead of
+// gating it with per-tab logic scattered through the render.
+const BOARD_SECTION = { id: 'equipe', label: 'Équipe' };
+
 // Breadcrumb ("← Tableau de bord / <Section>") + the horizontal tab strip
 // shared by every section page -- replaces the vertical icon rail.
-export default function SectionShell({ activeSection, onSelectSection, onGoToDashboard, children }) {
-  const current = SECTIONS.find(s => s.id === activeSection);
+export default function SectionShell({ activeSection, onSelectSection, onGoToDashboard, showTeam, children }) {
+  const sections = showTeam ? [...SECTIONS, BOARD_SECTION] : SECTIONS;
+  const current = sections.find(s => s.id === activeSection);
 
   return (
     <>
@@ -26,7 +32,7 @@ export default function SectionShell({ activeSection, onSelectSection, onGoToDas
           <span className="gestion-breadcrumb-current">{current?.label}</span>
         </div>
         <div className="gestion-tabs">
-          {SECTIONS.map(section => (
+          {sections.map(section => (
             <button
               key={section.id}
               type="button"

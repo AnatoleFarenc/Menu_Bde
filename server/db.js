@@ -80,6 +80,7 @@ function serializeProduct(p) {
     extraMenuPrice: p.extraMenuPrice,
     costPrice: p.costPrice,
     stock: p.stock,
+    lowStockThreshold: p.lowStockThreshold,
     description: p.description,
     badge: p.badge,
     available: p.available,
@@ -598,6 +599,9 @@ class DB {
       data.stock = stock;
       if (stock !== null) data.available = stock > 0;
     }
+    if (updates.lowStockThreshold !== undefined) {
+      data.lowStockThreshold = Math.max(0, parseInt(updates.lowStockThreshold, 10) || 0);
+    }
 
     const updated = await prisma.product.update({ where: { id }, data });
     return serializeProduct(updated);
@@ -883,14 +887,15 @@ class DB {
   // quantity) still shows up instead of being silently dropped.
   async getAverageShoppingList() {
     const items = await prisma.shoppingListItem.findMany({
-      where: { storefront: { event: { status: 'completed' } }, forDays: { not: null, gt: 0 } }
+      where: { storefront: { event: { status: 'completed' } }, forDays: { not: null, gt: 0 } },
+      include: { products: true }
     });
 
     const groups = new Map();
     for (const item of items) {
-      const key = `${item.name.trim().toLowerCase()} ${(item.unit || '').trim().toLowerCase()}`;
+      const key = `${item.name.trim().toLowerCase()} ${(item.unit || '').trim().toLowerCase()}`;
       if (!groups.has(key)) {
-        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation });
+        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation, productIds: new Set() });
       }
       const group = groups.get(key);
       if (item.quantity !== null && item.quantity !== undefined) {
@@ -901,19 +906,122 @@ class DB {
         group.costSum += item.totalCost / item.forDays;
         group.costCount += 1;
       }
+      (item.products || []).forEach(link => group.productIds.add(link.productId));
     }
 
+    // Sales context (informational only, see getLastCompletedEventProductSales)
+    // for whichever of a group's linked products were actually sold last time
+    // -- it never feeds into perDayQuantity/perDayCost, which stay purely
+    // purchase-history-based.
+    const { eventName: lastEventName, sales: lastEventSales } = await this.getLastCompletedEventProductSales();
+
     return Array.from(groups.values())
-      .map(g => ({
-        name: g.name,
-        unit: g.unit,
-        purchaseLocation: g.purchaseLocation,
-        perDayQuantity: g.qtyCount ? g.qtySum / g.qtyCount : null,
-        perDayCost: g.costCount ? g.costSum / g.costCount : null,
-        sampleSize: Math.max(g.qtyCount, g.costCount)
-      }))
+      .map(g => {
+        const soldLastEvent = [...g.productIds].reduce((sum, id) => sum + (lastEventSales[id] || 0), 0);
+        return {
+          name: g.name,
+          unit: g.unit,
+          purchaseLocation: g.purchaseLocation,
+          perDayQuantity: g.qtyCount ? g.qtySum / g.qtyCount : null,
+          perDayCost: g.costCount ? g.costSum / g.costCount : null,
+          sampleSize: Math.max(g.qtyCount, g.costCount),
+          soldLastEvent: g.productIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null
+        };
+      })
       .filter(g => g.perDayQuantity !== null || g.perDayCost !== null)
       .sort((a, b) => (b.perDayCost ?? 0) - (a.perDayCost ?? 0));
+  }
+
+  // Units sold per product during the most recently COMPLETED event --
+  // purely informational context surfaced next to the automatic
+  // shopping-list generation (see getAverageShoppingList above). There is no
+  // quantified recipe linking a sold product to how much of a given
+  // shopping-list article it consumes, so this never feeds the actual
+  // per-day quantity/cost math, only shown alongside it.
+  async getLastCompletedEventProductSales() {
+    const lastEvent = await prisma.event.findFirst({
+      where: { status: 'completed' },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (!lastEvent) return { eventName: null, sales: {} };
+
+    const orders = await this.getEventOrders(lastEvent.id);
+    const sales = {};
+    const add = (productId, qty) => { if (productId) sales[productId] = (sales[productId] || 0) + qty; };
+    for (const order of orders) {
+      if (order.status !== 'completed') continue;
+      for (const item of order.items) {
+        if (item.type === 'menu' && item.choices) {
+          item.choices.forEach(choice => add(choice.product?.id, item.quantity));
+        } else {
+          add(item.id, item.quantity);
+        }
+      }
+    }
+    return { eventName: lastEvent.name, sales };
+  }
+
+  // Pre-fills a storefront's shopping list from the cross-event average,
+  // scaled to `days`. Skips any item already on the list (matched the same
+  // way getAverageShoppingList groups items: name + unit, trimmed/
+  // lowercased) so clicking it twice, or generating after already adding a
+  // few items by hand, never creates duplicate lines -- the admin edits or
+  // deletes individual rows from here on, same as a manually-added one.
+  async generateShoppingList(storefrontId, days) {
+    const [average, existing] = await Promise.all([
+      this.getAverageShoppingList(),
+      prisma.shoppingListItem.findMany({ where: { storefrontId }, select: { name: true, unit: true } })
+    ]);
+    const keyOf = (name, unit) => `${name.trim().toLowerCase()} ${(unit || '').trim().toLowerCase()}`;
+    const existingKeys = new Set(existing.map(it => keyOf(it.name, it.unit)));
+    const toCreate = average.filter(g => !existingKeys.has(keyOf(g.name, g.unit)));
+
+    if (toCreate.length > 0) {
+      await prisma.shoppingListItem.createMany({
+        data: toCreate.map(g => ({
+          storefrontId,
+          name: g.name,
+          unit: g.unit || null,
+          quantity: g.perDayQuantity != null ? Math.round(g.perDayQuantity * days * 10) / 10 : null,
+          forDays: days,
+          totalCost: g.perDayCost != null ? Math.round(g.perDayCost * days * 100) / 100 : null,
+          purchaseLocation: g.purchaseLocation || null
+        }))
+      });
+    }
+
+    return { created: toCreate.length, skipped: average.length - toCreate.length };
+  }
+
+  // Role hierarchy (see resolveRole() in auth42.js for how a login's role is
+  // resolved at login time -- this table is the DB half of that, the source
+  // of truth once a Board member has assigned someone explicitly).
+  async getTeamMemberRole(login) {
+    const row = await prisma.teamMember.findUnique({ where: { login } });
+    return row ? row.role : null;
+  }
+
+  async listTeamMembers() {
+    const rows = await prisma.teamMember.findMany({ orderBy: { login: 'asc' } });
+    return rows.map(r => ({ login: r.login, role: r.role, addedBy: r.addedBy, updatedAt: r.updatedAt.toISOString() }));
+  }
+
+  async setTeamMemberRole(login, role, addedBy) {
+    const row = await prisma.teamMember.upsert({
+      where: { login },
+      create: { login, role, addedBy },
+      update: { role, addedBy }
+    });
+    return { login: row.login, role: row.role, addedBy: row.addedBy, updatedAt: row.updatedAt.toISOString() };
+  }
+
+  async removeTeamMember(login) {
+    try {
+      await prisma.teamMember.delete({ where: { login } });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

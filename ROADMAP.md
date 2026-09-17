@@ -85,9 +85,11 @@ midterm, a party...) keeps its own catalog, orders, and history —
 reusable as-is by another team the following year. Foundation for 02 and 03
 below.
 
-### 02 — Statistics & graphs per event — 🔜 Next
+### 02 — Statistics & graphs per event — ✅ Done
 
-Visualize sales trends from one event to the next, compare editions.
+Shipped as part of the `/gestion` redesign: per-event bilan (revenue/cost/
+profit/product count), sales & category charts, a shopping-list history per
+event, and a cross-event averaged shopping list with an adjustable duration.
 
 *Depends on: 01*
 
@@ -103,15 +105,19 @@ named assignment — to see at a glance the staffing to plan for.
 Browser (push) notification when an order comes in, toggleable per admin
 member.
 
-### 05 — Automatic shopping list — 📋 Planned
+### 05 — Automatic shopping list — ✅ Done
 
-From stock thresholds, generate what to restock and in what quantity before
-the next event.
+The Stock section can pre-fill an event's shopping list from the cross-event
+average (scaled to a chosen number of days) in one click, skipping anything
+already on the list.
 
-### 06 — Role hierarchy in the app — 📋 Planned
+### 06 — Role hierarchy in the app — ✅ Done
 
-Board / Admin / Staff / Member — finer-grained permissions than today's
-simple "admin or not".
+Board / Admin / Staff / Member, each including the rights of the one below:
+Staff (live order-tracking board) < Admin (+ full `/gestion` tool) < Board
+(+ a team screen to assign/change everyone's role). Existing accounts
+migrated automatically (old `ADMIN_LOGINS` → Board, `MANAGER_LOGINS` →
+Admin); new roles are assigned from `/gestion → Équipe`.
 
 ### 🔧 To fix — Pickup time slots
 
@@ -142,4 +148,4 @@ sudo infra/add-team-member.sh <username> <github-username> ops
 
 ---
 
-*Last updated: 2026-09-12*
+*Last updated: 2026-09-17 (evening)*

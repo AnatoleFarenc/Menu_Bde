@@ -9,6 +9,7 @@ import BilanPanel from './components/BilanPanel';
 import StatsPanel from './components/StatsPanel';
 import HistoriquePanel from './components/HistoriquePanel';
 import AvisPanel from './components/AvisPanel';
+import TeamPanel from './components/TeamPanel';
 import AdminProductModal from './components/AdminProductModal';
 
 // Top-level component for the /gestion route: a genuinely separate page from
@@ -36,6 +37,7 @@ export default function ManagementApp() {
   const [dailyReport, setDailyReport] = useState(null);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
 
   // The storefront's warm background/scrollbar colors live on <body>, outside
@@ -167,12 +169,34 @@ export default function ManagementApp() {
     }
   };
 
+  const handleUpdateShoppingListItem = async (id, updates) => {
+    try {
+      await axios.put(`/api/admin/shopping-list/${id}`, updates, authHeaders);
+      fetchShoppingList(selectedStorefrontId);
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la modification de l\'article.');
+      return false;
+    }
+  };
+
   const handleDeleteShoppingListItem = async id => {
     try {
       await axios.delete(`/api/admin/shopping-list/${id}`, authHeaders);
       fetchShoppingList(selectedStorefrontId);
     } catch (e) {
       alert('Erreur lors de la suppression.');
+    }
+  };
+
+  const handleGenerateShoppingList = async days => {
+    try {
+      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/generate`, { days }, authHeaders);
+      fetchShoppingList(selectedStorefrontId);
+      return res.data;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la génération de la liste.');
+      return null;
     }
   };
 
@@ -243,6 +267,50 @@ export default function ManagementApp() {
       fetchReviews();
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const res = await axios.get('/api/admin/team', authHeaders);
+      setTeamMembers(res.data.members || []);
+    } catch (e) {
+      console.error('Error fetching team members:', e);
+    }
+  };
+
+  const handleSetTeamMemberRole = async (login, role) => {
+    try {
+      await axios.post('/api/admin/team', { login, role }, authHeaders);
+      fetchTeamMembers();
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de l\'attribution du rôle.');
+      return false;
+    }
+  };
+
+  const handleRemoveTeamMember = async (login) => {
+    if (!confirm(`Retirer le rôle de ${login} ? Redeviendra un membre normal (sauf s'il est encore listé dans les variables d'environnement historiques).`)) return;
+    try {
+      await axios.delete(`/api/admin/team/${login}`, authHeaders);
+      fetchTeamMembers();
+    } catch (e) {
+      alert('Erreur lors du retrait.');
+    }
+  };
+
+  // `updates` is a partial Product patch, not just a number -- switching to
+  // "illimité" also forces `available: true` (see StockPanel), since
+  // clearing the stock count alone leaves a product that was out of stock
+  // still marked unavailable (updateProduct only recomputes `available`
+  // from a non-null stock).
+  const handleUpdateStock = async (id, updates) => {
+    try {
+      await axios.put(`/api/admin/products/${id}`, updates, authHeaders);
+      fetchAdminCatalog(selectedStorefrontId);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du stock.');
     }
   };
 
@@ -490,10 +558,11 @@ export default function ManagementApp() {
             products={adminProducts}
             shoppingList={shoppingList}
             onSelectSection={handleGoToSection}
+            showTeam={user.isBoard}
           />
         </div>
       ) : (
-        <SectionShell activeSection={activeSection} onSelectSection={setActiveSection} onGoToDashboard={() => setView('dashboard')}>
+        <SectionShell activeSection={activeSection} onSelectSection={setActiveSection} onGoToDashboard={() => setView('dashboard')} showTeam={user.isBoard}>
           {activeSection === 'catalogue' && (
             <CataloguePanel
               products={adminProducts}
@@ -506,6 +575,13 @@ export default function ManagementApp() {
               onToggleStock={handleToggleStock}
               onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
               onDeleteItem={handleDeleteAdminItem}
+              storefronts={storefronts}
+              selectedStorefrontId={selectedStorefrontId}
+              onSelectStorefront={handleSelectStorefront}
+              onCreateStorefront={handleCreateStorefront}
+              onDuplicateStorefront={handleDuplicateStorefront}
+              onActivateStorefront={handleActivateStorefront}
+              onDeleteStorefront={handleDeleteStorefront}
             />
           )}
           {activeSection === 'stock' && (
@@ -514,7 +590,11 @@ export default function ManagementApp() {
               categories={categories}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
+              onUpdateShoppingListItem={handleUpdateShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
+              onGenerateShoppingList={handleGenerateShoppingList}
+              onFetchAverageShoppingList={fetchAverageShoppingList}
+              onUpdateStock={handleUpdateStock}
             />
           )}
           {activeSection === 'bilan' && (
@@ -535,6 +615,15 @@ export default function ManagementApp() {
           )}
           {activeSection === 'avis' && (
             <AvisPanel reviews={reviews} onFetchReviews={fetchReviews} onDeleteReview={handleDeleteReview} />
+          )}
+          {activeSection === 'equipe' && user.isBoard && (
+            <TeamPanel
+              members={teamMembers}
+              currentLogin={user.login}
+              onFetchTeam={fetchTeamMembers}
+              onSetRole={handleSetTeamMemberRole}
+              onRemove={handleRemoveTeamMember}
+            />
           )}
         </SectionShell>
       )}

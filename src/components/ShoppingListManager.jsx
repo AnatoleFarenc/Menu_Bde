@@ -1,16 +1,33 @@
 import React, { useState } from 'react';
-import { ClipboardList, Plus, Store, Trash2 } from 'lucide-react';
+import { ClipboardList, Pencil, Plus, Store, Trash2 } from 'lucide-react';
 
 const emptyForm = {
   name: '', quantity: '', unit: '', forDays: '', forPeople: '',
   unitCost: '', totalCost: '', purchaseLocation: '', note: '', productIds: []
 };
 
+// Every field but name/productIds comes back from the API as a number or
+// null; the form's inputs are controlled, so null has to become '' or React
+// complains about switching an input from uncontrolled to controlled.
+const toFormValues = item => ({
+  name: item.name || '',
+  quantity: item.quantity ?? '',
+  unit: item.unit || '',
+  forDays: item.forDays ?? '',
+  forPeople: item.forPeople ?? '',
+  unitCost: item.unitCost ?? '',
+  totalCost: item.totalCost ?? '',
+  purchaseLocation: item.purchaseLocation || '',
+  note: item.note || '',
+  productIds: item.productIds || []
+});
+
 // One event's shopping/resource list: what was bought to run it, so another
 // BDE team can rebuild the same event later. Every field but the name is
 // optional -- the info isn't always known or tracked.
-export default function ShoppingListManager({ items, products, onAddItem, onDeleteItem }) {
+export default function ShoppingListManager({ items, products, onAddItem, onUpdateItem, onDeleteItem }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
   const toggleProduct = productId => {
@@ -21,13 +38,30 @@ export default function ShoppingListManager({ items, products, onAddItem, onDele
     });
   };
 
+  const openAddForm = () => {
+    if (isFormOpen && !editingId) { setIsFormOpen(false); return; }
+    setEditingId(null);
+    setForm(emptyForm);
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = item => {
+    setEditingId(item.id);
+    setForm(toFormValues(item));
+    setIsFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    if (await onAddItem(form)) {
-      setForm(emptyForm);
-      setIsFormOpen(false);
-    }
+    const saved = editingId ? await onUpdateItem(editingId, form) : await onAddItem(form);
+    if (saved) closeForm();
   };
 
   const productName = id => products.find(p => p.id === id)?.name || '?';
@@ -38,7 +72,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onDele
         <h3 style={{ fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <ClipboardList size={18} color="var(--color-primary)" /> Liste de courses / ressources ({items.length})
         </h3>
-        <button type="button" className="btn btn-secondary" onClick={() => setIsFormOpen(v => !v)}>
+        <button type="button" className="btn btn-secondary" onClick={openAddForm}>
           <Plus size={16} /> Ajouter un article
         </button>
       </div>
@@ -48,6 +82,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onDele
 
       {isFormOpen && (
         <form onSubmit={handleSubmit} className="synthesis-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{editingId ? "Modifier l'article" : 'Nouvel article'}</div>
           <input className="form-input" placeholder="Nom de l'article (ex: Baguettes de pain)" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem' }}>
             <input className="form-input" type="number" step="any" placeholder="Quantité" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} />
@@ -79,7 +114,7 @@ export default function ShoppingListManager({ items, products, onAddItem, onDele
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button type="submit" className="btn btn-primary">Enregistrer</button>
-            <button type="button" className="btn btn-secondary" onClick={() => { setIsFormOpen(false); setForm(emptyForm); }}>Annuler</button>
+            <button type="button" className="btn btn-secondary" onClick={closeForm}>Annuler</button>
           </div>
         </form>
       )}
@@ -117,7 +152,10 @@ export default function ShoppingListManager({ items, products, onAddItem, onDele
                   <td style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     {item.productIds.length ? item.productIds.map(productName).join(', ') : '—'}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td style={{ padding: '0.5rem', whiteSpace: 'nowrap' }}>
+                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.5rem', marginRight: '0.35rem' }} onClick={() => openEditForm(item)} title="Modifier">
+                      <Pencil size={13} />
+                    </button>
                     <button className="btn btn-danger" style={{ padding: '0.3rem 0.5rem' }} onClick={() => onDeleteItem(item.id)} title="Supprimer">
                       <Trash2 size={13} />
                     </button>

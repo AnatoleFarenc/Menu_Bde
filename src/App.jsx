@@ -5,6 +5,7 @@ import ProductCard from './components/ProductCard';
 import MenuBuilderModal from './components/MenuBuilderModal';
 import CartDrawer from './components/CartDrawer';
 import AdminKitchenBoard from './components/AdminKitchenBoard';
+import AdminOrderHistory from './components/AdminOrderHistory';
 import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles } from 'lucide-react';
@@ -22,6 +23,7 @@ export default function App() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState('vitrine'); // 'vitrine' | 'orders' | 'admin'
+  const [adminSubView, setAdminSubView] = useState('kitchen'); // 'kitchen' | 'history'
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
   const [kioskLoginInput, setKioskLoginInput] = useState('');
@@ -33,7 +35,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
-  // Live order tracking (site-themed "Admin" tab): always follows whichever
+  // Live order tracking (site-themed "Staff" tab): always follows whichever
   // storefront is currently active. Event/storefront creation, catalog and
   // stock management live entirely on the separate /gestion page instead.
   const [activeStorefront, setActiveStorefront] = useState(null);
@@ -112,8 +114,8 @@ export default function App() {
     }
   }, [authToken]);
 
-  // Background order tracking & polling for admins (runs whenever user is admin,
-  // even if they are on another tab or in a background browser tab).
+  // "Admin" tab (site-themed order tracking) always follows the live
+  // storefront, refreshed regularly in case staff switch it while open.
   useEffect(() => {
     if (user && user.isAdmin) {
       const pollAdminOrders = async () => {
@@ -207,7 +209,7 @@ export default function App() {
   };
 
   // Whichever storefront is currently live for students -- the site-themed
-  // "Admin" order tracking tab always follows this, not a manually browsed one.
+  // "Staff" order tracking tab always follows this, not a manually browsed one.
   const fetchActiveStorefront = async () => {
     try {
       const res = await axios.get('/api/admin/active-storefront', { headers: { Authorization: `Bearer ${authToken}` } });
@@ -366,7 +368,7 @@ export default function App() {
   };
 
   // Order-tracking handlers below all operate on the currently ACTIVE
-  // storefront (the site-themed "Admin" tab), not the one browsed in the
+  // storefront (the site-themed "Staff" tab), not the one browsed in the
   // management tool.
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
@@ -509,7 +511,12 @@ export default function App() {
       <Navbar
         user={user}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'admin') {
+            setAdminSubView('kitchen');
+          }
+        }}
         cartCount={cartTotalCount}
         onLogin42={handleLogin42}
         onLogout={handleLogout}
@@ -596,21 +603,36 @@ export default function App() {
         <OrderStatus orders={userOrders} onSubmitReview={handleSubmitReview} />
       )}
 
-      {/* TAB 3: LIVE ORDER TRACKING (site-themed, follows the active storefront) */}
+      {/* TAB 3: STAFF BDE (Kitchen board & Order history sub-views) */}
       {activeTab === 'admin' && user && user.isAdmin && (
-        <AdminKitchenBoard
-          activeStorefront={activeStorefront}
-          orders={kitchenOrders}
-          synthesisByTime={kitchenSynthesis}
-          products={kitchenProducts}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onClearOrderHistory={handleClearOrderHistory}
-          onUpdateOrder={handleUpdateOrder}
-          onCreateFreeOrder={handleCreateFreeOrder}
-          onDeleteOrder={handleDeleteOrder}
-          onTogglePaid={handleTogglePaid}
-          onGoToManagement={() => { window.location.href = '/gestion'; }}
-        />
+        adminSubView === 'history' ? (
+          <AdminOrderHistory
+            activeStorefront={activeStorefront}
+            orders={kitchenOrders}
+            products={kitchenProducts}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
+            onClearOrderHistory={handleClearOrderHistory}
+            onUpdateOrder={handleUpdateOrder}
+            onDeleteOrder={handleDeleteOrder}
+            onTogglePaid={handleTogglePaid}
+            onBackToKitchen={() => setAdminSubView('kitchen')}
+          />
+        ) : (
+          <AdminKitchenBoard
+            activeStorefront={activeStorefront}
+            orders={kitchenOrders}
+            synthesisByTime={kitchenSynthesis}
+            products={kitchenProducts}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
+            onClearOrderHistory={handleClearOrderHistory}
+            onUpdateOrder={handleUpdateOrder}
+            onCreateFreeOrder={handleCreateFreeOrder}
+            onDeleteOrder={handleDeleteOrder}
+            onTogglePaid={handleTogglePaid}
+            onGoToManagement={() => { window.location.href = '/gestion'; }}
+            onGoToHistory={() => setAdminSubView('history')}
+          />
+        )
       )}
 
       {/* FLOATING CART BAR (WHEN CART NOT EMPTY & DRAWER CLOSED) */}
