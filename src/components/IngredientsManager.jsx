@@ -55,7 +55,7 @@ export default function IngredientsManager({ items, onAdd, onUpdate, onDelete })
     <div style={{ marginTop: '2.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Package size={18} color="var(--color-primary)" /> Ingrédients ({items.length})
+          <Package size={18} color="var(--color-primary)" /> Stock ({items.length})
         </h3>
         <button type="button" className="btn btn-secondary" onClick={() => setIsFormOpen(v => !v)}>
           <Plus size={16} /> Ajouter un ingrédient

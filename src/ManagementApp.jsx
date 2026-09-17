@@ -291,7 +291,8 @@ export default function ManagementApp() {
     try {
       const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
       fetchShoppingList(selectedStorefrontId);
-      fetchAdminCatalog(selectedStorefrontId); // stock may have just changed
+      fetchAdminCatalog(selectedStorefrontId); // as-is product stock may have just changed
+      fetchStockItems(); // ingredient stock may have just changed (restocked, or newly created)
       return res.data.trip;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');

@@ -276,6 +276,10 @@ export default function CoursesPanel({ products, menus, stockItems, shoppingList
     if (closed) {
       setHistory(null); // stale -- next open re-fetches with the newly closed trip
       setCloseResult(closed.restocked || []);
+      // Stock just changed (restocked, possibly a new ingredient created) --
+      // refetch so items that are no longer low-stock drop off the
+      // suggestion list right away, without waiting for a page reload.
+      onFetchRestockCandidates().then(setRestockCandidates);
     }
   };
 
@@ -306,7 +310,7 @@ export default function CoursesPanel({ products, menus, stockItems, shoppingList
             </div>
           ) : (
             <div style={{ color: 'var(--text-muted)' }}>
-              Aucun article coché n'était lié à un seul produit du catalogue suivi en stock -- rien à mettre à jour automatiquement.
+              Aucun article coché n'avait de quantité renseignée (ou était lié à plusieurs ingrédients/produits à la fois) -- rien à mettre à jour automatiquement.
             </div>
           )}
         </div>
