@@ -575,6 +575,13 @@ export default function ManagementApp() {
               onToggleStock={handleToggleStock}
               onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
               onDeleteItem={handleDeleteAdminItem}
+              storefronts={storefronts}
+              selectedStorefrontId={selectedStorefrontId}
+              onSelectStorefront={handleSelectStorefront}
+              onCreateStorefront={handleCreateStorefront}
+              onDuplicateStorefront={handleDuplicateStorefront}
+              onActivateStorefront={handleActivateStorefront}
+              onDeleteStorefront={handleDeleteStorefront}
             />
           )}
           {activeSection === 'stock' && (
