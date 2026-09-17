@@ -33,6 +33,7 @@ export default function ManagementApp() {
   const [activeSection, setActiveSection] = useState('catalogue');
 
   const [categories, setCategories] = useState([]);
+  const [stockItems, setStockItems] = useState([]);
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
@@ -74,6 +75,7 @@ export default function ManagementApp() {
     if (!user || !user.isManager) return;
     fetchAdminEvents();
     fetchCategories();
+    fetchStockItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -121,6 +123,69 @@ export default function ManagementApp() {
       setCategories(res.data.categories || []);
     } catch (e) {
       console.error('Error fetching categories:', e);
+    }
+  };
+
+  // StockItem (ingredients) is global -- not scoped to an event/storefront,
+  // unlike categories/products -- fetched once per session, same as
+  // categories.
+  const fetchStockItems = async () => {
+    try {
+      const res = await axios.get('/api/admin/stock-items', authHeaders);
+      setStockItems(res.data.items || []);
+    } catch (e) {
+      console.error('Error fetching stock items:', e);
+    }
+  };
+
+  const handleAddStockItem = async data => {
+    try {
+      await axios.post('/api/admin/stock-items', data, authHeaders);
+      fetchStockItems();
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de l\'ajout de l\'ingrédient.');
+      return false;
+    }
+  };
+
+  const handleUpdateStockItem = async (id, updates) => {
+    try {
+      await axios.put(`/api/admin/stock-items/${id}`, updates, authHeaders);
+      fetchStockItems();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la mise à jour de l\'ingrédient.');
+    }
+  };
+
+  const handleDeleteStockItem = async id => {
+    if (!confirm('Supprimer cet ingrédient ? Il sera aussi retiré des recettes qui l\'utilisent.')) return;
+    try {
+      await axios.delete(`/api/admin/stock-items/${id}`, authHeaders);
+      fetchStockItems();
+    } catch (e) {
+      alert('Erreur lors de la suppression.');
+    }
+  };
+
+  const fetchProductRecipe = async productId => {
+    try {
+      const res = await axios.get(`/api/admin/products/${productId}/recipe`, authHeaders);
+      return res.data.ingredients || [];
+    } catch (e) {
+      console.error('Error fetching recipe:', e);
+      return [];
+    }
+  };
+
+  const handleSaveProductRecipe = async (productId, ingredients) => {
+    try {
+      await axios.put(`/api/admin/products/${productId}/recipe`, { ingredients }, authHeaders);
+      fetchAdminCatalog(selectedStorefrontId); // costPrice may have just changed
+      return true;
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement de la recette.');
+      return false;
     }
   };
 
@@ -644,6 +709,7 @@ export default function ManagementApp() {
               products={adminProducts}
               categories={categories}
               menus={adminMenus}
+              stockItems={stockItems}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
@@ -651,16 +717,22 @@ export default function ManagementApp() {
               onGenerateShoppingList={handleGenerateShoppingList}
               onFetchRestockCandidates={fetchRestockCandidates}
               onUpdateStock={handleUpdateStock}
+              onOpenAddProductModal={() => setAdminModalState({ isOpen: true, item: null, type: 'product' })}
+              onAddStockItem={handleAddStockItem}
+              onUpdateStockItem={handleUpdateStockItem}
+              onDeleteStockItem={handleDeleteStockItem}
             />
           )}
           {activeSection === 'courses' && (
             <CoursesPanel
               products={adminProducts}
               menus={adminMenus}
+              stockItems={stockItems}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
+              onFetchRestockCandidates={fetchRestockCandidates}
               onCloseTrip={handleCloseShoppingTrip}
               onFetchTripHistory={fetchShoppingTripHistory}
             />
@@ -707,6 +779,9 @@ export default function ManagementApp() {
         type={adminModalState.type}
         categories={categories}
         products={adminProducts}
+        stockItems={stockItems}
+        onFetchRecipe={fetchProductRecipe}
+        onSaveRecipe={handleSaveProductRecipe}
       />
     </div>
   );

@@ -86,9 +86,11 @@ function GroupEditor({ group, index, products, onRename, onToggleProduct, onRemo
   );
 }
 
-export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [], products = [] }) {
+export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [], products = [], stockItems = [], onFetchRecipe, onSaveRecipe }) {
   const [formData, setFormData] = useState(emptyBaseForm(type));
   const [groups, setGroups] = useState([]);
+  const [recipe, setRecipe] = useState([]); // [{stockItemId, quantity}] -- only stockItemIds actually in the recipe
+  const [isSavingRecipe, setIsSavingRecipe] = useState(false);
 
   useEffect(() => {
     if (editingItem) {
@@ -107,8 +109,30 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
       setFormData(emptyBaseForm(type));
     }
     setGroups(type === 'menu' ? initGroups(editingItem, products) : []);
+    setRecipe([]);
+    if (editingItem && type === 'product' && onFetchRecipe) {
+      onFetchRecipe(editingItem.id).then(ingredients => setRecipe(ingredients.map(ing => ({ stockItemId: ing.stockItemId, quantity: ing.quantity }))));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingItem, type, isOpen]);
+
+  const toggleRecipeItem = stockItemId => {
+    setRecipe(prev => {
+      const exists = prev.find(r => r.stockItemId === stockItemId);
+      if (exists) return prev.filter(r => r.stockItemId !== stockItemId);
+      return [...prev, { stockItemId, quantity: 1 }];
+    });
+  };
+
+  const setRecipeQuantity = (stockItemId, quantity) => {
+    setRecipe(prev => prev.map(r => (r.stockItemId === stockItemId ? { ...r, quantity } : r)));
+  };
+
+  const handleSaveRecipe = async () => {
+    setIsSavingRecipe(true);
+    await onSaveRecipe(editingItem.id, recipe.filter(r => r.quantity > 0));
+    setIsSavingRecipe(false);
+  };
 
   if (!isOpen) return null;
 
@@ -272,8 +296,51 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 onChange={e => setFormData({ ...formData, costPrice: e.target.value })}
               />
               <p className="formule-slot-hint">
-                Ce que ce produit coûte au BDE à l'achat. Utilisé pour calculer la marge et le bénéfice dans le bilan.
+                Ce que ce produit coûte au BDE à l'achat. Utilisé pour calculer la marge et le bénéfice dans le bilan --
+                écrasé automatiquement dès qu'une recette (ci-dessous) est définie.
               </p>
+            </div>
+          )}
+
+          {type === 'product' && (
+            <div className="form-group">
+              <label className="form-label">Recette (ingrédients nécessaires)</label>
+              {!editingItem ? (
+                <p className="formule-slot-hint">Enregistre d'abord le produit pour pouvoir lui associer une recette.</p>
+              ) : stockItems.length === 0 ? (
+                <p className="formule-slot-hint">Aucun ingrédient défini -- ajoutes-en depuis l'onglet Stock.</p>
+              ) : (
+                <>
+                  <p className="formule-slot-hint">
+                    Combien de chaque ingrédient une unité de ce produit consomme -- le prix d'achat ci-dessus est alors
+                    recalculé automatiquement à partir du coût des ingrédients.
+                  </p>
+                  <div className="formule-item-list">
+                    {stockItems.map(si => {
+                      const entry = recipe.find(r => r.stockItemId === si.id);
+                      return (
+                        <label key={si.id} className={`formule-item ${entry ? 'is-checked' : ''}`}>
+                          <input type="checkbox" checked={!!entry} onChange={() => toggleRecipeItem(si.id)} />
+                          <span>{si.name}</span>
+                          {entry && (
+                            <input
+                              type="number" min="0" step="any" className="form-input"
+                              style={{ width: '70px', marginLeft: 'auto' }}
+                              value={entry.quantity}
+                              onClick={e => e.preventDefault()}
+                              onChange={e => setRecipeQuantity(si.id, parseFloat(e.target.value) || 0)}
+                            />
+                          )}
+                          {entry && <span className="formule-item-cat">{si.unit || ''}</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <button type="button" className="btn btn-secondary" style={{ marginTop: '0.6rem' }} onClick={handleSaveRecipe} disabled={isSavingRecipe}>
+                    {isSavingRecipe ? 'Enregistrement...' : 'Enregistrer la recette'}
+                  </button>
+                </>
+              )}
             </div>
           )}
 

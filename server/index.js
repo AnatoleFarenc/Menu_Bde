@@ -342,17 +342,52 @@ app.post('/api/admin/storefronts/:id/shopping-list', requireManager, ah(async (r
   res.status(201).json({ item });
 }));
 
-// Preview of what generate (below) would add: every tracked product in
-// this storefront at or below its own low-stock threshold.
+// Preview of what generate (below) would add: every StockItem (raw
+// ingredient, not a catalog product) at or below its own low-stock
+// threshold. Global, not storefront-scoped -- see the StockItem model.
 app.get('/api/admin/storefronts/:id/restock-candidates', requireManager, ah(async (req, res) => {
-  res.json({ items: await db.getRestockCandidates(req.params.id) });
+  res.json({ items: await db.getRestockCandidates() });
 }));
 
 // Pre-fills this storefront's shopping list with a restock suggestion for
-// every low/out-of-stock product in ITS OWN catalog.
+// every low/out-of-stock ingredient.
 app.post('/api/admin/storefronts/:id/shopping-list/generate', requireManager, ah(async (req, res) => {
   const result = await db.generateShoppingList(req.params.id);
   res.json(result);
+}));
+
+// STOCK ITEMS -- raw ingredients/supplies, managed by hand, global (not
+// tied to one storefront's catalog).
+app.get('/api/admin/stock-items', requireManager, ah(async (req, res) => {
+  res.json({ items: await db.getStockItems() });
+}));
+
+app.post('/api/admin/stock-items', requireManager, ah(async (req, res) => {
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'ingrédient est obligatoire' });
+  const item = await db.addStockItem(req.body);
+  if (!item) return res.status(400).json({ error: 'Un ingrédient avec ce nom existe déjà' });
+  res.status(201).json({ item });
+}));
+
+app.put('/api/admin/stock-items/:id', requireManager, ah(async (req, res) => {
+  const updated = await db.updateStockItem(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Ingrédient introuvable' });
+  res.json({ item: updated });
+}));
+
+app.delete('/api/admin/stock-items/:id', requireManager, ah(async (req, res) => {
+  await db.deleteStockItem(req.params.id);
+  res.json({ success: true });
+}));
+
+// RECIPE -- how much of each StockItem one unit of a product consumes.
+app.get('/api/admin/products/:id/recipe', requireManager, ah(async (req, res) => {
+  res.json({ ingredients: await db.getProductRecipe(req.params.id) });
+}));
+
+app.put('/api/admin/products/:id/recipe', requireManager, ah(async (req, res) => {
+  const ingredients = await db.setProductRecipe(req.params.id, req.body.ingredients);
+  res.json({ ingredients });
 }));
 
 app.put('/api/admin/shopping-list/:id', requireManager, ah(async (req, res) => {

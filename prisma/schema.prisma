@@ -109,8 +109,9 @@ model ShoppingListItem {
   bought           Boolean      @default(false)
   createdAt        DateTime     @default(now())
 
-  products ShoppingListItemProduct[]
-  menus    ShoppingListItemMenu[]
+  products   ShoppingListItemProduct[]
+  menus      ShoppingListItemMenu[]
+  stockItems ShoppingListItemStockItem[]
 
   @@index([storefrontId])
   @@index([tripId])
@@ -150,6 +151,13 @@ model ShoppingListItemMenu {
 // description, badge, icon and manual availability all stay per-Product
 // (per-storefront), only the stock count itself is shared. See
 // getOrCreateInventoryItem in db.js for the name-matching lookup.
+//
+// This tracks FINISHED/SELLABLE stock (how many ready "Sandwich
+// Jambon-Beurre" there are to sell right now) -- it drives storefront
+// availability, not shopping. What to actually go buy is StockItem below:
+// a sandwich itself can't be purchased at a store, only its ingredients
+// can, which is exactly the distinction StockItem/ProductIngredient exist
+// to capture.
 model InventoryItem {
   id                String   @id @default(cuid())
   name              String
@@ -161,6 +169,63 @@ model InventoryItem {
   createdAt         DateTime @default(now())
 
   products Product[]
+}
+
+// A raw ingredient/supply the BDE actually buys (ham, bread, butter...) --
+// managed by hand, global like InventoryItem (the same physical pantry
+// serves every event), and the sole basis for the Stock tab's automatic
+// shopping-list generation: a StockItem at or below its threshold gets
+// suggested, scaled up to fullStock, never a catalog Product directly (see
+// ProductIngredient below for why, and getRestockCandidates in db.js).
+model StockItem {
+  id                String   @id @default(cuid())
+  name              String
+  normalizedName    String   @unique
+  unit              String?
+  stock             Float?
+  // Target level a restock aims for -- distinct from lowStockThreshold
+  // (the trigger) since "how much is low" and "how much is enough" are
+  // different questions an admin sets independently.
+  fullStock         Float?
+  lowStockThreshold Float?
+  unitCost          Float?
+  createdAt         DateTime @default(now())
+
+  recipeLinks       ProductIngredient[]
+  shoppingListLinks ShoppingListItemStockItem[]
+
+  @@index([normalizedName])
+}
+
+// The recipe: how much of a StockItem one unit of a Product consumes (e.g.
+// "Sandwich Jambon-Beurre" needs 2 of "Jambon" + 1 of "Pain"). This is the
+// quantified link that was missing everywhere else in this app (shopping-
+// list <-> product links are informational only, precisely because THIS is
+// what they lack) -- with it, a product's costPrice can be derived from its
+// ingredients' unitCost instead of guessed/typed by hand, and stats/margins
+// finally reflect a real, defensible cost. See recomputeProductCost in
+// db.js, run whenever a recipe or an ingredient's unitCost changes.
+model ProductIngredient {
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockItemId String
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  quantity    Float
+
+  @@id([productId, stockItemId])
+}
+
+// A shopping list line destined for a raw StockItem, not a catalog Product
+// -- this is the one that actually feeds closeShoppingTrip's restock
+// (ShoppingListItemProduct never did for finished goods, since buying a
+// "Sandwich Jambon-Beurre" makes no sense; buying "Jambon" does).
+model ShoppingListItemStockItem {
+  shoppingListItemId String
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id], onDelete: Cascade)
+  stockItemId        String
+  stockItem          StockItem        @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@id([shoppingListItemId, stockItemId])
 }
 
 model Product {
@@ -183,6 +248,7 @@ model Product {
 
   menuGroups        MenuGroupProduct[]
   shoppingListLinks ShoppingListItemProduct[]
+  ingredients       ProductIngredient[]
 
   @@index([categoryId])
   @@index([storefrontId])

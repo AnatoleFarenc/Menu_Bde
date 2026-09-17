@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { ChevronDown, InfinityIcon, Wand2 } from 'lucide-react';
+import { ChevronDown, InfinityIcon, Plus, Wand2 } from 'lucide-react';
 import ShoppingListManager from './ShoppingListManager';
+import IngredientsManager from './IngredientsManager';
 
 function formatMoney(value) {
   return `${value.toFixed(2).replace('.', ',')} €`;
 }
 
-export default function StockPanel({ products, categories, menus, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onGenerateShoppingList, onFetchRestockCandidates, onUpdateStock }) {
+export default function StockPanel({
+  products, categories, menus, shoppingList, stockItems,
+  onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem,
+  onGenerateShoppingList, onFetchRestockCandidates, onUpdateStock,
+  onOpenAddProductModal, onAddStockItem, onUpdateStockItem, onDeleteStockItem
+}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -68,8 +74,13 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
 
   return (
     <div className="fade-in">
-      <div className="catalog-section-label">Stock actuel</div>
-      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.5rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="catalog-section-label" style={{ marginBottom: 0 }}>Stock actuel</div>
+        <button type="button" className="btn btn-secondary" onClick={onOpenAddProductModal}>
+          <Plus size={16} /> Ajouter un produit
+        </button>
+      </div>
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem', marginBottom: '0.75rem' }}>
         Le stock est partagé par nom entre toutes les vitrines et événements : modifier le stock d'un produit ici met aussi à jour tous les produits du même nom ailleurs.
       </p>
       <div className="data-table-wrap" style={{ marginBottom: '2rem' }}>
@@ -168,7 +179,7 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Génération automatique</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Ajoute un article pour chaque produit de cet événement en stock bas ou épuisé, avec une quantité pour repasser au-dessus du seuil.
+              Ajoute un article pour chaque ingrédient (ci-dessous) en stock bas ou épuisé, avec une quantité pour revenir au stock plein.
             </div>
           </div>
         </div>
@@ -184,7 +195,7 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
           <div style={{ width: '100%', fontSize: '0.8rem', color: result.created > 0 ? 'var(--color-success)' : 'var(--text-muted)' }}>
             {result.created > 0
               ? `${result.created} article${result.created > 1 ? 's' : ''} ajouté${result.created > 1 ? 's' : ''}${result.skipped > 0 ? ` (${result.skipped} déjà présent${result.skipped > 1 ? 's' : ''})` : ''}.`
-              : 'Rien à ajouter : aucun produit de cet événement n\'est en stock bas pour l\'instant, ou tout est déjà dans la liste.'}
+              : 'Rien à ajouter : aucun ingrédient n\'est en stock bas pour l\'instant, ou tout est déjà dans la liste.'}
           </div>
         )}
         {showPreview && (
@@ -192,13 +203,13 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
             {isPreviewLoading || previewItems === null ? (
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Chargement...</div>
             ) : previewItems.length === 0 ? (
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Aucun produit de cet événement n'est en stock bas pour l'instant.</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Aucun ingrédient n'est en stock bas pour l'instant.</div>
             ) : (
               <div className="data-table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>Produit</th>
+                      <th>Ingrédient</th>
                       <th className="num">Stock actuel</th>
                       <th className="num">Quantité à ajouter</th>
                       <th className="num">Coût estimé</th>
@@ -206,10 +217,10 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
                   </thead>
                   <tbody>
                     {previewItems.map(it => (
-                      <tr key={it.productId}>
+                      <tr key={it.stockItemId}>
                         <td style={{ fontWeight: 700 }}>{it.name}</td>
-                        <td className={`num ${it.stock <= 0 ? 'stock-out' : 'stock-low'}`}>{it.stock}</td>
-                        <td className="num">{it.quantity}</td>
+                        <td className={`num ${it.stock <= 0 ? 'stock-out' : 'stock-low'}`}>{it.stock} {it.unit || ''}</td>
+                        <td className="num">{it.quantity} {it.unit || ''}</td>
                         <td className="num">{it.totalCost != null ? formatMoney(it.totalCost) : '—'}</td>
                       </tr>
                     ))}
@@ -221,10 +232,18 @@ export default function StockPanel({ products, categories, menus, shoppingList, 
         )}
       </div>
 
+      <IngredientsManager
+        items={stockItems}
+        onAdd={onAddStockItem}
+        onUpdate={onUpdateStockItem}
+        onDelete={onDeleteStockItem}
+      />
+
       <ShoppingListManager
         items={shoppingList}
         products={products}
         menus={menus}
+        stockItems={stockItems}
         onAddItem={onAddShoppingListItem}
         onUpdateItem={onUpdateShoppingListItem}
         onDeleteItem={onDeleteShoppingListItem}

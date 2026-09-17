@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, History, Lock, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 
 function formatMoney(value) {
@@ -9,22 +9,27 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '', productId: '', menuId: '' };
+const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '', stockItemId: '', productId: '', menuId: '' };
 
-// Quick-add form for the checklist. Which catalog product this is for is
-// an explicit dropdown, not guessed from the typed name -- matching by
-// text was silent about whether it actually found anything, so there was
-// no way to tell which product (if any) an article ended up linked to.
+// Quick-add form for the checklist. Which ingredient (StockItem) this is
+// for is an explicit dropdown, not guessed from the typed name -- matching
+// by text was silent about whether it actually found anything, so there
+// was no way to tell what (if anything) an article ended up linked to.
 // Picking one also fills the name if it's still empty, but the two stay
-// independent (e.g. "Jus d'orange 1L x6" as the display name, linked to
-// the "Jus d'orange" product) -- and this is what lets closing the trip
-// restock it automatically. A separate "pour quelle formule" dropdown
-// links it to a meal deal instead/as well (informational only -- a Menu
-// has no stock of its own to restock). Deliberately lighter than
+// independent (e.g. "Jambon 1kg x3" as the display name, linked to
+// "Jambon") -- and this is what lets closing the trip restock it
+// automatically. A catalog product is offered too, for something bought
+// as-is (a canned drink); a formule link is informational only (a Menu has
+// no stock of its own to restock). Deliberately lighter than
 // ShoppingListManager's full form (no forDays/forPeople/note): this is for
 // adding one more thing while already at the store, not planning ahead.
-function AddItemForm({ products, menus, onAdd, onClose }) {
+function AddItemForm({ products, menus, stockItems, onAdd, onClose }) {
   const [form, setForm] = useState(emptyItemForm);
+
+  const handleStockItemChange = stockItemId => {
+    const si = stockItems.find(s => s.id === stockItemId);
+    setForm(prev => ({ ...prev, stockItemId, unit: si ? (si.unit || prev.unit) : prev.unit, name: !prev.name.trim() && si ? si.name : prev.name }));
+  };
 
   const handleProductChange = productId => {
     const product = products.find(p => p.id === productId);
@@ -40,6 +45,7 @@ function AddItemForm({ products, menus, onAdd, onClose }) {
       quantity: form.quantity,
       unit: form.unit,
       totalCost: form.totalCost,
+      stockItemIds: form.stockItemId ? [form.stockItemId] : [],
       productIds: form.productId ? [form.productId] : [],
       menuIds: form.menuId ? [form.menuId] : []
     });
@@ -49,16 +55,16 @@ function AddItemForm({ products, menus, onAdd, onClose }) {
   return (
     <form onSubmit={handleSubmit} className="synthesis-card" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
       <div style={{ flex: '1 1 160px' }}>
-        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Produit du catalogue</label>
-        <select className="form-select" value={form.productId} onChange={e => handleProductChange(e.target.value)}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Ingrédient (stock)</label>
+        <select className="form-select" value={form.stockItemId} onChange={e => handleStockItemChange(e.target.value)}>
           <option value="">— (optionnel, article libre)</option>
-          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {stockItems.map(si => <option key={si.id} value={si.id}>{si.name}</option>)}
         </select>
       </div>
       <div style={{ flex: '1 1 160px' }}>
         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Nom de l'article</label>
         <input
-          className="form-input" placeholder="ex: Jus d'orange 1L x6"
+          className="form-input" placeholder="ex: Jambon 1kg x3"
           value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required autoFocus
         />
       </div>
@@ -74,6 +80,15 @@ function AddItemForm({ products, menus, onAdd, onClose }) {
         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Coût €</label>
         <input type="number" step="0.01" className="form-input" value={form.totalCost} onChange={e => setForm({ ...form, totalCost: e.target.value })} />
       </div>
+      {products.length > 0 && (
+        <div style={{ flex: '1 1 160px' }}>
+          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Ou produit acheté tel quel</label>
+          <select className="form-select" value={form.productId} onChange={e => handleProductChange(e.target.value)}>
+            <option value="">— (optionnel)</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
       {menus && menus.length > 0 && (
         <div style={{ flex: '1 1 160px' }}>
           <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Pour quelle formule ?</label>
@@ -91,13 +106,11 @@ function AddItemForm({ products, menus, onAdd, onClose }) {
   );
 }
 
-// A low/out-of-stock product not yet on the shopping list, with a "add to
-// the list" quantity defaulting to just enough to bring stock back up to
-// its own threshold -- editable before adding, never assumed final.
-function RestockSuggestion({ product, alreadyListed, onAdd }) {
-  const stock = product.stock ?? 0;
-  const defaultQty = Math.max(1, product.lowStockThreshold - stock);
-  const [qty, setQty] = useState(defaultQty);
+// A low/out-of-stock ingredient not yet on the shopping list, with a "add
+// to the list" quantity defaulting to just enough to bring stock back up
+// to its own threshold -- editable before adding, never assumed final.
+function RestockSuggestion({ candidate, alreadyListed, onAdd }) {
+  const [qty, setQty] = useState(candidate.quantity);
 
   if (alreadyListed) return null;
 
@@ -105,16 +118,17 @@ function RestockSuggestion({ product, alreadyListed, onAdd }) {
     <div className="shopping-trip-suggestion">
       <AlertTriangle size={16} color="var(--color-warning)" style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{product.name}</div>
+        <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{candidate.name}</div>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Stock {stock <= 0 ? 'épuisé' : `bas (${stock})`} -- seuil {product.lowStockThreshold}
+          Stock {candidate.stock <= 0 ? 'épuisé' : `bas (${candidate.stock}${candidate.unit ? ` ${candidate.unit}` : ''})`} -- seuil {candidate.lowStockThreshold}
         </div>
       </div>
       <input
-        type="number" min="1" className="form-input" style={{ width: '60px', textAlign: 'right', padding: '0.3rem 0.5rem' }}
+        type="number" min="0.1" step="any" className="form-input" style={{ width: '60px', textAlign: 'right', padding: '0.3rem 0.5rem' }}
         value={qty} onChange={e => setQty(e.target.value)}
       />
-      <button type="button" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }} onClick={() => onAdd(product, qty)}>
+      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{candidate.unit || ''}</span>
+      <button type="button" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }} onClick={() => onAdd(candidate, qty)}>
         Ajouter
       </button>
     </div>
@@ -124,7 +138,7 @@ function RestockSuggestion({ product, alreadyListed, onAdd }) {
 // One shopping-list line as a checklist row: check it off once bought, with
 // quantity/cost editable inline (real purchases at the store often differ
 // slightly from what was planned) rather than reopening the full form.
-function TripItem({ item, products, menus, onToggleBought, onUpdateField, onDelete }) {
+function TripItem({ item, products, menus, stockItems, onToggleBought, onUpdateField, onDelete }) {
   const [pending, setPending] = useState({});
 
   const commit = (field, rawValue, parse) => {
@@ -136,6 +150,7 @@ function TripItem({ item, products, menus, onToggleBought, onUpdateField, onDele
   };
 
   const linkedNames = [
+    ...item.stockItemIds.map(id => stockItems.find(si => si.id === id)?.name).filter(Boolean),
     ...item.productIds.map(id => products.find(p => p.id === id)?.name).filter(Boolean),
     ...item.menuIds.map(id => `${menus.find(m => m.id === id)?.name} (formule)`)
   ];
@@ -219,18 +234,21 @@ function TripHistoryRow({ trip }) {
 // from Stock's dense management table, meant to be used from a phone while
 // walking through a store: check items off, adjust quantity/cost on the
 // spot, and see low-stock catalog products worth adding before you go.
-export default function CoursesPanel({ products, menus, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onCloseTrip, onFetchTripHistory }) {
+export default function CoursesPanel({ products, menus, stockItems, shoppingList, onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem, onFetchRestockCandidates, onCloseTrip, onFetchTripHistory }) {
   const [showRestock, setShowRestock] = useState(true);
+  const [restockCandidates, setRestockCandidates] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
   const [closeResult, setCloseResult] = useState(null);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
 
+  useEffect(() => {
+    onFetchRestockCandidates().then(setRestockCandidates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const listedNames = new Set(shoppingList.map(it => it.name.trim().toLowerCase()));
-  const restockCandidates = products
-    .filter(p => p.stock !== null && p.stock !== undefined && p.stock <= p.lowStockThreshold)
-    .sort((a, b) => a.stock - b.stock);
 
   const boughtCount = shoppingList.filter(it => it.bought).length;
   const selectedTotal = shoppingList.filter(it => it.bought).reduce((sum, it) => sum + (it.totalCost || 0), 0);
@@ -239,11 +257,12 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
   const remaining = shoppingList.filter(it => !it.bought);
   const bought = shoppingList.filter(it => it.bought);
 
-  const handleAddSuggestion = async (product, qty) => {
+  const handleAddSuggestion = async (candidate, qty) => {
     await onAddShoppingListItem({
-      name: product.name,
+      name: candidate.name,
       quantity: qty,
-      productIds: [product.id]
+      unit: candidate.unit,
+      stockItemIds: [candidate.stockItemId]
     });
   };
 
@@ -283,7 +302,7 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
           </div>
           {closeResult.length > 0 ? (
             <div style={{ color: 'var(--text-muted)' }}>
-              Stock mis à jour : {closeResult.map(r => `${r.productName} (+${r.added} → ${r.newStock})`).join(', ')}
+              Stock mis à jour : {closeResult.map(r => `${r.name || r.productName} (+${r.added} → ${r.newStock})`).join(', ')}
             </div>
           ) : (
             <div style={{ color: 'var(--text-muted)' }}>
@@ -310,15 +329,15 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
       {restockCandidates.length > 0 && (
         <div style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div className="catalog-section-label" style={{ marginBottom: 0 }}>Produits à racheter (stock bas)</div>
+            <div className="catalog-section-label" style={{ marginBottom: 0 }}>Ingrédients à racheter (stock bas)</div>
             <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => setShowRestock(v => !v)}>
               {showRestock ? 'Masquer' : `Afficher (${restockCandidates.length})`}
             </button>
           </div>
           {showRestock && (
             <div style={{ marginTop: '0.5rem' }}>
-              {restockCandidates.map(p => (
-                <RestockSuggestion key={p.id} product={p} alreadyListed={listedNames.has(p.name.trim().toLowerCase())} onAdd={handleAddSuggestion} />
+              {restockCandidates.map(c => (
+                <RestockSuggestion key={c.stockItemId} candidate={c} alreadyListed={listedNames.has(c.name.trim().toLowerCase())} onAdd={handleAddSuggestion} />
               ))}
             </div>
           )}
@@ -326,7 +345,7 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
       )}
 
       {isAddFormOpen ? (
-        <AddItemForm products={products} menus={menus} onAdd={onAddShoppingListItem} onClose={() => setIsAddFormOpen(false)} />
+        <AddItemForm products={products} menus={menus} stockItems={stockItems} onAdd={onAddShoppingListItem} onClose={() => setIsAddFormOpen(false)} />
       ) : (
         <button type="button" className="btn btn-secondary" style={{ marginBottom: '1.25rem' }} onClick={() => setIsAddFormOpen(true)}>
           <Plus size={15} /> Ajouter un article
@@ -343,7 +362,7 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
             <div style={{ marginBottom: '1.25rem' }}>
               <div className="catalog-section-label">À acheter ({remaining.length})</div>
               {remaining.map(item => (
-                <TripItem key={item.id} item={item} products={products} menus={menus} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
+                <TripItem key={item.id} item={item} products={products} menus={menus} stockItems={stockItems} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
               ))}
             </div>
           )}
@@ -351,7 +370,7 @@ export default function CoursesPanel({ products, menus, shoppingList, onAddShopp
             <div>
               <div className="catalog-section-label">Acheté ({bought.length})</div>
               {bought.map(item => (
-                <TripItem key={item.id} item={item} products={products} menus={menus} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
+                <TripItem key={item.id} item={item} products={products} menus={menus} stockItems={stockItems} onToggleBought={handleToggleBought} onUpdateField={handleUpdateField} onDelete={onDeleteShoppingListItem} />
               ))}
             </div>
           )}
