@@ -1,7 +1,24 @@
 import React, { useState } from 'react';
 import { Package, Plus, Trash2 } from 'lucide-react';
 
-const emptyForm = { name: '', unit: '', stock: '', fullStock: '', lowStockThreshold: '', unitCost: '' };
+const emptyForm = { name: '', unit: '', stock: '', totalCost: '' };
+
+// From what's naturally known when you've just bought something (how much,
+// and what it cost in total) rather than numbers nobody has on hand at
+// purchase time: stock plein = the quantity just bought (you just filled
+// up), seuil bas = a quarter of it (a rule of thumb, still editable per-row
+// afterward), coût unitaire = total / quantité.
+function deriveStockFields(stock, totalCost) {
+  const qty = parseFloat(stock);
+  const data = {};
+  if (Number.isFinite(qty) && qty > 0) {
+    data.fullStock = qty;
+    data.lowStockThreshold = Math.max(0.1, Math.round((qty / 4) * 10) / 10);
+    const total = parseFloat(totalCost);
+    if (Number.isFinite(total) && total > 0) data.unitCost = Math.round((total / qty) * 100) / 100;
+  }
+  return data;
+}
 
 // One editable cell: stays local while being typed, commits on blur/Enter,
 // same pattern as Stock's product stock/threshold cells.
@@ -38,7 +55,8 @@ export default function IngredientsManager({ items, onAdd, onUpdate, onDelete })
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    if (await onAdd(form)) {
+    const payload = { name: form.name, unit: form.unit, stock: form.stock, ...deriveStockFields(form.stock, form.totalCost) };
+    if (await onAdd(payload)) {
       setForm(emptyForm);
       setIsFormOpen(false);
     }
@@ -70,11 +88,12 @@ export default function IngredientsManager({ items, onAdd, onUpdate, onDelete })
           <input className="form-input" placeholder="Nom (ex: Jambon)" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required autoFocus />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem' }}>
             <input className="form-input" placeholder="Unité (ex: kg, tranches)" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
-            <input className="form-input" type="number" step="any" placeholder="Stock actuel" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
-            <input className="form-input" type="number" step="any" placeholder="Stock plein (objectif)" value={form.fullStock} onChange={e => setForm({ ...form, fullStock: e.target.value })} />
-            <input className="form-input" type="number" step="any" placeholder="Seuil bas" value={form.lowStockThreshold} onChange={e => setForm({ ...form, lowStockThreshold: e.target.value })} />
-            <input className="form-input" type="number" step="0.01" placeholder="Coût unitaire (€)" value={form.unitCost} onChange={e => setForm({ ...form, unitCost: e.target.value })} />
+            <input className="form-input" type="number" step="any" placeholder="Quantité achetée" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
+            <input className="form-input" type="number" step="0.01" placeholder="Coût total (€, optionnel)" value={form.totalCost} onChange={e => setForm({ ...form, totalCost: e.target.value })} />
           </div>
+          <p className="formule-slot-hint">
+            Le stock plein (objectif) est fixé à cette quantité, le seuil bas à un quart -- modifiables ensuite dans le tableau. Le coût unitaire, lui, se calcule depuis le coût total.
+          </p>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button type="submit" className="btn btn-primary">Enregistrer</button>
             <button type="button" className="btn btn-secondary" onClick={() => { setIsFormOpen(false); setForm(emptyForm); }}>Annuler</button>

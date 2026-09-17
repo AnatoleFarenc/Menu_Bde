@@ -597,11 +597,20 @@ class DB {
       }
 
       if (item.stockItems.length === 0 && item.products.length === 0) {
-        const stockItem = await this.getOrCreateStockItem(item.name, item.unit);
+        const { item: stockItem, created } = await this.getOrCreateStockItem(item.name, item.unit);
         const newStock = (stockItem.stock ?? 0) + item.quantity;
         const data = { stock: newStock };
         if (stockItem.unit == null && item.unit) data.unit = item.unit;
         if (stockItem.unitCost == null && item.unitCost != null) data.unitCost = item.unitCost;
+        if (created) {
+          // Same rule of thumb as the manual "Ajouter un ingrédient" form:
+          // stock plein = what was just bought, seuil bas = a quarter of
+          // it -- so a freshly-discovered ingredient is immediately
+          // eligible for restock suggestions instead of invisible until
+          // someone fills these in by hand.
+          data.fullStock = newStock;
+          data.lowStockThreshold = Math.max(0.1, Math.round((newStock / 4) * 10) / 10);
+        }
         await prisma.stockItem.update({ where: { id: stockItem.id }, data });
         await prisma.shoppingListItemStockItem.upsert({
           where: { shoppingListItemId_stockItemId: { shoppingListItemId: item.id, stockItemId: stockItem.id } },
@@ -825,11 +834,16 @@ class DB {
   // by hand and global (the same physical pantry serves every event, same
   // reasoning as InventoryItem). See the StockItem model comment for how
   // this differs from a catalog Product's own (finished-goods) stock.
+  // `created` tells the caller whether this is a brand-new StockItem (so it
+  // can seed fullStock/lowStockThreshold from the purchase that revealed
+  // it -- see closeShoppingTrip) as opposed to one that already existed and
+  // shouldn't have its own settings clobbered.
   async getOrCreateStockItem(name, unit) {
     const normalizedName = name.trim().toLowerCase();
     const existing = await prisma.stockItem.findUnique({ where: { normalizedName } });
-    if (existing) return existing;
-    return prisma.stockItem.create({ data: { name: name.trim(), normalizedName, unit: unit || null } });
+    if (existing) return { item: existing, created: false };
+    const created = await prisma.stockItem.create({ data: { name: name.trim(), normalizedName, unit: unit || null } });
+    return { item: created, created: true };
   }
 
   async getStockItems() {
