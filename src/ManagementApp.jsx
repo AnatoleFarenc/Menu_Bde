@@ -34,6 +34,7 @@ export default function ManagementApp() {
 
   const [categories, setCategories] = useState([]);
   const [stockItems, setStockItems] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
@@ -76,6 +77,7 @@ export default function ManagementApp() {
     fetchAdminEvents();
     fetchCategories();
     fetchStockItems();
+    fetchInventoryItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -138,10 +140,23 @@ export default function ManagementApp() {
     }
   };
 
+  // Products sold as-is with tracked stock (InventoryItem), global like
+  // stockItems -- what the Stock tab's second table shows, and what an
+  // ingredient's "aussi un produit" picker links against.
+  const fetchInventoryItems = async () => {
+    try {
+      const res = await axios.get('/api/admin/inventory-items', authHeaders);
+      setInventoryItems(res.data.items || []);
+    } catch (e) {
+      console.error('Error fetching inventory items:', e);
+    }
+  };
+
   const handleAddStockItem = async data => {
     try {
       await axios.post('/api/admin/stock-items', data, authHeaders);
       fetchStockItems();
+      if (data.inventoryItemId) fetchInventoryItems(); // just linked to a product at creation
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de l\'ajout de l\'ingrédient.');
@@ -153,6 +168,7 @@ export default function ManagementApp() {
     try {
       await axios.put(`/api/admin/stock-items/${id}`, updates, authHeaders);
       fetchStockItems();
+      if (updates.inventoryItemId !== undefined) fetchInventoryItems(); // link just changed
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la mise à jour de l\'ingrédient.');
     }
@@ -293,6 +309,7 @@ export default function ManagementApp() {
       fetchShoppingList(selectedStorefrontId);
       fetchAdminCatalog(selectedStorefrontId); // as-is product stock may have just changed
       fetchStockItems(); // ingredient stock may have just changed (restocked, or newly created)
+      fetchInventoryItems(); // an ingredient linked to a product may have restocked it too
       return res.data.trip;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');
@@ -696,6 +713,7 @@ export default function ManagementApp() {
               products={adminProducts}
               menus={adminMenus}
               stockItems={stockItems}
+              inventoryItems={inventoryItems}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}

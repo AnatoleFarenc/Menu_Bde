@@ -8,12 +8,14 @@ function formatMoney(value) {
 }
 
 // Products bought already finished (drinks...) still have their own stock
-// (Product.inventoryItemId), but that's edited from the product's own entry
-// in the Catalogue tab now -- this tab is entirely about the ingredient
-// stock (StockItem), what actually drives "know what's left / what to
-// rebuy" and the shopping-list generator.
+// (Product.inventoryItemId), edited from the product's own entry in the
+// Catalogue tab -- this tab is mainly about the ingredient stock
+// (StockItem), what drives "know what's left / what to rebuy" and the
+// shopping-list generator. The read-only table below is just visibility
+// into that other stock, since an ingredient can be linked to one (see
+// IngredientsManager) and it helps to see both side by side.
 export default function StockPanel({
-  products, menus, shoppingList, stockItems,
+  products, menus, shoppingList, stockItems, inventoryItems = [],
   onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem,
   onGenerateShoppingList, onFetchRestockCandidates,
   onAddStockItem, onUpdateStockItem, onDeleteStockItem
@@ -44,6 +46,7 @@ export default function StockPanel({
     <div className="fade-in">
       <IngredientsManager
         items={stockItems}
+        inventoryItems={inventoryItems}
         onAdd={onAddStockItem}
         onUpdate={onUpdateStockItem}
         onDelete={onDeleteStockItem}
@@ -107,6 +110,52 @@ export default function StockPanel({
           </div>
         )}
       </div>
+
+      {inventoryItems.length > 0 && (
+        <div style={{ marginTop: '2.5rem' }}>
+          <div className="catalog-section-label">Stock des produits vendus tels quels</div>
+          <p className="formule-slot-hint" style={{ marginBottom: '0.75rem' }}>
+            Boissons et autres produits achetés déjà finis, sans recette. Stock partagé entre toutes les vitrines -- se modifie depuis la fiche du produit (onglet Catalogue), ou depuis la liste de courses si l'ingrédient correspondant y est lié.
+          </p>
+          <div className="data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th className="num">Stock</th>
+                  <th className="num">Seuil bas</th>
+                  <th>Statut</th>
+                  <th>Ingrédient lié</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryItems.map(ii => {
+                  const isOut = ii.stock !== null && ii.stock <= 0;
+                  const isLow = ii.stock !== null && ii.stock > 0 && ii.stock <= ii.lowStockThreshold;
+                  const linkedIngredient = ii.linkedStockItemId ? stockItems.find(si => si.id === ii.linkedStockItemId) : null;
+                  return (
+                    <tr key={ii.id}>
+                      <td style={{ fontWeight: 700 }}>{ii.name}</td>
+                      <td className={`num ${isOut ? 'stock-out' : isLow ? 'stock-low' : ''}`}>{ii.stock ?? '—'}</td>
+                      <td className="num dim">{ii.lowStockThreshold}</td>
+                      <td>
+                        {isOut ? (
+                          <span className="badge-chip" style={{ background: 'rgba(179,64,46,0.1)', color: 'var(--color-danger)' }}>Épuisé</span>
+                        ) : isLow ? (
+                          <span className="badge-chip" style={{ background: 'rgba(180,121,15,0.12)', color: 'var(--color-warning)' }}>Stock bas</span>
+                        ) : (
+                          <span className="badge-chip" style={{ background: 'rgba(76,122,63,0.1)', color: 'var(--color-success)' }}>OK</span>
+                        )}
+                      </td>
+                      <td className="dim">{linkedIngredient ? linkedIngredient.name : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <ShoppingListManager
         items={shoppingList}

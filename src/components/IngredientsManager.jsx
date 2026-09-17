@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Package, Plus, Trash2 } from 'lucide-react';
 
-const emptyForm = { name: '', unit: '', stock: '', totalCost: '' };
+const emptyForm = { name: '', unit: '', stock: '', totalCost: '', inventoryItemId: '' };
 
 // From what's naturally known when you've just bought something (how much,
 // and what it cost in total) rather than numbers nobody has on hand at
@@ -48,14 +48,24 @@ function EditableCell({ value, width, onCommit, placeholder }) {
 // goods) stock -- this is what Stock's "Générer" draws from, since a
 // sandwich can't be purchased at a store but its ingredients can (see the
 // StockItem model comment in schema.prisma).
-export default function IngredientsManager({ items, onAdd, onUpdate, onDelete }) {
+export default function IngredientsManager({ items, inventoryItems = [], onAdd, onUpdate, onDelete }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+
+  // A product can only be "also" one ingredient (the link is 1-to-1) --
+  // offer only the ones not already claimed by another row, plus (per row,
+  // computed inline below) whichever one this row itself already holds, so
+  // its own selection still shows.
+  const unclaimedInventoryItems = inventoryItems.filter(ii => !ii.linkedStockItemId);
 
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    const payload = { name: form.name, unit: form.unit, stock: form.stock, ...deriveStockFields(form.stock, form.totalCost) };
+    const payload = {
+      name: form.name, unit: form.unit, stock: form.stock,
+      inventoryItemId: form.inventoryItemId || null,
+      ...deriveStockFields(form.stock, form.totalCost)
+    };
     if (await onAdd(payload)) {
       setForm(emptyForm);
       setIsFormOpen(false);
@@ -91,6 +101,17 @@ export default function IngredientsManager({ items, onAdd, onUpdate, onDelete })
             <input className="form-input" type="number" step="any" placeholder="Quantité achetée" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
             <input className="form-input" type="number" step="0.01" placeholder="Coût total (€, optionnel)" value={form.totalCost} onChange={e => setForm({ ...form, totalCost: e.target.value })} />
           </div>
+          {unclaimedInventoryItems.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                Aussi vendu tel quel (produit du catalogue) ? Optionnel -- les deux stocks resteront synchronisés.
+              </label>
+              <select className="form-select" value={form.inventoryItemId} onChange={e => setForm({ ...form, inventoryItemId: e.target.value })}>
+                <option value="">— Non, juste un ingrédient de recette</option>
+                {unclaimedInventoryItems.map(ii => <option key={ii.id} value={ii.id}>{ii.name}</option>)}
+              </select>
+            </div>
+          )}
           <p className="formule-slot-hint">
             Le stock plein (objectif) est fixé à cette quantité, le seuil bas à un quart -- modifiables ensuite dans le tableau. Le coût unitaire, lui, se calcule depuis le coût total.
           </p>
@@ -116,12 +137,18 @@ export default function IngredientsManager({ items, onAdd, onUpdate, onDelete })
                 <th className="num">Stock plein</th>
                 <th className="num">Seuil bas</th>
                 <th className="num">Coût unitaire</th>
+                <th>Aussi un produit ?</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {rows.map(item => {
                 const isLow = item.stock !== null && item.lowStockThreshold !== null && item.stock <= item.lowStockThreshold;
+                // This row's own link (if any) has to appear as an option
+                // even though it's "claimed" -- by itself.
+                const linkOptions = item.inventoryItemId && !unclaimedInventoryItems.some(ii => ii.id === item.inventoryItemId)
+                  ? [inventoryItems.find(ii => ii.id === item.inventoryItemId), ...unclaimedInventoryItems].filter(Boolean)
+                  : unclaimedInventoryItems;
                 return (
                   <tr key={item.id}>
                     <td style={{ fontWeight: 700 }}>{item.name}</td>
@@ -137,6 +164,16 @@ export default function IngredientsManager({ items, onAdd, onUpdate, onDelete })
                     </td>
                     <td className="num">
                       <EditableCell value={item.unitCost} width="70px" placeholder="—" onCommit={v => onUpdate(item.id, { unitCost: v })} />
+                    </td>
+                    <td>
+                      <select
+                        className="form-select" style={{ fontSize: '0.78rem', padding: '0.3rem 0.4rem' }}
+                        value={item.inventoryItemId || ''}
+                        onChange={e => onUpdate(item.id, { inventoryItemId: e.target.value || null })}
+                      >
+                        <option value="">— non</option>
+                        {linkOptions.map(ii => <option key={ii.id} value={ii.id}>{ii.name}</option>)}
+                      </select>
                     </td>
                     <td>
                       <button className="btn btn-danger" style={{ padding: '0.3rem 0.5rem' }} onClick={() => onDelete(item.id)} title="Supprimer">

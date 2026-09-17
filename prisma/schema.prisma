@@ -168,7 +168,11 @@ model InventoryItem {
   lowStockThreshold Int      @default(5)
   createdAt         DateTime @default(now())
 
-  products Product[]
+  products  Product[]
+  // Set when this sellable line is ALSO something the BDE buys and tracks
+  // as a raw ingredient (e.g. canned Coca: sold as-is AND bought in bulk).
+  // See StockItem.inventoryItemId for the other end of this link.
+  stockItem StockItem?
 }
 
 // A raw ingredient/supply the BDE actually buys (ham, bread, butter...) --
@@ -193,6 +197,17 @@ model StockItem {
 
   recipeLinks       ProductIngredient[]
   shoppingListLinks ShoppingListItemStockItem[]
+
+  // Optional: this ingredient IS ALSO a finished product sold as-is (a
+  // canned drink bought in bulk and sold one at a time). When set,
+  // restocking this StockItem also restocks the linked InventoryItem (and
+  // vice versa: an order that sells it also decrements this StockItem) --
+  // one physical thing, tracked from both the "what to buy" and "what to
+  // sell" side, kept in sync instead of drifting apart. Left unset for
+  // ingredients that are only ever combined into other products (recipe-
+  // only, e.g. ham, bread).
+  inventoryItemId String?        @unique
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
 
   @@index([normalizedName])
 }

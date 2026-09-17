@@ -82,7 +82,22 @@ function serializeStockItem(si) {
     stock: si.stock,
     fullStock: si.fullStock,
     lowStockThreshold: si.lowStockThreshold,
-    unitCost: si.unitCost
+    unitCost: si.unitCost,
+    inventoryItemId: si.inventoryItemId || null,
+    // Present only when the include was requested (getStockItems) -- lets
+    // the Stock tab show "also sold as-is" without a second round trip.
+    linkedProduct: si.inventoryItem ? { id: si.inventoryItem.id, name: si.inventoryItem.name, stock: si.inventoryItem.stock } : undefined
+  };
+}
+
+function serializeInventoryItem(ii) {
+  if (!ii) return null;
+  return {
+    id: ii.id,
+    name: ii.name,
+    stock: ii.stock,
+    lowStockThreshold: ii.lowStockThreshold,
+    linkedStockItemId: ii.stockItem ? ii.stockItem.id : null
   };
 }
 
@@ -590,6 +605,7 @@ class DB {
         if (purchaseUnitCost != null) data.unitCost = Math.round(purchaseUnitCost * 100) / 100;
         await prisma.stockItem.update({ where: { id: stockItemId }, data });
         if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(stockItemId);
+        if (stockItem.inventoryItemId) await this._restockLinkedInventoryItem(stockItem.inventoryItemId, item.quantity);
         restocked.push({ stockItemId, name: stockItem.name, added: item.quantity, newStock });
         continue;
       }
@@ -622,6 +638,7 @@ class DB {
         }
         await prisma.stockItem.update({ where: { id: stockItem.id }, data });
         if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(stockItem.id);
+        if (stockItem.inventoryItemId) await this._restockLinkedInventoryItem(stockItem.inventoryItemId, item.quantity);
         await prisma.shoppingListItemStockItem.upsert({
           where: { shoppingListItemId_stockItemId: { shoppingListItemId: item.id, stockItemId: stockItem.id } },
           create: { shoppingListItemId: item.id, stockItemId: stockItem.id },
@@ -857,8 +874,18 @@ class DB {
   }
 
   async getStockItems() {
-    const items = await prisma.stockItem.findMany({ orderBy: { name: 'asc' } });
+    const items = await prisma.stockItem.findMany({ orderBy: { name: 'asc' }, include: { inventoryItem: true } });
     return items.map(serializeStockItem);
+  }
+
+  // The other side of the link: products sold as-is (with tracked stock),
+  // global like StockItem -- what Stock's second table shows, and what the
+  // "also a product" picker on a StockItem offers to link to. Only
+  // products with stock tracking turned on show up here; an untracked
+  // (illimité) one has no InventoryItem row to link against yet.
+  async getInventoryItems() {
+    const items = await prisma.inventoryItem.findMany({ orderBy: { name: 'asc' }, include: { stockItem: true } });
+    return items.map(serializeInventoryItem);
   }
 
   // Returns null on a duplicate name (route turns that into a 400 -- see
@@ -876,8 +903,10 @@ class DB {
         stock: data.stock === '' || data.stock == null ? null : parseFloat(data.stock),
         fullStock: data.fullStock === '' || data.fullStock == null ? null : parseFloat(data.fullStock),
         lowStockThreshold: data.lowStockThreshold === '' || data.lowStockThreshold == null ? null : parseFloat(data.lowStockThreshold),
-        unitCost: data.unitCost === '' || data.unitCost == null ? null : parseFloat(data.unitCost)
-      }
+        unitCost: data.unitCost === '' || data.unitCost == null ? null : parseFloat(data.unitCost),
+        inventoryItemId: data.inventoryItemId || null
+      },
+      include: { inventoryItem: true }
     });
     return serializeStockItem(created);
   }
@@ -896,8 +925,9 @@ class DB {
     if (updates.fullStock !== undefined) data.fullStock = (updates.fullStock === '' || updates.fullStock === null) ? null : parseFloat(updates.fullStock);
     if (updates.lowStockThreshold !== undefined) data.lowStockThreshold = (updates.lowStockThreshold === '' || updates.lowStockThreshold === null) ? null : parseFloat(updates.lowStockThreshold);
     if (updates.unitCost !== undefined) data.unitCost = (updates.unitCost === '' || updates.unitCost === null) ? null : parseFloat(updates.unitCost);
+    if (updates.inventoryItemId !== undefined) data.inventoryItemId = updates.inventoryItemId || null;
 
-    const updated = await prisma.stockItem.update({ where: { id }, data });
+    const updated = await prisma.stockItem.update({ where: { id }, data, include: { inventoryItem: true } });
     if (updates.unitCost !== undefined) await this.recomputeProductsUsingStockItem(id);
     return serializeStockItem(updated);
   }
@@ -909,6 +939,18 @@ class DB {
   async recomputeProductsUsingStockItem(stockItemId) {
     const links = await prisma.productIngredient.findMany({ where: { stockItemId }, select: { productId: true } });
     for (const link of links) await this.recomputeProductCost(link.productId);
+  }
+
+  // A StockItem linked to an InventoryItem (see StockItem.inventoryItemId)
+  // is one physical thing tracked from both sides -- buying it restocks
+  // both. Mirrors the plain Product-restock branch in closeShoppingTrip
+  // (same cascade of `available` to every product sharing the item).
+  async _restockLinkedInventoryItem(inventoryItemId, quantity) {
+    const inventoryItem = await prisma.inventoryItem.findUnique({ where: { id: inventoryItemId } });
+    if (!inventoryItem || inventoryItem.stock === null) return;
+    const newStock = inventoryItem.stock + quantity;
+    await prisma.inventoryItem.update({ where: { id: inventoryItemId }, data: { stock: newStock } });
+    await prisma.product.updateMany({ where: { inventoryItemId }, data: { available: newStock > 0 } });
   }
 
   async deleteStockItem(id) {
@@ -1116,7 +1158,10 @@ class DB {
   // touches products with tracked stock (stock !== null).
   async _adjustStock(items, delta) {
     const applyToProduct = async (productId, qty) => {
-      const product = await prisma.product.findUnique({ where: { id: productId }, include: { inventoryItem: true } });
+      const product = await prisma.product.findUnique({
+        where: { id: productId },
+        include: { inventoryItem: { include: { stockItem: true } } }
+      });
       if (!product || !product.inventoryItem || product.inventoryItem.stock === null) return;
       // Shared stock: this order may be on a different storefront than the
       // one another product of the same name lives on, but they're the
@@ -1126,6 +1171,15 @@ class DB {
       const stock = Math.max(0, product.inventoryItem.stock + delta * qty);
       await prisma.inventoryItem.update({ where: { id: product.inventoryItem.id }, data: { stock } });
       await prisma.product.updateMany({ where: { inventoryItemId: product.inventoryItem.id }, data: { available: stock > 0 } });
+      // This sellable line is also tracked as a raw ingredient (see
+      // StockItem.inventoryItemId) -- an order selling it consumes that
+      // stock just as surely as a shopping trip replenishes it, otherwise
+      // the ingredient count would silently drift from reality.
+      const linkedStockItem = product.inventoryItem.stockItem;
+      if (linkedStockItem && linkedStockItem.stock !== null) {
+        const linkedStock = Math.max(0, linkedStockItem.stock + delta * qty);
+        await prisma.stockItem.update({ where: { id: linkedStockItem.id }, data: { stock: linkedStock } });
+      }
     };
     for (const item of items || []) {
       if (item.type === 'menu' && item.choices) {

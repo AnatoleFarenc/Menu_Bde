@@ -380,6 +380,14 @@ app.delete('/api/admin/stock-items/:id', requireManager, ah(async (req, res) => 
   res.json({ success: true });
 }));
 
+// Products sold as-is with tracked stock (InventoryItem), global -- the
+// "also a product" picker on a StockItem links against these. Separate
+// from a storefront's catalog endpoint, which only lists one vitrine's
+// products.
+app.get('/api/admin/inventory-items', requireManager, ah(async (req, res) => {
+  res.json({ items: await db.getInventoryItems() });
+}));
+
 // RECIPE -- how much of each StockItem one unit of a product consumes.
 app.get('/api/admin/products/:id/recipe', requireManager, ah(async (req, res) => {
   res.json({ ingredients: await db.getProductRecipe(req.params.id) });
