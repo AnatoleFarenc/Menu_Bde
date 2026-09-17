@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, InfinityIcon, Plus, Wand2 } from 'lucide-react';
+import { ChevronDown, InfinityIcon, Wand2 } from 'lucide-react';
 import ShoppingListManager from './ShoppingListManager';
 import IngredientsManager from './IngredientsManager';
 
@@ -11,7 +11,7 @@ export default function StockPanel({
   products, categories, menus, shoppingList, stockItems,
   onAddShoppingListItem, onUpdateShoppingListItem, onDeleteShoppingListItem,
   onGenerateShoppingList, onFetchRestockCandidates, onUpdateStock,
-  onOpenAddProductModal, onAddStockItem, onUpdateStockItem, onDeleteStockItem
+  onAddStockItem, onUpdateStockItem, onDeleteStockItem
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
@@ -74,14 +74,10 @@ export default function StockPanel({
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="catalog-section-label" style={{ marginBottom: 0 }}>Stock actuel</div>
-        <button type="button" className="btn btn-secondary" onClick={onOpenAddProductModal}>
-          <Plus size={16} /> Ajouter un produit
-        </button>
-      </div>
+      <div className="catalog-section-label">Stock actuel</div>
       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem', marginBottom: '0.75rem' }}>
         Le stock est partagé par nom entre toutes les vitrines et événements : modifier le stock d'un produit ici met aussi à jour tous les produits du même nom ailleurs.
+        Pour ajouter un nouveau produit au catalogue, direction l'onglet Catalogue -- ici on ne fait qu'ajuster le stock des produits déjà en vente et des ingrédients.
       </p>
       <div className="data-table-wrap" style={{ marginBottom: '2rem' }}>
         <table>

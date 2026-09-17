@@ -717,7 +717,6 @@ export default function ManagementApp() {
               onGenerateShoppingList={handleGenerateShoppingList}
               onFetchRestockCandidates={fetchRestockCandidates}
               onUpdateStock={handleUpdateStock}
-              onOpenAddProductModal={() => setAdminModalState({ isOpen: true, item: null, type: 'product' })}
               onAddStockItem={handleAddStockItem}
               onUpdateStockItem={handleUpdateStockItem}
               onDeleteStockItem={handleDeleteStockItem}
