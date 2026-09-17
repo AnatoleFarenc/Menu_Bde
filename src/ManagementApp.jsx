@@ -35,6 +35,7 @@ export default function ManagementApp() {
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
   const [dailyReport, setDailyReport] = useState(null);
+  const [dashboardReport, setDashboardReport] = useState(null);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -92,6 +93,14 @@ export default function ManagementApp() {
       const active = list.find(sf => sf.isActive);
       setSelectedStorefrontId(active ? active.id : (list[0]?.id || null));
     })();
+  }, [selectedEventId]);
+
+  // Revenue/profit tiles on the Dashboard -- so the important figures are
+  // visible immediately, without opening Bilan/Statistiques.
+  useEffect(() => {
+    if (!selectedEventId) { setDashboardReport(null); return; }
+    fetchEventReport(selectedEventId).then(setDashboardReport);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId]);
 
   // Whichever storefront is open here, keep its catalog/shopping list in sync.
@@ -209,9 +218,9 @@ export default function ManagementApp() {
     }
   };
 
-  const fetchStats = async (from, to) => {
+  const fetchStats = async (from, to, groupBy) => {
     try {
-      const res = await axios.get('/api/admin/stats', { params: { from, to: to || from, storefrontId: selectedStorefrontId }, ...authHeaders });
+      const res = await axios.get('/api/admin/stats', { params: { from, to: to || from, groupBy, storefrontId: selectedStorefrontId }, ...authHeaders });
       setStats(res.data);
     } catch (e) {
       console.error('Error fetching stats:', e);
@@ -557,6 +566,7 @@ export default function ManagementApp() {
             onDeleteStorefront={handleDeleteStorefront}
             products={adminProducts}
             shoppingList={shoppingList}
+            report={dashboardReport}
             onSelectSection={handleGoToSection}
             showTeam={user.isBoard}
           />

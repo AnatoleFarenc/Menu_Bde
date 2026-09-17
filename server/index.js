@@ -732,15 +732,53 @@ app.get('/api/admin/shopping-list/average', requireManager, ah(async (req, res) 
 // Ventes par jour, par catégorie, et produits les plus vendus sur une
 // période -- alimente l'onglet Statistiques (mêmes filtres que /report).
 const FORMULES_BUCKET = '__formules__';
+
+// Parses a YYYY-MM-DD string as a pure calendar date at UTC midnight.
+// `new Date(dateStr + 'T00:00:00')` (no offset) is parsed as LOCAL midnight,
+// which silently shifts by a day around week/comparison-window boundaries
+// whenever the server isn't running in UTC (e.g. Europe/Paris) -- every
+// date computed from one of these YYYY-MM-DD strings must go through this
+// and use the UTC getters/setters (getUTCDay, setUTCDate...), never the
+// local ones, to stay consistent.
+function parseYMD(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+// Monday (ISO) of the week containing this YYYY-MM-DD date, itself as
+// YYYY-MM-DD -- used both as the weekly grouping key and its label.
+function weekKeyOf(dateStr) {
+  const d = parseYMD(dateStr);
+  const day = d.getUTCDay(); // 0 = Sunday
+  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  return d.toISOString().slice(0, 10);
+}
+
 app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = (req.query.from || today).slice(0, 10);
   const to = (req.query.to || from).slice(0, 10);
-  const [allOrders, categories] = await Promise.all([
+  const groupBy = req.query.groupBy === 'week' ? 'week' : 'day';
+  const [allOrders, categories, products] = await Promise.all([
     db.getOrders(req.query.storefrontId),
-    db.getCategories()
+    db.getCategories(),
+    req.query.storefrontId ? db.getProducts(req.query.storefrontId) : Promise.resolve([])
   ]);
   const categoryNames = new Map(categories.map(c => [c.id, c.name]));
+
+  // Revenue/cost of every completed order within [rangeFrom, rangeTo] --
+  // shared by the main period tally and the prior-window comparison below.
+  const revenueCostInRange = (rangeFrom, rangeTo) => {
+    let revenue = 0, cost = 0;
+    for (const order of allOrders) {
+      if (order.status !== 'completed') continue;
+      const day = (order.createdAt || '').slice(0, 10);
+      if (day < rangeFrom || day > rangeTo) continue;
+      revenue += order.isFree ? 0 : (order.totalPrice || 0);
+      order.items.forEach(item => { cost += itemUnitCost(item) * item.quantity; });
+    }
+    return { revenue, cost };
+  };
 
   const periodOrders = allOrders.filter(order => {
     if (order.status !== 'completed') return false;
@@ -748,17 +786,19 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
     return day >= from && day <= to;
   });
 
-  const dailyMap = new Map();
+  const seriesMap = new Map(); // bucket key (day or Monday of the week) -> { revenue, cost }
   const categoryMap = new Map();
   const usageMap = new Map();
 
   periodOrders.forEach(order => {
     const day = (order.createdAt || '').slice(0, 10);
-    const orderRevenue = order.isFree ? 0 : (order.totalPrice || 0);
-    dailyMap.set(day, (dailyMap.get(day) || 0) + orderRevenue);
+    const bucketKey = groupBy === 'week' ? weekKeyOf(day) : day;
+    const bucket = seriesMap.get(bucketKey) || { revenue: 0, cost: 0 };
+    bucket.revenue += order.isFree ? 0 : (order.totalPrice || 0);
 
     order.items.forEach(item => {
       const lineRevenue = order.isFree ? 0 : (item.price || 0) * item.quantity;
+      bucket.cost += itemUnitCost(item) * item.quantity;
       // Category ids are slugified (lowercase letters/digits/hyphens only,
       // see slugify() in db.js), so this key can never collide with a real
       // one -- unlike the literal string 'formules', which a category
@@ -776,10 +816,12 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
         usageMap.set(item.name, (usageMap.get(item.name) || 0) + item.quantity);
       }
     });
+
+    seriesMap.set(bucketKey, bucket);
   });
 
-  const dailySales = Array.from(dailyMap.entries())
-    .map(([date, revenue]) => ({ date, revenue }))
+  const series = Array.from(seriesMap.entries())
+    .map(([date, { revenue, cost }]) => ({ date, revenue, cost, profit: revenue - cost }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const byCategory = Array.from(categoryMap.entries())
@@ -795,7 +837,48 @@ app.get('/api/admin/stats', requireManager, ah(async (req, res) => {
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 8);
 
-  res.json({ from, to, dailySales, byCategory, topProducts });
+  const totalRevenue = series.reduce((sum, s) => sum + s.revenue, 0);
+  const totalProfit = series.reduce((sum, s) => sum + s.profit, 0);
+
+  // Forecast: revenue/profit already made in the period, plus what selling
+  // every unit still on hand (at its current price/margin) would add -- a
+  // ceiling if none of the remaining stock goes unsold. Untracked
+  // (unlimited-stock) products can't contribute a number here.
+  const trackedInStock = products.filter(p => p.stock !== null && p.stock !== undefined && p.stock > 0);
+  const stockPotentialRevenue = trackedInStock.reduce((sum, p) => sum + p.stock * p.price, 0);
+  const stockPotentialProfit = trackedInStock
+    .filter(p => p.costPrice != null)
+    .reduce((sum, p) => sum + p.stock * (p.price - p.costPrice), 0);
+  const forecast = {
+    stockPotentialRevenue,
+    projectedRevenue: totalRevenue + stockPotentialRevenue,
+    stockPotentialProfit,
+    projectedProfit: totalProfit + stockPotentialProfit
+  };
+
+  // Comparison: this window's profit vs. the immediately preceding window
+  // of the same length (e.g. this week vs last week for a 7-day range).
+  // When the previous window had zero profit, diffPercent/ratio fall back
+  // to a flag the frontend renders as "nouveau" rather than a divide-by-zero.
+  const spanDays = Math.round((parseYMD(to) - parseYMD(from)) / 86400000) + 1;
+  const prevTo = parseYMD(from); prevTo.setUTCDate(prevTo.getUTCDate() - 1);
+  const prevFrom = new Date(prevTo); prevFrom.setUTCDate(prevFrom.getUTCDate() - (spanDays - 1));
+  const prevFromStr = prevFrom.toISOString().slice(0, 10);
+  const prevToStr = prevTo.toISOString().slice(0, 10);
+  const previous = revenueCostInRange(prevFromStr, prevToStr);
+  const previousProfit = previous.revenue - previous.cost;
+  const diffValue = totalProfit - previousProfit;
+  const comparison = {
+    previousFrom: prevFromStr,
+    previousTo: prevToStr,
+    currentProfit: totalProfit,
+    previousProfit,
+    diffValue,
+    diffPercent: previousProfit !== 0 ? (diffValue / Math.abs(previousProfit)) * 100 : null,
+    ratio: previousProfit !== 0 ? totalProfit / previousProfit : null
+  };
+
+  res.json({ from, to, groupBy, series, byCategory, topProducts, forecast, comparison });
 }));
 
 // ----------------------------------------------------

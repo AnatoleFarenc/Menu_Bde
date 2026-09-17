@@ -12,6 +12,10 @@ const CARDS = [
   { id: 'avis', icon: Star, title: 'Avis', desc: () => 'Retours et notes laissés par les étudiants.' }
 ];
 
+function formatMoney(value) {
+  return `${(value || 0).toFixed(2).replace('.', ',')} €`;
+}
+
 // Landing page of /gestion: the selected event's own hub, replacing the old
 // permanent tab bar with cards you actively choose to open.
 export default function Dashboard({
@@ -28,6 +32,7 @@ export default function Dashboard({
   onDeleteStorefront,
   products,
   shoppingList,
+  report,
   onSelectSection,
   showTeam
 }) {
@@ -59,6 +64,14 @@ export default function Dashboard({
       </div>
 
       <div className="dashboard-stat-grid">
+        <div className="stat-tile">
+          <div className="stat-tile-label">Chiffre d'affaires</div>
+          <div className="stat-tile-value" style={{ color: 'var(--color-primary-text)' }}>{report ? formatMoney(report.totalRevenue) : '…'}</div>
+        </div>
+        <div className="stat-tile">
+          <div className="stat-tile-label">Bénéfice</div>
+          <div className="stat-tile-value" style={{ color: report && report.totalProfit < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{report ? formatMoney(report.totalProfit) : '…'}</div>
+        </div>
         <div className="stat-tile">
           <div className="stat-tile-label">Produits actifs</div>
           <div className="stat-tile-value">{activeProducts} <span className="stat-tile-suffix">/ {products.length}</span></div>
