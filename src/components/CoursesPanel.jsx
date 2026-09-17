@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, ChevronDown, History, Lock, ShoppingCart, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, History, Lock, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 
 function formatMoney(value) {
   return `${(value || 0).toFixed(2).replace('.', ',')} €`;
@@ -12,6 +12,65 @@ function formatDate(iso) {
 // A low/out-of-stock product not yet on the shopping list, with a "add to
 // the list" quantity defaulting to just enough to bring stock back up to
 // its own threshold -- editable before adding, never assumed final.
+const emptyItemForm = { name: '', quantity: '', unit: '', totalCost: '' };
+
+// Quick-add form for the checklist: the name field suggests existing
+// catalog products (native <datalist>, so free typing still works for
+// something new) -- picking one links the item to that product, which is
+// what lets closing the trip restock it automatically. Deliberately
+// lighter than ShoppingListManager's full form (no forDays/forPeople/note):
+// this is for adding one more thing while already at the store, not
+// planning ahead.
+function AddItemForm({ products, onAdd, onClose }) {
+  const [form, setForm] = useState(emptyItemForm);
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    const trimmed = form.name.trim();
+    if (!trimmed) return;
+    const matched = products.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
+    const saved = await onAdd({
+      name: trimmed,
+      quantity: form.quantity,
+      unit: form.unit,
+      totalCost: form.totalCost,
+      productIds: matched ? [matched.id] : []
+    });
+    if (saved) { setForm(emptyItemForm); onClose(); }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="synthesis-card" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
+      <div style={{ flex: '1 1 180px' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Article</label>
+        <input
+          className="form-input" list="courses-product-suggestions" placeholder="Nom (produit existant ou nouveau)"
+          value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required autoFocus
+        />
+        <datalist id="courses-product-suggestions">
+          {products.map(p => <option key={p.id} value={p.name} />)}
+        </datalist>
+      </div>
+      <div style={{ width: '80px' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Quantité</label>
+        <input type="number" step="any" className="form-input" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} />
+      </div>
+      <div style={{ width: '70px' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Unité</label>
+        <input className="form-input" placeholder="kg..." value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
+      </div>
+      <div style={{ width: '90px' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Coût €</label>
+        <input type="number" step="0.01" className="form-input" value={form.totalCost} onChange={e => setForm({ ...form, totalCost: e.target.value })} />
+      </div>
+      <div style={{ display: 'flex', gap: '0.4rem' }}>
+        <button type="submit" className="btn btn-primary" style={{ padding: '0.45rem 0.75rem' }}>Ajouter</button>
+        <button type="button" className="btn btn-secondary" style={{ padding: '0.45rem 0.75rem' }} onClick={onClose}>Annuler</button>
+      </div>
+    </form>
+  );
+}
+
 function RestockSuggestion({ product, alreadyListed, onAdd }) {
   const stock = product.stock ?? 0;
   const defaultQty = Math.max(1, product.lowStockThreshold - stock);
@@ -135,6 +194,7 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
   const [history, setHistory] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
   const [closeResult, setCloseResult] = useState(null);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
 
   const listedNames = new Set(shoppingList.map(it => it.name.trim().toLowerCase()));
   const restockCandidates = products
@@ -234,9 +294,17 @@ export default function CoursesPanel({ products, shoppingList, onAddShoppingList
         </div>
       )}
 
+      {isAddFormOpen ? (
+        <AddItemForm products={products} onAdd={onAddShoppingListItem} onClose={() => setIsAddFormOpen(false)} />
+      ) : (
+        <button type="button" className="btn btn-secondary" style={{ marginBottom: '1.25rem' }} onClick={() => setIsAddFormOpen(true)}>
+          <Plus size={15} /> Ajouter un article
+        </button>
+      )}
+
       {shoppingList.length === 0 ? (
         <div style={{ padding: '1.25rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          Liste de courses vide -- ajoute des articles depuis l'onglet Stock, ou depuis les suggestions ci-dessus.
+          Liste de courses vide -- ajoute des articles ci-dessus, ou depuis les suggestions.
         </div>
       ) : (
         <>
