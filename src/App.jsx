@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
@@ -8,12 +8,14 @@ import AdminKitchenBoard from './components/AdminKitchenBoard';
 import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles } from 'lucide-react';
+import { playNewOrderSound } from './lib/sound';
 
 // Kiosk mode: hidden activation via the URL, specific to this browser only.
 // To activate on a kiosk: open the URL once with ?kiosk=1 (then ?kiosk=0 to deactivate).
 const KIOSK_STORAGE_KEY = 'bde_kiosk_mode';
 const KIOSK_INACTIVITY_MINUTES = 3;
 const KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS = 6;
+const SOUND_STORAGE_KEY = 'bde_admin_sound_enabled';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -38,6 +40,9 @@ export default function App() {
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [kitchenSynthesis, setKitchenSynthesis] = useState({});
   const [kitchenProducts, setKitchenProducts] = useState([]);
+
+  const knownOrderIdsRef = useRef(new Set());
+  const isFirstLoadRef = useRef(true);
 
   // Modals & Drawers state
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -107,26 +112,54 @@ export default function App() {
     }
   }, [authToken]);
 
-  // "Admin" tab (site-themed order tracking) always follows the live
-  // storefront, refreshed regularly in case staff switch it while open.
+  // Background order tracking & polling for admins (runs whenever user is admin,
+  // even if they are on another tab or in a background browser tab).
   useEffect(() => {
-    if (user && user.isAdmin && activeTab === 'admin') {
-      (async () => {
+    if (user && user.isAdmin) {
+      const pollAdminOrders = async () => {
         const sf = await fetchActiveStorefront();
         if (sf) {
           fetchKitchenOrders(sf.id);
           fetchKitchenProducts(sf.id);
         }
-      })();
-      const refreshTimer = setInterval(async () => {
-        const sf = await fetchActiveStorefront();
-        if (sf) fetchKitchenOrders(sf.id);
-      }, 5000);
+      };
+      pollAdminOrders();
+      const refreshTimer = setInterval(pollAdminOrders, 5000);
       return () => clearInterval(refreshTimer);
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeTab]);
+  }, [user]);
+
+  // Global sound notification when a new order arrives for admins
+  useEffect(() => {
+    if (!user || !user.isAdmin || !kitchenOrders || kitchenOrders.length === 0) return;
+
+    if (isFirstLoadRef.current) {
+      kitchenOrders.forEach(o => knownOrderIdsRef.current.add(o.id));
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    const newOrders = kitchenOrders.filter(o => !knownOrderIdsRef.current.has(o.id) && o.status !== 'cancelled');
+
+    if (newOrders.length > 0) {
+      newOrders.forEach(o => knownOrderIdsRef.current.add(o.id));
+
+      const soundEnabled = localStorage.getItem(SOUND_STORAGE_KEY) !== 'false';
+      if (soundEnabled) {
+        playNewOrderSound();
+      }
+
+      if (document.hidden || activeTab !== 'admin') {
+        const originalTitle = document.title;
+        document.title = `🔔 (${newOrders.length}) Nouvelle commande !`;
+        setTimeout(() => {
+          document.title = originalTitle;
+        }, 8000);
+      }
+    }
+  }, [kitchenOrders, user, activeTab]);
 
   useEffect(() => {
     if (!user || activeTab !== 'orders') return undefined;
@@ -225,9 +258,15 @@ export default function App() {
   const handleLogin42 = async () => {
     try {
       const res = await axios.get('/api/auth/42/url');
-      window.location.href = res.data.url;
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        alert('Erreur: URL d\'authentification manquante reçue du serveur.');
+      }
     } catch (error) {
-      alert(error.response?.data?.error || 'Erreur lors de la redirection vers 42 Intra OAuth.');
+      const serverErr = error.response?.data?.error;
+      const networkErr = !error.response ? 'Impossible de contacter le serveur backend. Vérifiez que le serveur est bien démarré (npm run dev).' : null;
+      alert(serverErr || networkErr || error.message || 'Erreur lors de la redirection vers 42 Intra OAuth.');
     }
   };
 

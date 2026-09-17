@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { ChefHat, CheckCircle2, Clock, AlertCircle, MapPin, Trash2, Edit3, Undo2, Gift, Sparkles, Settings } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChefHat, CheckCircle2, Clock, AlertCircle, MapPin, Trash2, Edit3, Undo2, Gift, Sparkles, Settings, Volume2, VolumeX, Bell } from 'lucide-react';
 import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
+import { playNewOrderSound, unlockAudioContext } from '../lib/sound';
 
 const PREVIOUS_STATUS = {
   preparing: 'pending',
@@ -10,6 +11,8 @@ const PREVIOUS_STATUS = {
   completed: 'preparing',
   cancelled: 'pending'
 };
+
+const SOUND_STORAGE_KEY = 'bde_admin_sound_enabled';
 
 const FREE_ORDER_TIME_SLOTS = [];
 for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 15) {
@@ -40,6 +43,26 @@ export default function AdminKitchenBoard({
   const [editingOrder, setEditingOrder] = useState(null);
   const [isFreeFormOpen, setIsFreeFormOpen] = useState(false);
   const [freeForm, setFreeForm] = useState({ productId: '', quantity: 1, beneficiary: '', pickupTime: '12h00' });
+
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem(SOUND_STORAGE_KEY);
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const toggleSound = () => {
+    const nextState = !soundEnabled;
+    setSoundEnabled(nextState);
+    localStorage.setItem(SOUND_STORAGE_KEY, String(nextState));
+    if (nextState) {
+      unlockAudioContext();
+      playNewOrderSound();
+    }
+  };
+
+  const handleTestSound = () => {
+    unlockAudioContext();
+    playNewOrderSound();
+  };
 
   const filteredOrders = orders.filter(order => {
     if (statusFilter === 'active' && (order.status === 'completed' || order.status === 'cancelled')) {
@@ -100,9 +123,31 @@ export default function AdminKitchenBoard({
                 : 'Chargement de la vitrine active...'}
             </p>
           </div>
-          <button type="button" className="btn btn-secondary" onClick={onGoToManagement}>
-            <Settings size={16} /> Gérer les événements
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn ${soundEnabled ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={toggleSound}
+              title={soundEnabled ? 'Notifications sonores activées' : 'Notifications sonores désactivées'}
+            >
+              {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              {soundEnabled ? 'Son : Activé' : 'Son : Muet'}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleTestSound}
+              title="Tester la notification sonore"
+            >
+              <Bell size={16} /> Test 🔔
+            </button>
+
+            <button type="button" className="btn btn-secondary" onClick={onGoToManagement}>
+              <Settings size={16} /> Gérer les événements
+            </button>
+          </div>
         </div>
       </div>
 
