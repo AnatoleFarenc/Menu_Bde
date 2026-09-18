@@ -1083,10 +1083,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Erreur serveur interne' });
 });
 
-await db.ready;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 BDE Sandwich 42 server started on http://localhost:${PORT}`);
   console.log(`   Public URL          : ${publicAppUrl}`);
   console.log(`   OAuth Redirect URI  : ${oauthRedirectUri}`);
-  console.log('   \u21b3 this Redirect URI must be declared identically in your 42 OAuth application.');
+  console.log('   ↳ this Redirect URI must be declared identically in your 42 OAuth application.');
+
+  try {
+    await db.ready;
+    console.log('✅ Base de données MariaDB connectée avec succès.');
+  } catch (err) {
+    console.error('❌ ERREUR: Connexion à la base de données MariaDB échouée (port 3306).');
+    console.error('   Vérifiez que Docker ou le service MariaDB est démarré (`docker compose up -d`).');
+  }
 });

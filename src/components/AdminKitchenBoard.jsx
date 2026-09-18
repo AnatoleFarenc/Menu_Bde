@@ -20,11 +20,15 @@ import {
   ChevronUp,
   User,
   AlertCircle,
-  History
+  History,
+  Volume2,
+  VolumeX,
+  Bell
 } from 'lucide-react';
 import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
+import { playNewOrderSound, unlockAudioContext } from '../lib/sound';
 
 const PREVIOUS_STATUS = {
   preparing: 'pending',
@@ -32,6 +36,8 @@ const PREVIOUS_STATUS = {
   completed: 'ready',
   cancelled: 'pending'
 };
+
+const SOUND_STORAGE_KEY = 'bde_admin_sound_enabled';
 
 const FREE_ORDER_TIME_SLOTS = [];
 for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 15) {
@@ -360,6 +366,26 @@ export default function AdminKitchenBoard({
   const [isFreeFormOpen, setIsFreeFormOpen] = useState(false);
   const [freeForm, setFreeForm] = useState({ productId: '', quantity: 1, beneficiary: '', pickupTime: '12h00' });
 
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem(SOUND_STORAGE_KEY);
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const toggleSound = () => {
+    const nextState = !soundEnabled;
+    setSoundEnabled(nextState);
+    localStorage.setItem(SOUND_STORAGE_KEY, String(nextState));
+    if (nextState) {
+      unlockAudioContext();
+      playNewOrderSound();
+    }
+  };
+
+  const handleTestSound = () => {
+    unlockAudioContext();
+    playNewOrderSound();
+  };
+
   const handleSetViewMode = (mode) => {
     setViewMode(mode);
     localStorage.setItem('bde_kitchen_view', mode);
@@ -459,7 +485,7 @@ export default function AdminKitchenBoard({
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
               className="btn btn-secondary"
@@ -467,6 +493,25 @@ export default function AdminKitchenBoard({
               onClick={() => setIsFreeFormOpen(v => !v)}
             >
               <Gift size={15} /> Offrir un produit
+            </button>
+            <button
+              type="button"
+              className={`btn ${soundEnabled ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.85rem' }}
+              onClick={toggleSound}
+              title={soundEnabled ? 'Notifications sonores activées' : 'Notifications sonores désactivées'}
+            >
+              {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+              {soundEnabled ? 'Son : Activé' : 'Son : Muet'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '0.85rem' }}
+              onClick={handleTestSound}
+              title="Tester la notification sonore"
+            >
+              <Bell size={15} /> Test 🔔
             </button>
             <button
               type="button"
