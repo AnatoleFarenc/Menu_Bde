@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { get42AuthUrl, handle42Callback, ROLE_RANK } from './auth42.js';
-import { isPushEnabled, getPublicKey, isKnownPushEndpoint, notifyNewOrder, sendTestPush } from './push.js';
+import { isPushEnabled, getPublicKey, isKnownPushEndpoint, notifyNewOrder, sendTestPush, getPushDiagnostics } from './push.js';
 
 dotenv.config();
 
@@ -269,7 +269,7 @@ app.post('/api/admin/push/subscribe', requireAdmin, ah(async (req, res) => {
     || sub.keys.p256dh.length > 191 || sub.keys.auth.length > 191) {
     return res.status(400).json({ error: 'Abonnement de notification invalide' });
   }
-  await db.savePushSubscription(req.user.login, { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth });
+  await db.savePushSubscription(req.user.login.toLowerCase(), { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth });
   res.json({ success: true });
 }));
 
@@ -278,11 +278,19 @@ app.post('/api/admin/push/unsubscribe', requireAdmin, ah(async (req, res) => {
   res.json({ success: true });
 }));
 
-// Sends a test alert to the caller's own devices.
+// Sends a test alert to the caller's own devices; the answer says, per device,
+// what the push service replied (so a failure is explained, not just reported).
 app.post('/api/admin/push/test', requireAdmin, ah(async (req, res) => {
-  const result = await sendTestPush(req.user.login);
-  if (result.sent === 0) return res.status(400).json({ error: 'Aucun appareil abonné aux notifications pour ton compte' });
+  const result = await sendTestPush(req.user.login.toLowerCase());
+  if (result.devices.length === 0) {
+    return res.status(400).json({ error: 'Aucun appareil de ce compte n\'est enregistré côté serveur -- active les notifications sur cet appareil (bouton « Notifications »).' });
+  }
   res.json(result);
+}));
+
+// Server side of the "Diagnostic" panel.
+app.get('/api/admin/push/diagnostics', requireAdmin, ah(async (req, res) => {
+  res.json(await getPushDiagnostics(req.user.login.toLowerCase()));
 }));
 
 // Everything below, up to the ORDERS section, belongs to the /gestion tool:
@@ -1107,6 +1115,7 @@ app.listen(PORT, async () => {
   console.log(`   Public URL          : ${publicAppUrl}`);
   console.log(`   OAuth Redirect URI  : ${oauthRedirectUri}`);
   console.log('   ↳ this Redirect URI must be declared identically in your 42 OAuth application.');
+  console.log(`   Web Push            : ${isPushEnabled() ? 'enabled' : 'DISABLED -- VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing from .env (npm run vapid:generate)'}`);
 
   try {
     await db.ready;

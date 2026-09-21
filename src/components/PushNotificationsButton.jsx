@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { BellRing, BellOff, Send } from 'lucide-react';
-import { getPushStatus, enablePush, disablePush, sendTestPush } from '../lib/push';
+import { BellRing, BellOff, Send, Stethoscope } from 'lucide-react';
+import { getPushStatus, enablePush, disablePush, sendTestPush, getPushDiagnostics } from '../lib/push';
 
 // What to tell the user when this device can't (yet) get alerts.
 const HELP = {
+  'server-off': 'Les notifications ne sont pas configurées sur le serveur : il manque VAPID_PUBLIC_KEY et VAPID_PRIVATE_KEY dans son fichier .env (le .env n\'est pas envoyé avec le code). Génère-les avec « npm run vapid:generate », ajoute-les au .env du serveur puis redémarre-le.',
+  error: 'Impossible de contacter le serveur pour configurer les notifications. Réessaie dans un instant.',
   blocked: 'Les notifications sont bloquées pour ce site. Autorise-les dans les réglages du navigateur (icône à gauche de l\'adresse → Notifications), puis recharge la page.',
   'ios-install': 'Sur iPhone / iPad, les notifications ne marchent que pour le site ajouté à l\'écran d\'accueil : Partager → « Sur l\'écran d\'accueil », ouvre le site depuis cette nouvelle icône, puis active-les ici (iOS 16.4 ou plus récent).',
   insecure: 'Les notifications demandent une connexion sécurisée (https) : ouvre le site par son adresse publique.',
@@ -12,13 +14,14 @@ const HELP = {
 
 // Turns new-order alerts on/off FOR THIS DEVICE (see src/lib/push.js). Unlike
 // the in-page sound next to it, these arrive with the site closed or the
-// phone locked. Renders nothing while loading, or if the server has no VAPID
-// keys (feature not configured).
+// phone locked. Always visible -- when something prevents it, pressing the
+// button says what -- with a "Diagnostic" that lists every step.
 export default function PushNotificationsButton({ authToken }) {
   const [status, setStatus] = useState('loading');
   const [publicKey, setPublicKey] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [diagnostic, setDiagnostic] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -30,7 +33,7 @@ export default function PushNotificationsButton({ authToken }) {
     return () => { alive = false; };
   }, [authToken]);
 
-  if (status === 'loading' || status === 'unavailable') return null;
+  if (status === 'loading') return null;
 
   const run = async action => {
     setBusy(true);
@@ -50,8 +53,18 @@ export default function PushNotificationsButton({ authToken }) {
   });
 
   const handleTest = () => run(async () => {
-    await sendTestPush(authToken);
-    setMessage('Notification de test envoyée -- elle arrive dans quelques secondes.');
+    const result = await sendTestPush(authToken);
+    const failed = result.devices.filter(device => !device.ok);
+    if (failed.length === 0) {
+      setMessage(`Notification de test envoyée (acceptée par ${result.devices.map(d => d.host).join(', ')}). Elle doit arriver dans quelques secondes ; sinon, vérifie les réglages de notification d'Android/iOS pour ton navigateur, puis ouvre « Diagnostic ».`);
+    } else {
+      setMessage(`Le service de notification a refusé l'envoi : ${failed.map(d => `${d.host} ${d.status || ''} ${d.message || ''}`.trim()).join(' ; ')}`);
+    }
+  });
+
+  const handleDiagnostic = () => run(async () => {
+    if (diagnostic) { setDiagnostic(null); return; }
+    setDiagnostic(await getPushDiagnostics(authToken));
   });
 
   const isOn = status === 'on';
@@ -73,8 +86,16 @@ export default function PushNotificationsButton({ authToken }) {
           <Send size={15} /> Tester
         </button>
       )}
+      <button type="button" className="btn btn-secondary" style={{ fontSize: '0.85rem' }} onClick={handleDiagnostic} disabled={busy} title="Afficher l'état de chaque étape des notifications">
+        <Stethoscope size={15} /> Diagnostic
+      </button>
       {message && (
         <div style={{ flexBasis: '100%', fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '42rem' }}>{message}</div>
+      )}
+      {diagnostic && (
+        <pre style={{ flexBasis: '100%', margin: 0, padding: '0.7rem 0.9rem', fontSize: '0.74rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+          {diagnostic.join('\n')}
+        </pre>
       )}
     </>
   );

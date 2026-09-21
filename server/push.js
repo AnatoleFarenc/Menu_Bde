@@ -11,6 +11,19 @@ import { db } from './db.js';
 import { resolveRole, ROLE_RANK } from './auth42.js';
 
 let configured = null;
+let vapidSubject = null;
+
+// The last few send attempts (per device: which push service answered, with
+// which status), kept in memory only. Shown by the admin "Diagnostic" so a
+// notification that never arrives can be traced to the step that failed.
+const recent = [];
+const remember = entry => {
+  recent.unshift({ at: new Date().toISOString(), ...entry });
+  recent.length = Math.min(recent.length, 10);
+};
+const hostOf = endpoint => {
+  try { return new URL(endpoint).hostname; } catch { return '?'; }
+};
 
 function configure() {
   if (configured !== null) return configured;
@@ -27,6 +40,7 @@ function configure() {
     || (appUrl.startsWith('https://') ? appUrl : 'mailto:noreply@localhost');
   try {
     webpush.setVapidDetails(subject, publicKey, privateKey);
+    vapidSubject = subject;
     configured = true;
   } catch (e) {
     console.error('Web Push disabled: invalid VAPID configuration --', e.message);
@@ -52,27 +66,39 @@ export function isKnownPushEndpoint(endpoint) {
 
 // Sends one payload to each subscription. A subscription the push service
 // says is gone (404/410: app uninstalled, permission revoked, expired) is
-// deleted so it isn't retried forever.
-async function sendTo(subscriptions, payload) {
+// deleted so it isn't retried forever. `devices` reports, per device, what the
+// push service answered -- 2xx only means it ACCEPTED the message for
+// delivery, not that the phone has shown it yet.
+async function sendTo(subscriptions, payload, kind) {
   const body = JSON.stringify(payload);
-  const result = { sent: 0, removed: 0, failed: 0 };
+  const result = { sent: 0, removed: 0, failed: 0, devices: [] };
   await Promise.all(subscriptions.map(async sub => {
+    const device = { host: hostOf(sub.endpoint), login: sub.login };
     try {
-      await webpush.sendNotification(
+      const response = await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         body,
         { TTL: 60 * 60, urgency: 'high' }
       );
+      Object.assign(device, { ok: true, status: response.statusCode });
       result.sent++;
     } catch (e) {
-      if (e.statusCode === 404 || e.statusCode === 410) {
+      const gone = e.statusCode === 404 || e.statusCode === 410;
+      Object.assign(device, {
+        ok: false,
+        status: e.statusCode || null,
+        message: gone ? 'appareil désabonné, supprimé' : String(e.body || e.message || '').slice(0, 200)
+      });
+      if (gone) {
         await db.deletePushSubscription(sub.endpoint);
         result.removed++;
       } else {
-        console.error('Web Push send failed:', e.statusCode || '', e.message);
+        console.error('Web Push send failed:', device.host, e.statusCode || '', device.message);
         result.failed++;
       }
     }
+    result.devices.push(device);
+    remember({ kind, ...device });
   }));
   return result;
 }
@@ -85,31 +111,49 @@ const STAFF_RANK = ROLE_RANK.staff;
 export async function notifyNewOrder(order) {
   if (!configure()) return;
   const subscriptions = await db.listPushSubscriptions();
-  if (subscriptions.length === 0) return;
+  if (subscriptions.length === 0) {
+    remember({ kind: 'order', host: '-', ok: false, message: `commande ${order.orderNumber} : aucun appareil abonné aux notifications` });
+    return;
+  }
 
   const allowed = new Set();
   for (const login of new Set(subscriptions.map(sub => sub.login))) {
-    if ((ROLE_RANK[await resolveRole(login)] ?? 0) >= STAFF_RANK) allowed.add(login);
+    // Role lists are lowercase (see handle42Callback); a stored login may not be.
+    if ((ROLE_RANK[await resolveRole(login.toLowerCase())] ?? 0) >= STAFF_RANK) allowed.add(login);
     else await db.deletePushSubscriptionsOfLogin(login);
   }
 
   const items = order.items || [];
   const summary = items.map(item => `${item.quantity}× ${item.name}`).join(', ');
-  await sendTo(subscriptions.filter(sub => allowed.has(sub.login)), {
+  const result = await sendTo(subscriptions.filter(sub => allowed.has(sub.login)), {
     title: `Nouvelle commande ${order.orderNumber}`,
     body: `${order.userDisplayName || order.userLogin} · retrait ${order.pickupTime}\n${summary.length > 140 ? `${summary.slice(0, 137)}...` : summary}`,
     url: '/?tab=admin',
     tag: order.id
-  });
+  }, 'order');
+  console.log(`New-order push ${order.orderNumber}: ${result.sent} sent, ${result.failed} failed, ${result.removed} removed`);
 }
 
 // "Test" button: a notification to the caller's own devices only.
 export async function sendTestPush(login) {
-  if (!configure()) return { sent: 0, removed: 0, failed: 0 };
+  if (!configure()) return { sent: 0, removed: 0, failed: 0, devices: [] };
   return sendTo(await db.listPushSubscriptions(login), {
     title: 'Notifications activées ✅',
     body: 'Tu recevras une alerte comme celle-ci à chaque nouvelle commande.',
     url: '/?tab=admin',
     tag: 'push-test'
-  });
+  }, 'test');
+}
+
+// Everything the "Diagnostic" panel shows about the server side: is it
+// configured, which devices this account has subscribed, and what happened to
+// the last sends.
+export async function getPushDiagnostics(login) {
+  const subscriptions = await db.listPushSubscriptions(login);
+  return {
+    enabled: configure(),
+    subject: vapidSubject,
+    subscriptions: subscriptions.map(sub => ({ host: hostOf(sub.endpoint), createdAt: sub.createdAt.toISOString() })),
+    recent
+  };
 }

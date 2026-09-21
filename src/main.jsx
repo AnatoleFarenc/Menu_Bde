@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import ManagementApp from './ManagementApp.jsx';
 import './index.css';
+import { registerServiceWorker } from './lib/push';
+
+registerServiceWorker();
 
 // /gestion is a genuinely separate page from the storefront -- own auth
 // check, own state, no shared layout -- picked here by path rather than
