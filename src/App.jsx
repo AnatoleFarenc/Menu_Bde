@@ -22,7 +22,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState('vitrine'); // 'vitrine' | 'orders' | 'admin'
+  // A tap on a new-order notification opens the site on `?tab=admin` (see
+  // public/sw.js); the tab only actually shows for a signed-in admin, below.
+  const [activeTab, setActiveTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'admin' ? 'admin' : 'vitrine')); // 'vitrine' | 'orders' | 'admin'
   const [adminSubView, setAdminSubView] = useState('kitchen'); // 'kitchen' | 'history'
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
@@ -85,6 +87,33 @@ export default function App() {
       window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
     }
   }, []);
+
+  // Coming from a new-order notification (see public/sw.js): drop `?tab=admin`
+  // from the address so a later refresh behaves normally, and follow the
+  // service worker's "open the staff tab" message when the site was already open.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('tab')) {
+      urlParams.delete('tab');
+      window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
+    }
+    if (!('serviceWorker' in navigator)) return undefined;
+    const onMessage = event => {
+      if (event.data && event.data.type === 'open-admin') {
+        setActiveTab('admin');
+        setAdminSubView('kitchen');
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, []);
+
+  // The staff tab only exists for an admin: someone landing on it without
+  // being one (or with an expired login) is sent back to the storefront
+  // instead of a blank page.
+  useEffect(() => {
+    if (!isAuthChecking && activeTab === 'admin' && !(user && user.isAdmin)) setActiveTab('vitrine');
+  }, [isAuthChecking, user, activeTab]);
 
   // Kiosk mode: automatic logout after inactivity.
   useEffect(() => {
@@ -619,6 +648,7 @@ export default function App() {
           />
         ) : (
           <AdminKitchenBoard
+            authToken={authToken}
             activeStorefront={activeStorefront}
             orders={kitchenOrders}
             synthesisByTime={kitchenSynthesis}

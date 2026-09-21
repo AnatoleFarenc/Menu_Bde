@@ -73,9 +73,68 @@ function serializeShoppingListItem(item) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Stock rules -- the single place that decides what a count means. See the
+// StockItem / Product model comments in schema.prisma.
+// ---------------------------------------------------------------------------
+
+// A brand-new resold article's "low" threshold when nobody set one.
+const DEFAULT_SOLD_LOW_THRESHOLD = 5;
+
+// 'untracked' | 'out' | 'low' | 'ok'. A null count is "not tracked": never
+// low, never out, never blocks anything.
+function stockLevel(si) {
+  if (!si || si.stock === null || si.stock === undefined) return 'untracked';
+  if (si.stock <= 0) return 'out';
+  if (si.lowStockThreshold !== null && si.lowStockThreshold !== undefined && si.stock <= si.lowStockThreshold) return 'low';
+  return 'ok';
+}
+
+const needsRestock = si => {
+  const level = stockLevel(si);
+  return level === 'out' || level === 'low';
+};
+
+// How much to buy: back up to the article's target ("stock plein") when it
+// has one, otherwise to twice its low threshold. Never a fraction of an
+// article counted in whole pieces, never less than 0.1 of a measured one.
+function restockQuantity(si) {
+  const target = si.fullStock !== null && si.fullStock > si.stock
+    ? si.fullStock
+    : Math.max((si.lowStockThreshold || 0) * 2, si.stock + 1);
+  return Math.max(si.unit ? 0.1 : 1, Math.round((target - si.stock) * 10) / 10);
+}
+
+// undefined stays undefined (field absent from a payload), blank/garbage
+// becomes null (explicitly cleared), anything else a number.
+function parseNullable(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Whether a product can be sold right now, and why not:
+//   resold -- its article's own count.
+//   made   -- the worst count among the ingredients that are actually
+//             tracked ('out' as soon as one is at 0). Untracked
+//             ingredients, and a recipe not written yet, never block.
+function productStockStatus(p) {
+  if (p.kind === 'resold') return stockLevel(p.stockItem);
+  const levels = (p.ingredients || []).map(link => stockLevel(link.stockItem));
+  if (levels.includes('out')) return 'out';
+  if (levels.includes('low')) return 'low';
+  return levels.includes('ok') ? 'ok' : 'untracked';
+}
+
+// Identity of "the same product" across storefronts and events (each has its
+// own Product row): resold products share their StockItem, a made product
+// only has its name.
+const productKey = p => (p.stockItemId ? `stock:${p.stockItemId}` : `name:${p.name.trim().toLowerCase()}`);
+
 function serializeStockItem(si) {
   if (!si) return null;
-  return {
+  const item = {
     id: si.id,
     name: si.name,
     unit: si.unit,
@@ -83,45 +142,59 @@ function serializeStockItem(si) {
     fullStock: si.fullStock,
     lowStockThreshold: si.lowStockThreshold,
     unitCost: si.unitCost,
-    inventoryItemId: si.inventoryItemId || null,
-    // Present only when the include was requested (getStockItems) -- lets
-    // the Stock tab show "also sold as-is" without a second round trip.
-    linkedProduct: si.inventoryItem ? { id: si.inventoryItem.id, name: si.inventoryItem.name, stock: si.inventoryItem.stock } : undefined
+    level: stockLevel(si)
   };
+  // Only when the usage include was requested (getStockItems): which
+  // products sell this article as-is, and which recipes use it. One Product
+  // row exists per storefront, so names are deduplicated.
+  if (si.soldAs || si.recipeLinks) {
+    const names = list => [...new Set(list.map(p => p.name.trim()))].sort((a, b) => a.localeCompare(b));
+    item.usedBy = {
+      soldAs: names(si.soldAs || []),
+      recipes: names((si.recipeLinks || []).map(link => link.product))
+    };
+  }
+  return item;
 }
 
-function serializeInventoryItem(ii) {
-  if (!ii) return null;
-  return {
-    id: ii.id,
-    name: ii.name,
-    stock: ii.stock,
-    lowStockThreshold: ii.lowStockThreshold,
-    linkedStockItemId: ii.stockItem ? ii.stockItem.id : null
-  };
-}
-
-// Stock is shared across every storefront/event: it lives on InventoryItem
-// (matched by product name, see getOrCreateInventoryItem), not on Product
-// itself. The API shape stays { stock, lowStockThreshold } exactly as
-// before -- callers can't tell it moved -- so every query that returns a
-// product for serialization must `include: { inventoryItem: true }` or
-// these come back undefined.
+// Stock lives on StockItem, not on Product, so every query that returns a
+// product for serialization must `include: productInclude` or its stock and
+// recipe come back empty. `available` -- what the storefront, the kitchen
+// board and the meal-deal builder all check -- is COMPUTED here (manual
+// switch AND not out of stock) rather than stored, so it can never go stale
+// after a restock; `enabled` is the manual switch alone.
 function serializeProduct(p) {
   if (!p) return null;
+  const status = productStockStatus(p);
+  const resold = p.kind === 'resold';
   return {
     id: p.id,
     name: p.name,
     category: p.categoryId,
+    kind: p.kind,
     price: p.price,
     extraMenuPrice: p.extraMenuPrice,
     costPrice: p.costPrice,
-    stock: p.inventoryItem ? p.inventoryItem.stock : null,
-    lowStockThreshold: p.inventoryItem ? p.inventoryItem.lowStockThreshold : 5,
     description: p.description,
     badge: p.badge,
-    available: p.available,
-    icon: p.icon
+    icon: p.icon,
+    enabled: p.enabled,
+    stockStatus: status,
+    available: p.enabled && status !== 'out',
+    // Resold: the article it sells (its count is the product's count).
+    stockItemId: resold ? p.stockItemId : null,
+    stock: resold && p.stockItem ? p.stockItem.stock : null,
+    fullStock: resold && p.stockItem ? p.stockItem.fullStock : null,
+    lowStockThreshold: resold && p.stockItem ? p.stockItem.lowStockThreshold : null,
+    // Made: the recipe, each ingredient with its own current level.
+    ingredients: resold ? [] : (p.ingredients || []).map(link => ({
+      stockItemId: link.stockItemId,
+      name: link.stockItem.name,
+      unit: link.stockItem.unit,
+      quantity: link.quantity,
+      stock: link.stockItem.stock,
+      level: stockLevel(link.stockItem)
+    })).sort((a, b) => a.name.localeCompare(b.name))
   };
 }
 
@@ -222,6 +295,11 @@ function extractChoices(item) {
 }
 
 const orderInclude = { items: { include: { choices: true } } };
+const productInclude = { stockItem: true, ingredients: { include: { stockItem: true } } };
+const stockItemUsageInclude = {
+  soldAs: { select: { name: true } },
+  recipeLinks: { include: { product: { select: { name: true } } } }
+};
 const menuInclude = { groups: { include: { products: true } } };
 
 // Copies one storefront's full catalog (products, meal deals, shopping list)
@@ -234,7 +312,7 @@ async function copyStorefront(sourceStorefrontId, targetEventId, name) {
   });
 
   const [sourceProducts, sourceMenus, sourceShoppingList] = await Promise.all([
-    prisma.product.findMany({ where: { storefrontId: sourceStorefrontId } }),
+    prisma.product.findMany({ where: { storefrontId: sourceStorefrontId }, include: { ingredients: true } }),
     prisma.menu.findMany({ where: { storefrontId: sourceStorefrontId }, include: menuInclude }),
     prisma.shoppingListItem.findMany({ where: { storefrontId: sourceStorefrontId }, include: { products: true, menus: true, stockItems: true } })
   ]);
@@ -250,10 +328,15 @@ async function copyStorefront(sourceStorefrontId, targetEventId, name) {
         price: product.price,
         extraMenuPrice: product.extraMenuPrice,
         costPrice: product.costPrice,
-        inventoryItemId: product.inventoryItemId,
+        kind: product.kind,
+        // StockItem is global (one count for the whole app), so a copy keeps
+        // pointing at the very same article -- and, for a made product, at
+        // the very same ingredients: nothing to remap.
+        stockItemId: product.stockItemId,
+        ingredients: { create: product.ingredients.map(({ stockItemId, quantity }) => ({ stockItemId, quantity })) },
         description: product.description,
         badge: product.badge,
-        available: product.available,
+        enabled: product.enabled,
         icon: product.icon
       }
     });
@@ -358,7 +441,7 @@ class DB {
     const activeStorefront = await this._getActiveStorefront();
     const products = await prisma.product.findMany({
       where: { storefrontId: activeStorefront.id, category: { isVisible: true } },
-      include: { inventoryItem: true }
+      include: productInclude
     });
     return products.map(serializeProduct);
   }
@@ -580,10 +663,9 @@ class DB {
     // per-unit one, so it's derived from totalCost/quantity when there's
     // no unitCost directly on the item. A bought item linked to exactly one
     // catalog Product instead (something bought as-is, e.g. a canned
-    // drink) adds it to that product's SHARED stock (InventoryItem),
-    // cascading `available` to every product of the same name -- there,
-    // null stock DOES mean deliberately untracked/illimité, so it's left
-    // alone. An item linked to several things of either kind is skipped:
+    // drink) adds it to the count of the article that product sells --
+    // there, null stock DOES mean deliberately untracked/illimité, so it's
+    // left alone. An item linked to several things of either kind is skipped:
     // there's no quantified recipe saying how much of a multi-linked
     // article goes to each one, so guessing would just be wrong. An item
     // with NO link at all still isn't skipped -- it get-or-creates a
@@ -605,19 +687,18 @@ class DB {
         if (purchaseUnitCost != null) data.unitCost = Math.round(purchaseUnitCost * 100) / 100;
         await prisma.stockItem.update({ where: { id: stockItemId }, data });
         if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(stockItemId);
-        if (stockItem.inventoryItemId) await this._restockLinkedInventoryItem(stockItem.inventoryItemId, item.quantity);
         restocked.push({ stockItemId, name: stockItem.name, added: item.quantity, newStock });
         continue;
       }
 
       if (item.products.length === 1) {
         const productId = item.products[0].productId;
-        const product = await prisma.product.findUnique({ where: { id: productId }, include: { inventoryItem: true } });
-        if (!product || !product.inventoryItem || product.inventoryItem.stock === null) continue;
-        const newStock = product.inventoryItem.stock + item.quantity;
-        await prisma.inventoryItem.update({ where: { id: product.inventoryItem.id }, data: { stock: newStock } });
-        await prisma.product.updateMany({ where: { inventoryItemId: product.inventoryItem.id }, data: { available: newStock > 0 } });
-        restocked.push({ productId, productName: product.name, added: item.quantity, newStock });
+        const product = await prisma.product.findUnique({ where: { id: productId }, include: { stockItem: true } });
+        const article = product && product.kind === 'resold' ? product.stockItem : null;
+        if (!article || article.stock === null) continue;
+        const newStock = article.stock + item.quantity;
+        await prisma.stockItem.update({ where: { id: article.id }, data: { stock: newStock } });
+        restocked.push({ stockItemId: article.id, name: article.name, productId, productName: product.name, added: item.quantity, newStock });
         continue;
       }
 
@@ -638,7 +719,6 @@ class DB {
         }
         await prisma.stockItem.update({ where: { id: stockItem.id }, data });
         if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(stockItem.id);
-        if (stockItem.inventoryItemId) await this._restockLinkedInventoryItem(stockItem.inventoryItemId, item.quantity);
         await prisma.shoppingListItemStockItem.upsert({
           where: { shoppingListItemId_stockItemId: { shoppingListItemId: item.id, stockItemId: stockItem.id } },
           create: { shoppingListItemId: item.id, stockItemId: stockItem.id },
@@ -729,142 +809,154 @@ class DB {
     await prisma.shoppingListItem.delete({ where: { id } }).catch(() => null);
   }
 
-  // Looks up the shared InventoryItem for a product name (trimmed/
-  // lowercased match), creating one if this is a genuinely new name.
-  async getOrCreateInventoryItem(name) {
-    const normalizedName = name.trim().toLowerCase();
-    const existing = await prisma.inventoryItem.findUnique({ where: { normalizedName } });
-    if (existing) return existing;
-    return prisma.inventoryItem.create({ data: { name: name.trim(), normalizedName } });
-  }
-
+  // ---------------------------------------------------------------------
   // PRODUCTS -- storefrontId is explicit: any storefront's catalog can be
   // browsed and edited from its own page, not just the active (live) one.
-  // Stock is shared (InventoryItem, matched by name) across every
-  // storefront and event -- see serializeProduct.
+  // A product is `made` (recipe of StockItems) or `resold` (one StockItem
+  // sold as-is) -- see the Product model comment in schema.prisma, and
+  // serializeProduct for how availability is derived from the counts.
+  // ---------------------------------------------------------------------
   async getProducts(storefrontId) {
-    const products = await prisma.product.findMany({ where: { storefrontId }, include: { inventoryItem: true } });
+    const products = await prisma.product.findMany({ where: { storefrontId }, include: productInclude });
     return products.map(serializeProduct);
   }
 
   async getProductById(id) {
-    const product = await prisma.product.findUnique({ where: { id }, include: { inventoryItem: true } });
+    const product = await prisma.product.findUnique({ where: { id }, include: productInclude });
     return serializeProduct(product);
   }
 
-  async addProduct(product, storefrontId) {
-    const stock = (product.stock === '' || product.stock === undefined || product.stock === null)
-      ? null
-      : parseInt(product.stock, 10);
+  // Scalar catalog fields shared by add and update; only what the payload
+  // actually carries is returned, so update never clobbers an untouched field.
+  _productFields(input) {
+    const data = {};
+    if (input.name !== undefined) data.name = input.name.trim();
+    if (input.category !== undefined) data.categoryId = input.category;
+    if (input.description !== undefined) data.description = input.description || '';
+    if (input.badge !== undefined) data.badge = input.badge || '';
+    if (input.icon !== undefined) data.icon = input.icon;
+    if (input.enabled !== undefined) data.enabled = !!input.enabled;
+    if (input.price !== undefined) data.price = parseFloat(input.price) || 0;
+    if (input.extraMenuPrice !== undefined) data.extraMenuPrice = parseFloat(input.extraMenuPrice) || 0;
+    return data;
+  }
 
-    // A brand-new name seeds the shared item with this form's stock value;
-    // an existing one (another product of the same name already tracks it
-    // somewhere) is never silently overwritten by adding a product here.
-    const normalizedName = product.name.trim().toLowerCase();
-    let inventoryItem = await prisma.inventoryItem.findUnique({ where: { normalizedName } });
-    if (!inventoryItem) {
-      inventoryItem = await prisma.inventoryItem.create({ data: { name: product.name.trim(), normalizedName, stock } });
+  // The StockItem a `resold` product sells: the one picked explicitly, else
+  // the one matching the product's name (created if this is a new name).
+  // The stock/threshold/target/cost in the payload describe THAT article --
+  // every product (in any storefront) selling it sees the change. On add
+  // (`keepExisting`), an article that already existed keeps any number the
+  // form left blank instead of having it wiped by an empty field; on
+  // update, blank stock means "stop tracking" and is applied as such.
+  async _resolveSoldArticle(input, fallbackName, { keepExisting }) {
+    let article = input.stockItemId ? await prisma.stockItem.findUnique({ where: { id: input.stockItemId } }) : null;
+    let created = false;
+    if (!article) ({ item: article, created } = await this.getOrCreateStockItem(fallbackName));
+
+    const numbers = {
+      stock: parseNullable(input.stock),
+      fullStock: parseNullable(input.fullStock),
+      lowStockThreshold: parseNullable(input.lowStockThreshold),
+      unitCost: parseNullable(input.costPrice)
+    };
+    const data = {};
+    for (const [key, value] of Object.entries(numbers)) {
+      if (value === undefined) continue;
+      if (value === null && keepExisting && !created) continue;
+      data[key] = value;
     }
+    // A brand-new article starts with the usual "low at 5" threshold.
+    if (created && data.lowStockThreshold == null) data.lowStockThreshold = DEFAULT_SOLD_LOW_THRESHOLD;
+    if (Object.keys(data).length > 0) article = await prisma.stockItem.update({ where: { id: article.id }, data });
+    return article;
+  }
+
+  async addProduct(product, storefrontId) {
+    const kind = product.kind === 'resold' ? 'resold' : 'made';
+    const article = kind === 'resold' ? await this._resolveSoldArticle(product, product.name, { keepExisting: true }) : null;
 
     const created = await prisma.product.create({
       data: {
+        ...this._productFields({ ...product, enabled: true }),
         storefrontId,
-        name: product.name,
-        categoryId: product.category,
-        price: parseFloat(product.price) || 0,
-        extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
-        costPrice: (product.costPrice === '' || product.costPrice === undefined || product.costPrice === null) ? null : parseFloat(product.costPrice),
-        inventoryItemId: inventoryItem.id,
-        description: product.description || '',
-        badge: product.badge || '',
-        available: inventoryItem.stock !== null ? inventoryItem.stock > 0 : true,
+        costPrice: kind === 'made' ? parseNullable(product.costPrice) ?? null : null,
+        kind,
+        stockItemId: article ? article.id : null,
         icon: product.icon || '🥪'
-      },
-      include: { inventoryItem: true }
+      }
     });
-    return serializeProduct(created);
+
+    if (kind === 'made') await this.setProductRecipe(created.id, product.ingredients);
+    else await this.recomputeProductCost(created.id);
+    if (article) await this._autoAddSafely([article.id], storefrontId);
+    return this.getProductById(created.id);
   }
 
   async updateProduct(id, updates) {
-    const existing = await prisma.product.findUnique({ where: { id }, include: { inventoryItem: true } });
+    const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) return null;
 
-    const data = {};
-    if (updates.name !== undefined) data.name = updates.name;
-    if (updates.category !== undefined) data.categoryId = updates.category;
-    if (updates.description !== undefined) data.description = updates.description;
-    if (updates.badge !== undefined) data.badge = updates.badge;
-    if (updates.icon !== undefined) data.icon = updates.icon;
-    if (updates.available !== undefined) data.available = !!updates.available;
-    if (updates.price !== undefined) data.price = parseFloat(updates.price);
-    if (updates.extraMenuPrice !== undefined) data.extraMenuPrice = parseFloat(updates.extraMenuPrice) || 0;
-    if (updates.costPrice !== undefined) {
-      data.costPrice = (updates.costPrice === '' || updates.costPrice === null) ? null : parseFloat(updates.costPrice);
+    const data = this._productFields(updates);
+    // Legacy clients still send `available` for the manual switch.
+    if (updates.available !== undefined && updates.enabled === undefined) data.enabled = !!updates.available;
+
+    const kind = updates.kind !== undefined ? (updates.kind === 'resold' ? 'resold' : 'made') : existing.kind;
+    data.kind = kind;
+
+    let article = null;
+    if (kind === 'resold') {
+      article = await this._resolveSoldArticle(
+        { ...updates, stockItemId: updates.stockItemId !== undefined ? updates.stockItemId : existing.stockItemId },
+        data.name ?? existing.name,
+        { keepExisting: false }
+      );
+      data.stockItemId = article.id;
+      data.costPrice = null; // derived from the article, see recomputeProductCost
+    } else {
+      data.stockItemId = null;
+      if (updates.costPrice !== undefined) data.costPrice = parseNullable(updates.costPrice);
     }
 
-    // Renaming re-points the product at whichever InventoryItem matches
-    // the NEW name (creating one if needed) -- it's a different shared
-    // item now, so it stops tracking the old name's stock.
-    let inventoryItemId = existing.inventoryItemId;
-    if (updates.name !== undefined && updates.name.trim().toLowerCase() !== existing.name.trim().toLowerCase()) {
-      const item = await this.getOrCreateInventoryItem(updates.name);
-      inventoryItemId = item.id;
-      data.inventoryItemId = inventoryItemId;
-    }
+    await prisma.product.update({ where: { id }, data });
 
-    // stock/lowStockThreshold target the shared InventoryItem, not this
-    // Product row -- every other product with the same name sees the
-    // change too, and available cascades to all of them together so
-    // nobody keeps selling something that just hit zero, or stays hidden
-    // after a restock.
-    if (updates.stock !== undefined || updates.lowStockThreshold !== undefined) {
-      let item = inventoryItemId ? await prisma.inventoryItem.findUnique({ where: { id: inventoryItemId } }) : null;
-      if (!item) {
-        item = await this.getOrCreateInventoryItem(updates.name ?? existing.name);
-        inventoryItemId = item.id;
-        data.inventoryItemId = inventoryItemId;
-      }
-      const itemData = {};
-      if (updates.stock !== undefined) {
-        itemData.stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
-      }
-      if (updates.lowStockThreshold !== undefined) {
-        itemData.lowStockThreshold = Math.max(0, parseInt(updates.lowStockThreshold, 10) || 0);
-      }
-      const updatedItem = await prisma.inventoryItem.update({ where: { id: item.id }, data: itemData });
-      if (itemData.stock !== undefined) {
-        const cascadedAvailable = updatedItem.stock !== null ? updatedItem.stock > 0 : true;
-        await prisma.product.updateMany({ where: { inventoryItemId: item.id }, data: { available: cascadedAvailable } });
-      }
+    if (kind === 'made') {
+      // Going resold -> made without a recipe in the payload just starts an empty one.
+      if (updates.ingredients !== undefined || existing.kind !== 'made') await this.setProductRecipe(id, updates.ingredients);
+    } else {
+      await prisma.productIngredient.deleteMany({ where: { productId: id } });
+      await this.recomputeProductCost(id);
+      // Now that its number(s) may have changed, its siblings' derived cost too.
+      await this.recomputeProductsUsingStockItem(article.id);
     }
-
-    const updated = await prisma.product.update({ where: { id }, data, include: { inventoryItem: true } });
-    return serializeProduct(updated);
+    if (article) await this._autoAddSafely([article.id], existing.storefrontId);
+    return this.getProductById(id);
   }
 
   async deleteProduct(id) {
     await prisma.product.delete({ where: { id } }).catch(() => null);
   }
 
+  // The manual on/off switch (Product.enabled). It can't bring back a
+  // product that's out of stock: `available` stays false until the count
+  // does, whatever this says.
   async toggleProductStock(id) {
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) return null;
-    const updated = await prisma.product.update({
-      where: { id },
-      data: { available: !product.available },
-      include: { inventoryItem: true }
-    });
-    return serializeProduct(updated);
+    await prisma.product.update({ where: { id }, data: { enabled: !product.enabled } });
+    return this.getProductById(id);
   }
 
-  // STOCK ITEMS -- raw ingredients/supplies the BDE actually buys, managed
-  // by hand and global (the same physical pantry serves every event, same
-  // reasoning as InventoryItem). See the StockItem model comment for how
-  // this differs from a catalog Product's own (finished-goods) stock.
+  // ---------------------------------------------------------------------
+  // STOCK ITEMS -- every physical thing the BDE keeps a count of. See the
+  // StockItem model comment in schema.prisma. Counts only ever change by
+  // hand (here), by a shopping trip (closeShoppingTrip), or -- for a
+  // `resold` product only -- by its own sales (_adjustStock).
+  // ---------------------------------------------------------------------
+
   // `created` tells the caller whether this is a brand-new StockItem (so it
   // can seed fullStock/lowStockThreshold from the purchase that revealed
   // it -- see closeShoppingTrip) as opposed to one that already existed and
-  // shouldn't have its own settings clobbered.
+  // has been configured. Matched by trimmed/lowercased name.
   async getOrCreateStockItem(name, unit) {
     const normalizedName = name.trim().toLowerCase();
     const existing = await prisma.stockItem.findUnique({ where: { normalizedName } });
@@ -874,53 +966,16 @@ class DB {
   }
 
   async getStockItems() {
-    const items = await prisma.stockItem.findMany({ orderBy: { name: 'asc' }, include: { inventoryItem: true } });
+    const items = await prisma.stockItem.findMany({
+      orderBy: { name: 'asc' },
+      include: stockItemUsageInclude
+    });
     return items.map(serializeStockItem);
   }
 
-  // The other side of the link: products sold as-is (with tracked stock),
-  // global like StockItem -- what Stock's second table shows, and what the
-  // "also a product" picker on a StockItem offers to link to. Only
-  // products with stock tracking turned on show up here; an untracked
-  // (illimité) one has no InventoryItem row to link against yet.
-  async getInventoryItems() {
-    const items = await prisma.inventoryItem.findMany({ orderBy: { name: 'asc' }, include: { stockItem: true } });
-    return items.map(serializeInventoryItem);
-  }
-
-  // Direct edit from the Stock tab's product-stock table -- same numbers a
-  // product's own edit modal writes to this same shared row, just reachable
-  // without opening a specific product. Cascades `available` like every
-  // other InventoryItem.stock write.
-  async updateInventoryItem(id, updates) {
-    const data = {};
-    if (updates.stock !== undefined) data.stock = (updates.stock === '' || updates.stock === null) ? null : parseInt(updates.stock, 10);
-    if (updates.lowStockThreshold !== undefined) data.lowStockThreshold = Math.max(0, parseInt(updates.lowStockThreshold, 10) || 0);
-    const updated = await prisma.inventoryItem.update({ where: { id }, data, include: { stockItem: true } }).catch(() => null);
-    if (!updated) return null;
-    if (data.stock !== undefined) {
-      await prisma.product.updateMany({ where: { inventoryItemId: id }, data: { available: data.stock === null ? true : data.stock > 0 } });
-    }
-    return serializeInventoryItem(updated);
-  }
-
-  // Only succeeds while no product still references it. This check has to
-  // be explicit: Product.inventoryItemId is an OPTIONAL relation, so its
-  // implicit default referential action is SetNull, not Restrict -- the
-  // delete would otherwise silently succeed and orphan every product still
-  // pointing at it (breaking their shared-stock link) instead of refusing.
-  async deleteInventoryItem(id) {
-    const stillUsed = await prisma.product.count({ where: { inventoryItemId: id } });
-    if (stillUsed > 0) return false;
-    await prisma.inventoryItem.delete({ where: { id } }).catch(() => null);
-    return !(await prisma.inventoryItem.findUnique({ where: { id } }));
-  }
-
-  // Returns null on a duplicate name (route turns that into a 400 -- see
-  // the global error handler in index.js, which doesn't inspect thrown
-  // errors and always answers 500, so validation problems have to be
-  // reported this way instead of by throwing).
-  async addStockItem(data) {
+  // Validation problems are returned, not thrown: the `ah` wrapper in
+  // index.js turns any thrown error into a 500.
+  async addStockItem(data, storefrontId) {
     const normalizedName = data.name.trim().toLowerCase();
     if (await prisma.stockItem.findUnique({ where: { normalizedName } })) return null;
     const created = await prisma.stockItem.create({
@@ -928,122 +983,136 @@ class DB {
         name: data.name.trim(),
         normalizedName,
         unit: data.unit || null,
-        stock: data.stock === '' || data.stock == null ? null : parseFloat(data.stock),
-        fullStock: data.fullStock === '' || data.fullStock == null ? null : parseFloat(data.fullStock),
-        lowStockThreshold: data.lowStockThreshold === '' || data.lowStockThreshold == null ? null : parseFloat(data.lowStockThreshold),
-        unitCost: data.unitCost === '' || data.unitCost == null ? null : parseFloat(data.unitCost),
-        inventoryItemId: data.inventoryItemId || null
+        stock: parseNullable(data.stock) ?? null,
+        fullStock: parseNullable(data.fullStock) ?? null,
+        lowStockThreshold: parseNullable(data.lowStockThreshold) ?? null,
+        unitCost: parseNullable(data.unitCost) ?? null
       },
-      include: { inventoryItem: true }
+      include: stockItemUsageInclude
     });
+    await this._autoAddSafely([created.id], storefrontId);
     return serializeStockItem(created);
   }
 
-  async updateStockItem(id, updates) {
+  async updateStockItem(id, updates, storefrontId) {
     const existing = await prisma.stockItem.findUnique({ where: { id } });
-    if (!existing) return null;
+    if (!existing) return { error: 'not_found' };
 
     const data = {};
     if (updates.name !== undefined) {
       data.name = updates.name.trim();
-      data.normalizedName = updates.name.trim().toLowerCase();
+      data.normalizedName = data.name.toLowerCase();
+      const clash = await prisma.stockItem.findUnique({ where: { normalizedName: data.normalizedName } });
+      if (clash && clash.id !== id) return { error: 'duplicate' };
     }
     if (updates.unit !== undefined) data.unit = updates.unit || null;
-    if (updates.stock !== undefined) data.stock = (updates.stock === '' || updates.stock === null) ? null : parseFloat(updates.stock);
-    if (updates.fullStock !== undefined) data.fullStock = (updates.fullStock === '' || updates.fullStock === null) ? null : parseFloat(updates.fullStock);
-    if (updates.lowStockThreshold !== undefined) data.lowStockThreshold = (updates.lowStockThreshold === '' || updates.lowStockThreshold === null) ? null : parseFloat(updates.lowStockThreshold);
-    if (updates.unitCost !== undefined) data.unitCost = (updates.unitCost === '' || updates.unitCost === null) ? null : parseFloat(updates.unitCost);
-    if (updates.inventoryItemId !== undefined) data.inventoryItemId = updates.inventoryItemId || null;
-
-    const updated = await prisma.stockItem.update({ where: { id }, data, include: { inventoryItem: true } });
-    if (updates.unitCost !== undefined) await this.recomputeProductsUsingStockItem(id);
-    return serializeStockItem(updated);
-  }
-
-  // A changed ingredient cost changes the derived cost of every product
-  // whose recipe uses it -- see recomputeProductCost. Shared by
-  // updateStockItem (manual edit) and closeShoppingTrip (a purchase's real
-  // price refreshing it), the two places a StockItem's unitCost can change.
-  async recomputeProductsUsingStockItem(stockItemId) {
-    const links = await prisma.productIngredient.findMany({ where: { stockItemId }, select: { productId: true } });
-    for (const link of links) await this.recomputeProductCost(link.productId);
-  }
-
-  // A StockItem linked to an InventoryItem (see StockItem.inventoryItemId)
-  // is one physical thing tracked from both sides -- buying it restocks
-  // both. Mirrors the plain Product-restock branch in closeShoppingTrip
-  // (same cascade of `available` to every product sharing the item).
-  async _restockLinkedInventoryItem(inventoryItemId, quantity) {
-    const inventoryItem = await prisma.inventoryItem.findUnique({ where: { id: inventoryItemId } });
-    if (!inventoryItem || inventoryItem.stock === null) return;
-    const newStock = inventoryItem.stock + quantity;
-    await prisma.inventoryItem.update({ where: { id: inventoryItemId }, data: { stock: newStock } });
-    await prisma.product.updateMany({ where: { inventoryItemId }, data: { available: newStock > 0 } });
-  }
-
-  async deleteStockItem(id) {
-    await prisma.stockItem.delete({ where: { id } }).catch(() => null);
-  }
-
-  // RECIPES -- how much of each StockItem one unit of a Product consumes.
-  async getProductRecipe(productId) {
-    const links = await prisma.productIngredient.findMany({
-      where: { productId },
-      include: { stockItem: true }
-    });
-    return links.map(link => ({
-      stockItemId: link.stockItemId,
-      name: link.stockItem.name,
-      unit: link.stockItem.unit,
-      quantity: link.quantity
-    }));
-  }
-
-  // Replaces a product's whole recipe (simplest correct way to handle
-  // add/remove/change-quantity in one call, same pattern as
-  // updateShoppingListItem's productIds) and recomputes its derived cost.
-  async setProductRecipe(productId, ingredients) {
-    await prisma.productIngredient.deleteMany({ where: { productId } });
-    const rows = (ingredients || [])
-      .filter(ing => ing.stockItemId && ing.quantity > 0)
-      .map(ing => ({ productId, stockItemId: ing.stockItemId, quantity: parseFloat(ing.quantity) }));
-    if (rows.length > 0) {
-      await prisma.productIngredient.createMany({ data: rows });
+    for (const key of ['stock', 'fullStock', 'lowStockThreshold', 'unitCost']) {
+      if (updates[key] !== undefined) data[key] = parseNullable(updates[key]);
     }
-    await this.recomputeProductCost(productId);
-    return this.getProductRecipe(productId);
+
+    const updated = await prisma.stockItem.update({ where: { id }, data, include: stockItemUsageInclude });
+    if (data.unitCost !== undefined) await this.recomputeProductsUsingStockItem(id);
+    if (data.stock !== undefined || data.lowStockThreshold !== undefined || data.fullStock !== undefined) {
+      await this._autoAddSafely([id], storefrontId);
+    }
+    return { item: serializeStockItem(updated) };
   }
 
-  // A product's costPrice is DERIVED from its recipe (sum of each
-  // ingredient's unitCost * quantity) whenever one is defined, instead of
-  // staying whatever was last typed by hand -- this is what makes
-  // margin/profit stats reflect a real, defensible cost rather than a
-  // guess. A product with no recipe (nothing defined yet) keeps its
-  // existing costPrice untouched: nothing regresses for products nobody
-  // has gotten to yet. Called after every recipe edit, and after any
-  // ingredient's unitCost changes (see updateStockItem).
+  // Refused while any product still needs it: a recipe silently losing an
+  // ingredient (and its cost) or a resold product losing what it sells is
+  // never what a delete click meant.
+  async deleteStockItem(id) {
+    const item = await prisma.stockItem.findUnique({ where: { id }, include: stockItemUsageInclude });
+    if (!item) return { error: 'not_found' };
+    const usage = serializeStockItem(item).usedBy;
+    const usedBy = [...new Set([...usage.soldAs, ...usage.recipes])];
+    if (usedBy.length > 0) return { error: 'in_use', usedBy };
+    await prisma.stockItem.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  // A product's costPrice is DERIVED from its stock wherever there is
+  // something to derive it from -- a made product from its recipe (sum of
+  // each ingredient's unitCost * quantity), a resold one from its article's
+  // unitCost -- so margins/profit stats reflect a real cost rather than a
+  // guess. With nothing to derive from (empty recipe, no unit costs) the
+  // hand-entered costPrice is left alone. Called after every recipe edit
+  // and after any StockItem's unitCost changes.
   async recomputeProductCost(productId) {
-    const links = await prisma.productIngredient.findMany({ where: { productId }, include: { stockItem: true } });
-    if (links.length === 0) return;
-    const hasAnyCost = links.some(link => link.stockItem.unitCost != null);
-    if (!hasAnyCost) return;
-    const costPrice = links.reduce((sum, link) => sum + (link.stockItem.unitCost || 0) * link.quantity, 0);
+    const product = await prisma.product.findUnique({ where: { id: productId }, include: productInclude });
+    if (!product) return;
+    let costPrice = null;
+    if (product.kind === 'resold') {
+      costPrice = product.stockItem ? product.stockItem.unitCost : null;
+    } else if (product.ingredients.some(link => link.stockItem.unitCost != null)) {
+      costPrice = product.ingredients.reduce((sum, link) => sum + (link.stockItem.unitCost || 0) * link.quantity, 0);
+    }
+    if (costPrice === null) return;
     await prisma.product.update({ where: { id: productId }, data: { costPrice: Math.round(costPrice * 100) / 100 } });
   }
 
-  // Every StockItem at or below its own threshold, with a suggested
-  // restock quantity (up to fullStock, its "stock plein" target) -- the
-  // ONLY basis for the Stock tab's automatic shopping-list generation
-  // (see generateShoppingList below). Global, not scoped to one event's
-  // catalog: ingredients are the BDE's real pantry, not tied to a
-  // storefront's product list the way InventoryItem-backed stock is.
+  // Every product whose derived cost depends on this StockItem.
+  async recomputeProductsUsingStockItem(stockItemId) {
+    const [links, sold] = await Promise.all([
+      prisma.productIngredient.findMany({ where: { stockItemId }, select: { productId: true } }),
+      prisma.product.findMany({ where: { stockItemId }, select: { id: true } })
+    ]);
+    const productIds = new Set([...links.map(link => link.productId), ...sold.map(p => p.id)]);
+    for (const productId of productIds) await this.recomputeProductCost(productId);
+  }
+
+  // RECIPE of a made product: replaces it wholesale (simplest correct way
+  // to handle add/remove/change-quantity in one call) and recomputes the
+  // product's derived cost. A line is either an existing article
+  // (`stockItemId`) or one named on the spot (`name` + optional `unit`):
+  // that one is matched by name to an existing article, or created --
+  // untracked, since nobody has counted it yet (see StockItem) -- so an
+  // ingredient can be introduced straight from the product form. Lines
+  // resolving to the same article are merged, and all of them are resolved
+  // BEFORE the old recipe is dropped so a bad line can't leave it empty.
+  async setProductRecipe(productId, ingredients) {
+    const quantities = new Map();
+    for (const ing of ingredients || []) {
+      const quantity = parseFloat(ing.quantity);
+      if (!(quantity > 0)) continue;
+
+      let stockItemId = ing.stockItemId;
+      if (!stockItemId) {
+        const name = typeof ing.name === 'string' ? ing.name.trim() : '';
+        if (!name) continue;
+        const unit = typeof ing.unit === 'string' ? ing.unit.trim() : '';
+        const { item, created } = await this.getOrCreateStockItem(name, unit);
+        // A matched article that never had a unit takes the one just typed.
+        if (!created && !item.unit && unit) await prisma.stockItem.update({ where: { id: item.id }, data: { unit } });
+        stockItemId = item.id;
+      }
+      quantities.set(stockItemId, (quantities.get(stockItemId) || 0) + quantity);
+    }
+
+    await prisma.productIngredient.deleteMany({ where: { productId } });
+    if (quantities.size > 0) {
+      await prisma.productIngredient.createMany({
+        data: [...quantities].map(([stockItemId, quantity]) => ({ productId, stockItemId, quantity }))
+      });
+    }
+    await this.recomputeProductCost(productId);
+  }
+
+  // ---------------------------------------------------------------------
+  // RESTOCK -- a StockItem at or below its own threshold (or at 0) belongs
+  // on the shopping list. That happens automatically whenever a count
+  // changes (_autoAddSafely, wired into every place that changes one),
+  // and generateShoppingList below is the manual catch-up for anything
+  // that was already low before this ran.
+  // ---------------------------------------------------------------------
+
+  // Every StockItem that needs restocking, with a suggested quantity.
   async getRestockCandidates() {
     const items = await prisma.stockItem.findMany();
     return items
-      .filter(si => si.stock !== null && si.lowStockThreshold !== null && si.stock <= si.lowStockThreshold)
+      .filter(needsRestock)
       .map(si => {
-        const target = si.fullStock !== null && si.fullStock > si.stock ? si.fullStock : si.lowStockThreshold;
-        const quantity = Math.max(si.unit ? 0.1 : 1, Math.round((target - si.stock) * 10) / 10);
+        const quantity = restockQuantity(si);
         return {
           stockItemId: si.id,
           name: si.name,
@@ -1058,33 +1127,72 @@ class DB {
       .sort((a, b) => a.stock - b.stock);
   }
 
-  // Pre-fills the storefront's shopping list with one line per restock
-  // candidate above, linked to its StockItem (so closeShoppingTrip can
-  // restock it) -- skips anything already on the list (by name).
-  async generateShoppingList(storefrontId) {
-    const trip = await this.getOrCreateOpenTrip(storefrontId);
-    const [candidates, existing] = await Promise.all([
-      this.getRestockCandidates(),
-      prisma.shoppingListItem.findMany({ where: { tripId: trip.id }, select: { name: true } })
-    ]);
-    const existingNames = new Set(existing.map(it => it.name.trim().toLowerCase()));
-    const toCreate = candidates.filter(c => !existingNames.has(c.name.trim().toLowerCase()));
+  // Puts the low/out ones among `stockItemIds` on the storefront's OPEN
+  // shopping list, linked to their StockItem (so closing the trip can
+  // restock them). Skips whatever is already on that list -- by link, or by
+  // name for a hand-typed line -- so it is safe to call as often as a count
+  // changes. Not removed again if the count later recovers: a line already
+  // on the list stays until it's bought or deleted.
+  // `storefrontId` is whichever storefront the change was made from; with
+  // none (or an unknown one) the active storefront's list is used, since
+  // counts are global but a list is per storefront.
+  async autoAddToShoppingList(stockItemIds, storefrontId) {
+    const ids = [...new Set((stockItemIds || []).filter(Boolean))];
+    if (ids.length === 0) return { created: 0, skipped: 0 };
 
-    for (const c of toCreate) {
+    const storefront = (storefrontId && await prisma.storefront.findUnique({ where: { id: storefrontId } }))
+      || await prisma.storefront.findFirst({ where: { isActive: true } });
+    if (!storefront) return { created: 0, skipped: 0 };
+
+    const low = (await prisma.stockItem.findMany({ where: { id: { in: ids } } })).filter(needsRestock);
+    if (low.length === 0) return { created: 0, skipped: 0 };
+
+    const trip = await this.getOrCreateOpenTrip(storefront.id);
+    const listed = await prisma.shoppingListItem.findMany({
+      where: { tripId: trip.id },
+      select: { name: true, stockItems: { select: { stockItemId: true } } }
+    });
+    const listedIds = new Set(listed.flatMap(item => item.stockItems.map(link => link.stockItemId)));
+    const listedNames = new Set(listed.map(item => item.name.trim().toLowerCase()));
+
+    let created = 0;
+    for (const si of low) {
+      if (listedIds.has(si.id) || listedNames.has(si.normalizedName)) continue;
+      const quantity = restockQuantity(si);
       await prisma.shoppingListItem.create({
         data: {
-          storefrontId,
+          storefrontId: storefront.id,
           tripId: trip.id,
-          name: c.name,
-          unit: c.unit,
-          quantity: c.quantity,
-          totalCost: c.totalCost,
-          stockItems: { create: [{ stockItemId: c.stockItemId }] }
+          name: si.name,
+          unit: si.unit,
+          quantity,
+          // Only an ESTIMATED total: a unitCost here would win over the
+          // real price typed at the store when the trip is closed (see
+          // closeShoppingTrip), keeping the old price instead of updating it.
+          totalCost: si.unitCost != null ? Math.round(si.unitCost * quantity * 100) / 100 : null,
+          stockItems: { create: [{ stockItemId: si.id }] }
         }
       });
+      created++;
     }
+    return { created, skipped: low.length - created };
+  }
 
-    return { created: toCreate.length, skipped: candidates.length - toCreate.length };
+  // The shopping-list top-up is a side effect of a count change that has
+  // already been saved -- if it fails, the change itself must still stand.
+  async _autoAddSafely(stockItemIds, storefrontId) {
+    try {
+      await this.autoAddToShoppingList(stockItemIds, storefrontId);
+    } catch (e) {
+      console.error('Auto-add to shopping list failed:', e);
+    }
+  }
+
+  // Manual catch-up: every currently low/out article, not just one that
+  // just changed.
+  async generateShoppingList(storefrontId) {
+    const all = await prisma.stockItem.findMany({ select: { id: true } });
+    return this.autoAddToShoppingList(all.map(si => si.id), storefrontId);
   }
 
   // MENUS -- same explicit storefrontId as products.
@@ -1175,52 +1283,66 @@ class DB {
     const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!order) return false;
     if (order.status !== 'cancelled') {
-      await this._adjustStock(serializeOrder(order).items, 1);
+      await this._adjustStock(serializeOrder(order).items, 1, order.storefrontId);
     }
     await prisma.order.delete({ where: { id } });
     return true;
   }
 
-  // Decrements (delta -1) or restores (delta +1) the stock of an order's
-  // products, breaking meal deals down into their chosen products. Only
-  // touches products with tracked stock (stock !== null).
-  async _adjustStock(items, delta) {
-    const applyToProduct = async (productId, qty) => {
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        include: { inventoryItem: { include: { stockItem: true } } }
-      });
-      if (!product || !product.inventoryItem || product.inventoryItem.stock === null) return;
-      // Shared stock: this order may be on a different storefront than the
-      // one another product of the same name lives on, but they're the
-      // same physical item -- so the update (and the resulting
-      // available flip) has to reach every product linked to it, not just
-      // this one.
-      const stock = Math.max(0, product.inventoryItem.stock + delta * qty);
-      await prisma.inventoryItem.update({ where: { id: product.inventoryItem.id }, data: { stock } });
-      await prisma.product.updateMany({ where: { inventoryItemId: product.inventoryItem.id }, data: { available: stock > 0 } });
-      // This sellable line is also tracked as a raw ingredient (see
-      // StockItem.inventoryItemId) -- an order selling it consumes that
-      // stock just as surely as a shopping trip replenishes it, otherwise
-      // the ingredient count would silently drift from reality.
-      const linkedStockItem = product.inventoryItem.stockItem;
-      if (linkedStockItem && linkedStockItem.stock !== null) {
-        const linkedStock = Math.max(0, linkedStockItem.stock + delta * qty);
-        await prisma.stockItem.update({ where: { id: linkedStockItem.id }, data: { stock: linkedStock } });
-      }
+  // How many of each catalog product an order's lines add up to, breaking
+  // meal deals down into their chosen products. Product id -> quantity.
+  _productQuantities(items) {
+    const quantities = new Map();
+    const add = (productId, qty) => {
+      if (productId) quantities.set(productId, (quantities.get(productId) || 0) + (parseInt(qty, 10) || 1));
     };
     for (const item of items || []) {
       if (item.type === 'menu' && item.choices) {
-        const chosenProducts = Array.isArray(item.choices)
-          ? item.choices.map(entry => entry && entry.product)
-          : Object.values(item.choices);
-        for (const chosenProduct of chosenProducts) {
-          if (chosenProduct && chosenProduct.id) await applyToProduct(chosenProduct.id, item.quantity);
-        }
-      } else if (item.id) {
-        await applyToProduct(item.id, item.quantity);
+        const chosen = Array.isArray(item.choices) ? item.choices.map(entry => entry && entry.product) : Object.values(item.choices);
+        for (const product of chosen) if (product) add(product.id, item.quantity);
+      } else {
+        add(item.id, item.quantity);
       }
     }
+    return quantities;
+  }
+
+  // Checks a cart against live stock before an order is taken: what the
+  // storefront hides is also refused here, so a stale cart (or a race for
+  // the last item) can't oversell. Returns one human-readable line per
+  // problem; empty when the whole cart can be served.
+  async getUnavailableCartItems(items) {
+    const quantities = this._productQuantities(items);
+    const products = await prisma.product.findMany({ where: { id: { in: [...quantities.keys()] } }, include: productInclude });
+    const problems = [];
+    for (const product of products) {
+      const serialized = serializeProduct(product);
+      if (!serialized.available) {
+        problems.push(`${product.name} n'est plus disponible`);
+      } else if (serialized.stock !== null && serialized.stock < quantities.get(product.id)) {
+        problems.push(`${product.name} : il n'en reste que ${serialized.stock}`);
+      }
+    }
+    return problems;
+  }
+
+  // Sells (delta -1) or gives back (delta +1) the stock of an order's
+  // products. Only a `resold` product's own count moves: a made product's
+  // ingredients are kept by hand (see StockItem), so selling one deducts
+  // nothing. Untracked (null) counts are left alone. Decrements are atomic
+  // and floored at 0, then any article that just went low is put on the
+  // shopping list.
+  async _adjustStock(items, delta, storefrontId) {
+    const touched = new Set();
+    for (const [productId, qty] of this._productQuantities(items)) {
+      const product = await prisma.product.findUnique({ where: { id: productId }, include: { stockItem: true } });
+      if (!product || product.kind !== 'resold' || !product.stockItem || product.stockItem.stock === null) continue;
+      const id = product.stockItem.id;
+      await prisma.stockItem.update({ where: { id }, data: { stock: { increment: delta * qty } } });
+      await prisma.stockItem.updateMany({ where: { id, stock: { lt: 0 } }, data: { stock: 0 } });
+      touched.add(id);
+    }
+    if (delta < 0) await this._autoAddSafely([...touched], storefrontId);
   }
 
   // storefrontId defaults to the active storefront (student checkout,
@@ -1249,7 +1371,7 @@ class DB {
       include: orderInclude
     });
     const serialized = serializeOrder(created);
-    await this._adjustStock(serialized.items, -1);
+    await this._adjustStock(serialized.items, -1, storefrontId);
     return serialized;
   }
 
@@ -1268,7 +1390,7 @@ class DB {
     const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!order) return null;
     if (status === 'cancelled' && order.status !== 'cancelled') {
-      await this._adjustStock(serializeOrder(order).items, 1);
+      await this._adjustStock(serializeOrder(order).items, 1, order.storefrontId);
     }
     const updated = await prisma.order.update({ where: { id }, data: { status }, include: orderInclude });
     return serializeOrder(updated);
@@ -1286,7 +1408,7 @@ class DB {
   }
 
   async updateOrder(id, updates) {
-    const existing = await prisma.order.findUnique({ where: { id } });
+    const existing = await prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!existing) return null;
 
     const data = {};
@@ -1294,13 +1416,20 @@ class DB {
     if (updates.note !== undefined) data.note = updates.note;
     if (updates.totalPrice !== undefined) data.totalPrice = parseFloat(updates.totalPrice) || 0;
 
+    // Editing an order's items is a return of the old ones plus a sale of
+    // the new ones, unless the order is cancelled (it holds no stock).
+    const restocksItems = updates.items !== undefined && existing.status !== 'cancelled';
+    if (restocksItems) await this._adjustStock(serializeOrder(existing).items, 1, existing.storefrontId);
+
     if (updates.items !== undefined) {
       await prisma.orderItem.deleteMany({ where: { orderId: id } });
       data.items = buildOrderItemsInput(updates.items);
     }
 
     const updated = await prisma.order.update({ where: { id }, data, include: orderInclude });
-    return serializeOrder(updated);
+    const serialized = serializeOrder(updated);
+    if (restocksItems) await this._adjustStock(serialized.items, -1, existing.storefrontId);
+    return serialized;
   }
 
   async setOrderReview(id, userId, review) {
@@ -1374,20 +1503,20 @@ class DB {
   // old event that also happened to buy orange juice, suggested for a
   // current one that doesn't sell it. A group with no product link at all
   // (a generic/untracked ingredient) is always kept: there's no way to
-  // tell either way. Matched via the shared InventoryItem (see
-  // getOrCreateInventoryItem), not the historical item's own Product.id
-  // row, since the "same" product is a different row per storefront.
+  // tell either way. Matched by productKey (shared article, else name), not
+  // the historical item's own Product.id row, since the "same" product is a
+  // different row per storefront.
   async getAverageShoppingList(storefrontId) {
     const items = await prisma.shoppingListItem.findMany({
       where: { storefront: { event: { status: 'completed' } }, forDays: { not: null, gt: 0 } },
-      include: { products: { include: { product: { select: { inventoryItemId: true } } } } }
+      include: { products: { include: { product: { select: { stockItemId: true, name: true } } } } }
     });
 
     const groups = new Map();
     for (const item of items) {
       const key = `${item.name.trim().toLowerCase()} ${(item.unit || '').trim().toLowerCase()}`;
       if (!groups.has(key)) {
-        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation, inventoryItemIds: new Set() });
+        groups.set(key, { name: item.name.trim(), unit: item.unit, qtySum: 0, qtyCount: 0, costSum: 0, costCount: 0, purchaseLocation: item.purchaseLocation, productKeys: new Set() });
       }
       const group = groups.get(key);
       if (item.quantity !== null && item.quantity !== undefined) {
@@ -1398,13 +1527,13 @@ class DB {
         group.costSum += item.totalCost / item.forDays;
         group.costCount += 1;
       }
-      (item.products || []).forEach(link => { if (link.product?.inventoryItemId) group.inventoryItemIds.add(link.product.inventoryItemId); });
+      (item.products || []).forEach(link => { if (link.product) group.productKeys.add(productKey(link.product)); });
     }
 
-    let currentInventoryItemIds = null;
+    let currentProductKeys = null;
     if (storefrontId) {
-      const currentProducts = await prisma.product.findMany({ where: { storefrontId }, select: { inventoryItemId: true } });
-      currentInventoryItemIds = new Set(currentProducts.map(p => p.inventoryItemId).filter(Boolean));
+      const currentProducts = await prisma.product.findMany({ where: { storefrontId }, select: { stockItemId: true, name: true } });
+      currentProductKeys = new Set(currentProducts.map(productKey));
     }
 
     // Sales context (informational only, see getLastCompletedEventProductSales)
@@ -1414,9 +1543,9 @@ class DB {
     const { eventName: lastEventName, sales: lastEventSales } = await this.getLastCompletedEventProductSales();
 
     return Array.from(groups.values())
-      .filter(g => !currentInventoryItemIds || g.inventoryItemIds.size === 0 || [...g.inventoryItemIds].some(id => currentInventoryItemIds.has(id)))
+      .filter(g => !currentProductKeys || g.productKeys.size === 0 || [...g.productKeys].some(key => currentProductKeys.has(key)))
       .map(g => {
-        const soldLastEvent = [...g.inventoryItemIds].reduce((sum, id) => sum + (lastEventSales[id] || 0), 0);
+        const soldLastEvent = [...g.productKeys].reduce((sum, key) => sum + (lastEventSales[key] || 0), 0);
         return {
           name: g.name,
           unit: g.unit,
@@ -1424,7 +1553,7 @@ class DB {
           perDayQuantity: g.qtyCount ? g.qtySum / g.qtyCount : null,
           perDayCost: g.costCount ? g.costSum / g.costCount : null,
           sampleSize: Math.max(g.qtyCount, g.costCount),
-          soldLastEvent: g.inventoryItemIds.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null,
+          soldLastEvent: g.productKeys.size > 0 ? { eventName: lastEventName, quantity: soldLastEvent } : null,
           // Was this article ever linked to a real catalog product? Purely
           // informational now that generateShoppingList (Stock tab) has its
           // own, unrelated stock-threshold logic (see getRestockCandidates)
@@ -1432,7 +1561,7 @@ class DB {
           // here for whatever still shows this list (e.g. Historique's
           // pre-event preview) to flag one as
           // "not verified" rather than hide it.
-          linked: g.inventoryItemIds.size > 0
+          linked: g.productKeys.size > 0
         };
       })
       .filter(g => g.perDayQuantity !== null || g.perDayCost !== null)
@@ -1445,7 +1574,7 @@ class DB {
   // quantified recipe linking a sold product to how much of a given
   // shopping-list article it consumes, so this never feeds the actual
   // per-day quantity/cost math, only shown alongside it. Keyed by
-  // inventoryItemId (shared stock identity), not the order's own raw
+  // productKey (shared article, else name), not the order's own raw
   // Product.id, so it still matches a shopping-list link from a different
   // storefront/event's product row for the same physical item.
   async getLastCompletedEventProductSales() {
@@ -1469,15 +1598,15 @@ class DB {
     }
     const productRows = await prisma.product.findMany({
       where: { id: { in: [...soldProductIds] } },
-      select: { id: true, inventoryItemId: true }
+      select: { id: true, stockItemId: true, name: true }
     });
-    const productToInventoryItem = new Map(productRows.map(p => [p.id, p.inventoryItemId]));
+    const productToKey = new Map(productRows.map(p => [p.id, productKey(p)]));
 
     const sales = {};
     const add = (productId, qty) => {
-      const inventoryItemId = productToInventoryItem.get(productId);
-      if (!inventoryItemId) return;
-      sales[inventoryItemId] = (sales[inventoryItemId] || 0) + qty;
+      const key = productToKey.get(productId);
+      if (!key) return;
+      sales[key] = (sales[key] || 0) + qty;
     };
     for (const order of orders) {
       if (order.status !== 'completed') continue;
@@ -1527,6 +1656,30 @@ class DB {
     return Array.from(dayMap.entries())
       .map(([date, { revenue, cost, customers }]) => ({ date, revenue, cost, profit: revenue - cost, customers: customers.size }))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // PUSH SUBSCRIPTIONS -- the devices that get a Web Push alert for a new
+  // order (see server/push.js). One row per device, keyed by its endpoint:
+  // enabling again from the same device (even as another staff member)
+  // just updates that row.
+  async savePushSubscription(login, { endpoint, p256dh, auth }) {
+    return prisma.pushSubscription.upsert({
+      where: { endpoint },
+      create: { endpoint, p256dh, auth, login },
+      update: { p256dh, auth, login }
+    });
+  }
+
+  async deletePushSubscription(endpoint) {
+    await prisma.pushSubscription.deleteMany({ where: { endpoint } });
+  }
+
+  async deletePushSubscriptionsOfLogin(login) {
+    await prisma.pushSubscription.deleteMany({ where: { login } });
+  }
+
+  async listPushSubscriptions(login) {
+    return prisma.pushSubscription.findMany({ where: login ? { login } : undefined });
   }
 
   // Role hierarchy (see resolveRole() in auth42.js for how a login's role is

@@ -20,6 +20,33 @@ function formatMoney(value) {
   return `${Number(value).toFixed(2).replace('.', ',')} €`;
 }
 
+// Where a product's stock comes from and how it stands, in one cell:
+// a resold product shows its own count; a made one shows the worst of its
+// ingredients (an ingredient at 0 makes it unavailable, see
+// serializeProduct in server/db.js).
+function StockCell({ product }) {
+  if (product.kind === 'resold') {
+    return (
+      <>
+        <span className="dim">Revendu · </span>
+        {product.stock === null || product.stock === undefined
+          ? <span className="dim">Illimité</span>
+          : <span className={product.stockStatus === 'out' ? 'stock-out' : product.stockStatus === 'low' ? 'stock-low' : ''}>{product.stock}</span>}
+      </>
+    );
+  }
+  const names = level => product.ingredients.filter(ing => ing.level === level).map(ing => ing.name).join(', ');
+  return (
+    <>
+      <span className="dim">Recette · </span>
+      {product.ingredients.length === 0 ? <span className="dim">aucun ingrédient</span>
+        : product.stockStatus === 'out' ? <span className="stock-out" title="Un ingrédient est épuisé : le produit est indisponible">{names('out')} épuisé</span>
+        : product.stockStatus === 'low' ? <span className="stock-low">{names('low')} bas</span>
+        : <span className="dim">ingrédients OK</span>}
+    </>
+  );
+}
+
 export default function CatalogTable({ products, menus, categories, onOpenAddModal, onToggleStock, onEditItem, onDeleteItem }) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -132,7 +159,7 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
               <th className="num col-optional">Suppl. menu</th>
               <th className="num col-optional">Prix d'achat</th>
               <th className="num col-optional">Marge</th>
-              <th className="num">Stock</th>
+              <th>Stock</th>
               <th>Statut</th>
               <th></th>
             </tr>
@@ -167,18 +194,18 @@ export default function CatalogTable({ products, menus, categories, onOpenAddMod
                   <td className={`num col-optional ${hasSupplement ? '' : 'dim'}`}>{hasSupplement ? formatMoney(product.extraMenuPrice) : '—'}</td>
                   <td className={`num col-optional ${hasCost ? '' : 'dim'}`}>{hasCost ? formatMoney(product.costPrice) : '—'}</td>
                   <td className={`num col-optional ${hasCost ? (margin >= 0 ? 'margin-pos' : 'margin-neg') : 'dim'}`}>{hasCost ? formatMoney(margin) : '—'}</td>
-                  <td className="num">
-                    {product.stock === null || product.stock === undefined
-                      ? <span className="dim">Illimité</span>
-                      : <span className={product.stock === 0 ? 'stock-out' : product.stock <= (product.lowStockThreshold ?? 5) ? 'stock-low' : ''}>{product.stock}</span>}
-                  </td>
+                  <td><StockCell product={product} /></td>
                   <td>
                     <button
                       type="button"
-                      className={`switch ${product.available ? 'on' : ''}`}
+                      className={`switch ${product.enabled ? 'on' : ''}`}
                       onClick={() => onToggleStock(product.id, 'product')}
-                      title={product.available ? 'Disponible -- cliquer pour retirer' : 'Indisponible -- cliquer pour remettre'}
+                      title={
+                        product.stockStatus === 'out' ? 'Indisponible : en rupture de stock (l\'interrupteur reste actif pour quand le stock revient)'
+                          : product.enabled ? 'Disponible -- cliquer pour retirer' : 'Retiré à la main -- cliquer pour remettre'
+                      }
                     />
+                    {product.enabled && product.stockStatus === 'out' && <span className="badge-chip" style={{ marginLeft: '0.4rem', background: 'rgba(179,64,46,0.1)', color: 'var(--color-danger)' }}>Rupture</span>}
                   </td>
                   <td>
                     <div className="row-actions">

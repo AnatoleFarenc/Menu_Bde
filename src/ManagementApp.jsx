@@ -34,7 +34,6 @@ export default function ManagementApp() {
 
   const [categories, setCategories] = useState([]);
   const [stockItems, setStockItems] = useState([]);
-  const [inventoryItems, setInventoryItems] = useState([]);
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminMenus, setAdminMenus] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
@@ -77,7 +76,6 @@ export default function ManagementApp() {
     fetchAdminEvents();
     fetchCategories();
     fetchStockItems();
-    fetchInventoryItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -128,9 +126,9 @@ export default function ManagementApp() {
     }
   };
 
-  // StockItem (ingredients) is global -- not scoped to an event/storefront,
-  // unlike categories/products -- fetched once per session, same as
-  // categories.
+  // StockItem (every counted thing: recipe ingredients AND products sold
+  // as-is) is global -- not scoped to an event/storefront, unlike
+  // categories/products -- fetched once per session, same as categories.
   const fetchStockItems = async () => {
     try {
       const res = await axios.get('/api/admin/stock-items', authHeaders);
@@ -140,88 +138,50 @@ export default function ManagementApp() {
     }
   };
 
-  // Products sold as-is with tracked stock (InventoryItem), global like
-  // stockItems -- what the Stock tab's second table shows, and what an
-  // ingredient's "aussi un produit" picker links against.
-  const fetchInventoryItems = async () => {
-    try {
-      const res = await axios.get('/api/admin/inventory-items', authHeaders);
-      setInventoryItems(res.data.items || []);
-    } catch (e) {
-      console.error('Error fetching inventory items:', e);
-    }
+  // A count changing has three visible consequences: the stock table
+  // itself, which catalog products are available (a product's status is
+  // derived from its counts), and the shopping list (anything that just
+  // went low is added to it server-side). Every stock write refreshes all
+  // three, so none of them can lag behind the others.
+  const refreshAfterStockChange = () => {
+    fetchStockItems();
+    fetchAdminCatalog(selectedStorefrontId);
+    fetchShoppingList(selectedStorefrontId);
   };
 
-  const handleUpdateInventoryItem = async (id, updates) => {
-    try {
-      await axios.put(`/api/admin/inventory-items/${id}`, updates, authHeaders);
-      fetchInventoryItems();
-      fetchAdminCatalog(selectedStorefrontId); // same shared stock as this storefront's own products
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du stock.');
-    }
-  };
-
-  const handleDeleteInventoryItem = async id => {
-    if (!confirm('Supprimer cette ligne de stock ?')) return;
-    try {
-      await axios.delete(`/api/admin/inventory-items/${id}`, authHeaders);
-      fetchInventoryItems();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression.');
-    }
-  };
+  // `storefrontId` tells the server which storefront's shopping list a
+  // newly-low article goes on: the one being worked on here.
+  const stockParams = { params: { storefrontId: selectedStorefrontId } };
 
   const handleAddStockItem = async data => {
     try {
-      await axios.post('/api/admin/stock-items', data, authHeaders);
-      fetchStockItems();
-      if (data.inventoryItemId) fetchInventoryItems(); // just linked to a product at creation
+      await axios.post('/api/admin/stock-items', data, { ...authHeaders, ...stockParams });
+      refreshAfterStockChange();
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'ajout de l\'ingrédient.');
+      alert(e.response?.data?.error || 'Erreur lors de l\'ajout de l\'article.');
       return false;
     }
   };
 
   const handleUpdateStockItem = async (id, updates) => {
     try {
-      await axios.put(`/api/admin/stock-items/${id}`, updates, authHeaders);
-      fetchStockItems();
-      if (updates.inventoryItemId !== undefined) fetchInventoryItems(); // link just changed
+      await axios.put(`/api/admin/stock-items/${id}`, updates, { ...authHeaders, ...stockParams });
+      refreshAfterStockChange();
+      return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la mise à jour de l\'ingrédient.');
+      alert(e.response?.data?.error || 'Erreur lors de la mise à jour de l\'article.');
+      return false;
     }
   };
 
   const handleDeleteStockItem = async id => {
-    if (!confirm('Supprimer cet ingrédient ? Il sera aussi retiré des recettes qui l\'utilisent.')) return;
+    if (!confirm('Supprimer cet article du stock ?')) return;
     try {
       await axios.delete(`/api/admin/stock-items/${id}`, authHeaders);
       fetchStockItems();
     } catch (e) {
-      alert('Erreur lors de la suppression.');
-    }
-  };
-
-  const fetchProductRecipe = async productId => {
-    try {
-      const res = await axios.get(`/api/admin/products/${productId}/recipe`, authHeaders);
-      return res.data.ingredients || [];
-    } catch (e) {
-      console.error('Error fetching recipe:', e);
-      return [];
-    }
-  };
-
-  const handleSaveProductRecipe = async (productId, ingredients) => {
-    try {
-      await axios.put(`/api/admin/products/${productId}/recipe`, { ingredients }, authHeaders);
-      fetchAdminCatalog(selectedStorefrontId); // costPrice may have just changed
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement de la recette.');
-      return false;
+      alert(e.response?.data?.error || 'Erreur lors de la suppression.');
     }
   };
 
@@ -327,9 +287,7 @@ export default function ManagementApp() {
     try {
       const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
       fetchShoppingList(selectedStorefrontId);
-      fetchAdminCatalog(selectedStorefrontId); // as-is product stock may have just changed
-      fetchStockItems(); // ingredient stock may have just changed (restocked, or newly created)
-      fetchInventoryItems(); // an ingredient linked to a product may have restocked it too
+      refreshAfterStockChange(); // restocked counts, and with them product availability
       return res.data.trip;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');
@@ -482,7 +440,10 @@ export default function ManagementApp() {
           await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId }, authHeaders);
         }
       }
+      // Saving a product can create/update its stock article and recipe.
       fetchAdminCatalog(selectedStorefrontId);
+      fetchStockItems();
+      fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
       alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
@@ -496,6 +457,7 @@ export default function ManagementApp() {
       const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
       await axios.delete(url, authHeaders);
       fetchAdminCatalog(selectedStorefrontId);
+      fetchStockItems(); // its article's "used by" list changed
     } catch (e) {
       alert('Erreur lors de la suppression.');
     }
@@ -733,19 +695,14 @@ export default function ManagementApp() {
               products={adminProducts}
               menus={adminMenus}
               stockItems={stockItems}
-              inventoryItems={inventoryItems}
               shoppingList={shoppingList}
               onAddShoppingListItem={handleAddShoppingListItem}
               onUpdateShoppingListItem={handleUpdateShoppingListItem}
               onDeleteShoppingListItem={handleDeleteShoppingListItem}
               onGenerateShoppingList={handleGenerateShoppingList}
-              onFetchRestockCandidates={fetchRestockCandidates}
               onAddStockItem={handleAddStockItem}
               onUpdateStockItem={handleUpdateStockItem}
               onDeleteStockItem={handleDeleteStockItem}
-              onOpenAddProductModal={() => setAdminModalState({ isOpen: true, item: null, type: 'product' })}
-              onUpdateInventoryItem={handleUpdateInventoryItem}
-              onDeleteInventoryItem={handleDeleteInventoryItem}
             />
           )}
           {activeSection === 'courses' && (
@@ -805,8 +762,6 @@ export default function ManagementApp() {
         categories={categories}
         products={adminProducts}
         stockItems={stockItems}
-        onFetchRecipe={fetchProductRecipe}
-        onSaveRecipe={handleSaveProductRecipe}
       />
     </div>
   );

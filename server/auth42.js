@@ -27,7 +27,7 @@ const getManagerLogins = () => (process.env.MANAGER_LOGINS ?? process.env.ADMIN_
 // access, now the top of the hierarchy) and MANAGER_LOGINS becomes 'admin'
 // (its old isManager access) -- so every account already configured before
 // this feature existed keeps working with no manual migration step.
-const resolveRole = async (login) => {
+export const resolveRole = async (login) => {
   const dbRole = await db.getTeamMemberRole(login);
   if (dbRole) return dbRole;
   if (getAdminLogins().includes(login)) return 'board';

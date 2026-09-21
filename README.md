@@ -67,6 +67,21 @@ An administrator can access:
 - creating, editing, and deleting products and meal deals;
 - enabling or disabling products and meal deals based on stock.
 
+### New-order notifications (Web Push)
+
+Staff can get a system notification on their phone or computer whenever an order is placed, **even with the site closed or the phone locked** (the in-page sound only works while the tab is open).
+
+One-time setup on the server:
+
+1. `npm run vapid:generate`, then paste `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` into `.env` and restart. Keep the pair: regenerating it disconnects every device that already enabled notifications. Without the keys the feature is simply off (the button is hidden).
+2. The site must be served over **HTTPS** (Tailscale Funnel / your domain). `localhost` also works for testing; a plain-http LAN address does not.
+
+Then each staff member, on each device they want alerts on, opens the **Staff** tab and presses **Notifications : Désactivées** → allow → **Tester**.
+
+- **Android / desktop (Chrome, Edge, Firefox):** works straight from the browser. Installing the site as an app (browser menu → "Install app") is optional.
+- **iPhone / iPad:** iOS 16.4+ only, and only for the site added to the Home Screen (Share → "Add to Home Screen"), opened from that icon.
+- Tapping a notification opens the site on the Staff tab. Only accounts that currently have the staff role receive them.
+
 ## Running on Linux
 
 ### Prerequisites

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
+import PushNotificationsButton from './PushNotificationsButton';
 import { normalizeChoices } from '../lib/menuChoices';
 import { playNewOrderSound, unlockAudioContext } from '../lib/sound';
 
@@ -344,6 +345,7 @@ function KitchenTicket({
 }
 
 export default function AdminKitchenBoard({
+  authToken,
   activeStorefront,
   orders = [],
   synthesisByTime = {},
@@ -513,6 +515,7 @@ export default function AdminKitchenBoard({
             >
               <Bell size={15} /> Test 🔔
             </button>
+            <PushNotificationsButton authToken={authToken} />
             <button
               type="button"
               className="btn btn-secondary"

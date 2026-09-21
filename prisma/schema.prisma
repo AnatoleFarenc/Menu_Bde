@@ -23,6 +23,24 @@ model TeamMember {
   updatedAt DateTime @updatedAt
 }
 
+// One device (browser / installed app) that asked to be alerted when a new
+// order arrives -- Web Push, so the alert reaches it even with the site
+// closed or the phone locked. `endpoint` is the push service's address for
+// that device and identifies it; `p256dh`/`auth` are the keys the payload is
+// encrypted with. `login` is the staff member who enabled it: it is re-checked
+// against their CURRENT role every time a push is sent, so losing the staff
+// role stops the alerts without anyone having to unsubscribe.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique @db.VarChar(512)
+  p256dh    String
+  auth      String
+  login     String
+  createdAt DateTime @default(now())
+
+  @@index([login])
+}
+
 model Category {
   id        String    @id
   name      String
@@ -144,43 +162,17 @@ model ShoppingListItemMenu {
   @@id([shoppingListItemId, menuId])
 }
 
-// One physically shared stock count, matched by name across every
-// storefront and event (roadmap: "les vitrines doivent avoir le même
-// stock et être connectées entre elles") -- selling a "Café" in one
-// storefront also decrements it everywhere else "Café" is sold. Price,
-// description, badge, icon and manual availability all stay per-Product
-// (per-storefront), only the stock count itself is shared. See
-// getOrCreateInventoryItem in db.js for the name-matching lookup.
+// THE stock model. One StockItem = one physical thing the BDE keeps a count
+// of, whether it is bought to be cooked into something (ham, bread, butter:
+// a recipe ingredient) or bought and sold untouched (a canned Coca).
+// Global, like the pantry it stands for: every storefront and event of the
+// app reads and writes the same count. Counts are ALWAYS edited by hand or
+// by closing a shopping trip -- the only automatic movement is a "resold"
+// product's own sales (see Product.kind).
 //
-// This tracks FINISHED/SELLABLE stock (how many ready "Sandwich
-// Jambon-Beurre" there are to sell right now) -- it drives storefront
-// availability, not shopping. What to actually go buy is StockItem below:
-// a sandwich itself can't be purchased at a store, only its ingredients
-// can, which is exactly the distinction StockItem/ProductIngredient exist
-// to capture.
-model InventoryItem {
-  id                String   @id @default(cuid())
-  name              String
-  normalizedName    String   @unique
-  stock             Int?
-  // Below this stock count the Stock tab flags every linked product as
-  // "low" -- shared, since it's the same physical stock.
-  lowStockThreshold Int      @default(5)
-  createdAt         DateTime @default(now())
-
-  products  Product[]
-  // Set when this sellable line is ALSO something the BDE buys and tracks
-  // as a raw ingredient (e.g. canned Coca: sold as-is AND bought in bulk).
-  // See StockItem.inventoryItemId for the other end of this link.
-  stockItem StockItem?
-}
-
-// A raw ingredient/supply the BDE actually buys (ham, bread, butter...) --
-// managed by hand, global like InventoryItem (the same physical pantry
-// serves every event), and the sole basis for the Stock tab's automatic
-// shopping-list generation: a StockItem at or below its threshold gets
-// suggested, scaled up to fullStock, never a catalog Product directly (see
-// ProductIngredient below for why, and getRestockCandidates in db.js).
+// stock === null means "not tracked": never low, never out, never blocks a
+// product. It is how a hard-to-measure ingredient (a pinch of salt) or an
+// unlimited drink (tap coffee) opts out.
 model StockItem {
   id                String   @id @default(cuid())
   name              String
@@ -195,31 +187,22 @@ model StockItem {
   unitCost          Float?
   createdAt         DateTime @default(now())
 
+  // Made products whose recipe uses this article.
   recipeLinks       ProductIngredient[]
+  // Resold products that sell this article as-is.
+  soldAs            Product[]
   shoppingListLinks ShoppingListItemStockItem[]
-
-  // Optional: this ingredient IS ALSO a finished product sold as-is (a
-  // canned drink bought in bulk and sold one at a time). When set,
-  // restocking this StockItem also restocks the linked InventoryItem (and
-  // vice versa: an order that sells it also decrements this StockItem) --
-  // one physical thing, tracked from both the "what to buy" and "what to
-  // sell" side, kept in sync instead of drifting apart. Left unset for
-  // ingredients that are only ever combined into other products (recipe-
-  // only, e.g. ham, bread).
-  inventoryItemId String?        @unique
-  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
 
   @@index([normalizedName])
 }
 
-// The recipe: how much of a StockItem one unit of a Product consumes (e.g.
-// "Sandwich Jambon-Beurre" needs 2 of "Jambon" + 1 of "Pain"). This is the
-// quantified link that was missing everywhere else in this app (shopping-
-// list <-> product links are informational only, precisely because THIS is
-// what they lack) -- with it, a product's costPrice can be derived from its
-// ingredients' unitCost instead of guessed/typed by hand, and stats/margins
-// finally reflect a real, defensible cost. See recomputeProductCost in
-// db.js, run whenever a recipe or an ingredient's unitCost changes.
+// The recipe of a "made" product: how much of a StockItem one unit of it
+// uses (e.g. "Sandwich Jambon-Beurre" needs 2 of "Jambon" + 1 of "Pain").
+// Informational for stock (nothing is deducted automatically -- see
+// StockItem), but it drives (1) the product's derived costPrice, (2) its
+// availability (a required ingredient at 0 makes the product unavailable)
+// and (3) which products a low ingredient affects. See recomputeProductCost
+// and productStockStatus in db.js.
 model ProductIngredient {
   productId   String
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -243,23 +226,35 @@ model ShoppingListItemStockItem {
   @@id([shoppingListItemId, stockItemId])
 }
 
+// A sellable catalog entry, per storefront. `kind` says where its stock
+// comes from:
+//   made   -- assembled from several ingredients (`ingredients`, the
+//             recipe). Nothing is deducted when it sells; its stock status
+//             is derived from its ingredients' (manually kept) counts.
+//   resold -- bought and sold untouched: exactly one StockItem
+//             (`stockItem`), decremented on every sale and restored on a
+//             cancellation. Unavailable at 0, suggested for restock when low.
+// `enabled` is the manual on/off switch only; what the storefront actually
+// checks is `available` = enabled AND not out of stock, computed at read
+// time (serializeProduct) so it can never drift out of sync with the counts.
 model Product {
-  id              String         @id @default(cuid())
-  storefrontId    String
-  storefront      Storefront     @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
-  name            String
-  categoryId      String
-  category        Category       @relation(fields: [categoryId], references: [id])
-  price           Float
-  extraMenuPrice  Float          @default(0)
-  costPrice       Float?
-  inventoryItemId String?
-  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
-  description     String?        @db.Text
-  badge           String         @default("")
-  available       Boolean        @default(true)
-  icon            String         @default("🥪")
-  createdAt       DateTime       @default(now())
+  id             String     @id @default(cuid())
+  storefrontId   String
+  storefront     Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  name           String
+  categoryId     String
+  category       Category   @relation(fields: [categoryId], references: [id])
+  price          Float
+  extraMenuPrice Float      @default(0)
+  costPrice      Float?
+  kind           String     @default("made") // made | resold
+  stockItemId    String?
+  stockItem      StockItem? @relation(fields: [stockItemId], references: [id], onDelete: Restrict)
+  description    String?    @db.Text
+  badge          String     @default("")
+  enabled        Boolean    @default(true) @map("available")
+  icon           String     @default("🥪")
+  createdAt      DateTime   @default(now())
 
   menuGroups        MenuGroupProduct[]
   shoppingListLinks ShoppingListItemProduct[]
@@ -267,7 +262,7 @@ model Product {
 
   @@index([categoryId])
   @@index([storefrontId])
-  @@index([inventoryItemId])
+  @@index([stockItemId])
 }
 
 model Menu {

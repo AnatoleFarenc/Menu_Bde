@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { get42AuthUrl, handle42Callback, ROLE_RANK } from './auth42.js';
+import { isPushEnabled, getPublicKey, isKnownPushEndpoint, notifyNewOrder, sendTestPush } from './push.js';
 
 dotenv.config();
 
@@ -255,6 +256,35 @@ app.get('/api/admin/active-storefront', requireAdmin, ah(async (req, res) => {
   res.json({ storefront: await db.getActiveStorefront() });
 }));
 
+// NEW-ORDER ALERTS (Web Push, see push.js). Per device: a staff member turns
+// them on from the kitchen board, which subscribes that browser/app here.
+app.get('/api/admin/push/config', requireAdmin, (req, res) => {
+  res.json({ enabled: isPushEnabled(), publicKey: getPublicKey() });
+});
+
+app.post('/api/admin/push/subscribe', requireAdmin, ah(async (req, res) => {
+  if (!isPushEnabled()) return res.status(503).json({ error: 'Les notifications ne sont pas configurées sur le serveur (clés VAPID manquantes)' });
+  const sub = req.body.subscription;
+  if (!sub || !isKnownPushEndpoint(sub.endpoint) || typeof sub.keys?.p256dh !== 'string' || typeof sub.keys?.auth !== 'string'
+    || sub.keys.p256dh.length > 191 || sub.keys.auth.length > 191) {
+    return res.status(400).json({ error: 'Abonnement de notification invalide' });
+  }
+  await db.savePushSubscription(req.user.login, { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth });
+  res.json({ success: true });
+}));
+
+app.post('/api/admin/push/unsubscribe', requireAdmin, ah(async (req, res) => {
+  if (typeof req.body.endpoint === 'string') await db.deletePushSubscription(req.body.endpoint);
+  res.json({ success: true });
+}));
+
+// Sends a test alert to the caller's own devices.
+app.post('/api/admin/push/test', requireAdmin, ah(async (req, res) => {
+  const result = await sendTestPush(req.user.login);
+  if (result.sent === 0) return res.status(400).json({ error: 'Aucun appareil abonné aux notifications pour ton compte' });
+  res.json(result);
+}));
+
 // Everything below, up to the ORDERS section, belongs to the /gestion tool:
 // gated by requireManager, a role distinct from requireAdmin (see auth42.js).
 app.get('/api/admin/events', requireManager, ah(async (req, res) => {
@@ -356,58 +386,38 @@ app.post('/api/admin/storefronts/:id/shopping-list/generate', requireManager, ah
   res.json(result);
 }));
 
-// STOCK ITEMS -- raw ingredients/supplies, managed by hand, global (not
-// tied to one storefront's catalog).
+// STOCK ITEMS -- every physical thing the BDE keeps a count of (recipe
+// ingredients and products sold as-is alike), global: not tied to one
+// storefront's catalog. A change that leaves something low also puts it on
+// a shopping list -- the one of `?storefrontId=` (the storefront the admin
+// is working on), else the active storefront's.
+const stockStorefrontId = req => (typeof req.query.storefrontId === 'string' ? req.query.storefrontId : undefined);
+
 app.get('/api/admin/stock-items', requireManager, ah(async (req, res) => {
   res.json({ items: await db.getStockItems() });
 }));
 
 app.post('/api/admin/stock-items', requireManager, ah(async (req, res) => {
-  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'ingrédient est obligatoire' });
-  const item = await db.addStockItem(req.body);
-  if (!item) return res.status(400).json({ error: 'Un ingrédient avec ce nom existe déjà' });
+  if (!req.body.name?.trim()) return res.status(400).json({ error: 'Le nom de l\'article est obligatoire' });
+  const item = await db.addStockItem(req.body, stockStorefrontId(req));
+  if (!item) return res.status(400).json({ error: 'Un article avec ce nom existe déjà' });
   res.status(201).json({ item });
 }));
 
 app.put('/api/admin/stock-items/:id', requireManager, ah(async (req, res) => {
-  const updated = await db.updateStockItem(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Ingrédient introuvable' });
-  res.json({ item: updated });
+  const result = await db.updateStockItem(req.params.id, req.body, stockStorefrontId(req));
+  if (result.error === 'not_found') return res.status(404).json({ error: 'Article introuvable' });
+  if (result.error === 'duplicate') return res.status(400).json({ error: 'Un article avec ce nom existe déjà' });
+  res.json({ item: result.item });
 }));
 
 app.delete('/api/admin/stock-items/:id', requireManager, ah(async (req, res) => {
-  await db.deleteStockItem(req.params.id);
+  const result = await db.deleteStockItem(req.params.id);
+  if (result.error === 'not_found') return res.status(404).json({ error: 'Article introuvable' });
+  if (result.error === 'in_use') {
+    return res.status(400).json({ error: `Encore utilisé par : ${result.usedBy.join(', ')} -- retire-le de ces produits d'abord` });
+  }
   res.json({ success: true });
-}));
-
-// Products sold as-is with tracked stock (InventoryItem), global -- the
-// "also a product" picker on a StockItem links against these. Separate
-// from a storefront's catalog endpoint, which only lists one vitrine's
-// products.
-app.get('/api/admin/inventory-items', requireManager, ah(async (req, res) => {
-  res.json({ items: await db.getInventoryItems() });
-}));
-
-app.put('/api/admin/inventory-items/:id', requireManager, ah(async (req, res) => {
-  const updated = await db.updateInventoryItem(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Produit introuvable' });
-  res.json({ item: updated });
-}));
-
-app.delete('/api/admin/inventory-items/:id', requireManager, ah(async (req, res) => {
-  const ok = await db.deleteInventoryItem(req.params.id);
-  if (!ok) return res.status(400).json({ error: 'Encore utilisé par au moins un produit du catalogue -- supprime ou dissocie-le d\'abord' });
-  res.json({ success: true });
-}));
-
-// RECIPE -- how much of each StockItem one unit of a product consumes.
-app.get('/api/admin/products/:id/recipe', requireManager, ah(async (req, res) => {
-  res.json({ ingredients: await db.getProductRecipe(req.params.id) });
-}));
-
-app.put('/api/admin/products/:id/recipe', requireManager, ah(async (req, res) => {
-  const ingredients = await db.setProductRecipe(req.params.id, req.body.ingredients);
-  res.json({ ingredients });
 }));
 
 app.put('/api/admin/shopping-list/:id', requireManager, ah(async (req, res) => {
@@ -516,6 +526,11 @@ app.post('/api/orders', ah(async (req, res) => {
     return res.status(400).json({ error: 'Panier vide' });
   }
 
+  const unavailable = await db.getUnavailableCartItems(items);
+  if (unavailable.length > 0) {
+    return res.status(409).json({ error: `Commande impossible -- ${unavailable.join(' ; ')}. Retire-le de ton panier.` });
+  }
+
   const newOrder = await db.addOrder({
     userId: user.id,
     userLogin: user.login,
@@ -525,6 +540,10 @@ app.post('/api/orders', ah(async (req, res) => {
     note: note || '',
     totalPrice: parseFloat(totalPrice) || 0
   });
+
+  // Alert the staff devices -- after the response is ready, and never able to
+  // fail the order: it is already saved.
+  notifyNewOrder(newOrder).catch(err => console.error('New-order push failed:', err));
 
   res.status(201).json({ order: newOrder });
 }));

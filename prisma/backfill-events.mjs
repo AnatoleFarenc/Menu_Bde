@@ -40,7 +40,7 @@ async function recreateCatalogForEvent(eventId, products, menus) {
         stock: product.stock ?? null,
         description: product.description || '',
         badge: product.badge || '',
-        available: product.available !== false,
+        enabled: product.available !== false,
         icon: product.icon || '🥪'
       }
     });

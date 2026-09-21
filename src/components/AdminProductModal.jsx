@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Plus, Trash2, List } from 'lucide-react';
 import { getMenuGroups, makeGroupId } from '../lib/menuChoices';
 
 // Rebuilds a meal deal's editable groups (with migration of older ones).
@@ -29,10 +29,13 @@ function initGroups(editingItem, products) {
 const emptyBaseForm = (type) => ({
   name: '',
   category: 'plat',
+  kind: 'made',
   price: '',
   extraMenuPrice: '',
   costPrice: '',
+  stockItemId: '',
   stock: '',
+  fullStock: '',
   lowStockThreshold: '',
   description: '',
   badge: '',
@@ -87,22 +90,45 @@ function GroupEditor({ group, index, products, onRename, onToggleProduct, onRemo
   );
 }
 
-export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [], products = [], stockItems = [], onFetchRecipe, onSaveRecipe }) {
+const blankIfNull = value => (value === null || value === undefined ? '' : value);
+
+// Value of the "create one" entry at the bottom of an ingredient dropdown.
+const NEW_INGREDIENT = '__new__';
+
+// Case- and accent-insensitive, so "jambon" / "Jambon" / "JAMBON" (and
+// "Café" / "cafe") are one ingredient.
+const normalizeName = text => text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const LEVEL_LABEL = { out: 'épuisé', low: 'bas' };
+const LEVEL_COLOR = { out: 'var(--color-danger)', low: 'var(--color-warning)' };
+
+// `stockItems` is the global stock list (see StockItem in schema.prisma):
+// a made product's recipe picks from it, a resold product is linked to one
+// of its entries (or a new one is created from the product's name).
+export default function AdminProductModal({ isOpen, onClose, onSave, editingItem, type = 'product', categories = [], products = [], stockItems = [] }) {
   const [formData, setFormData] = useState(emptyBaseForm(type));
   const [groups, setGroups] = useState([]);
-  const [recipe, setRecipe] = useState([]); // [{stockItemId, quantity}] -- only stockItemIds actually in the recipe
-  const [isSavingRecipe, setIsSavingRecipe] = useState(false);
+  // One row per ingredient: { key, stockItemId, name, unit, quantity, creating }.
+  // The ingredient is normally PICKED from a dropdown of the existing ones
+  // (stockItemId set; its name/unit are the article's own) so it can't be
+  // misspelled or duplicated. Only when it doesn't exist yet does the row
+  // switch to `creating`: name + unit typed in, created server-side on save.
+  // Quantity stays a string while being edited so "0." / "0.5" can be typed.
+  const [recipe, setRecipe] = useState([]);
 
   useEffect(() => {
     if (editingItem) {
       setFormData({
         name: editingItem.name || '',
         category: editingItem.category || 'plat',
+        kind: editingItem.kind || 'made',
         price: editingItem.price || '',
         extraMenuPrice: editingItem.extraMenuPrice || '',
-        costPrice: editingItem.costPrice === null || editingItem.costPrice === undefined ? '' : editingItem.costPrice,
-        stock: editingItem.stock === null || editingItem.stock === undefined ? '' : editingItem.stock,
-        lowStockThreshold: editingItem.lowStockThreshold === null || editingItem.lowStockThreshold === undefined ? '' : editingItem.lowStockThreshold,
+        costPrice: blankIfNull(editingItem.costPrice),
+        stockItemId: editingItem.stockItemId || '',
+        stock: blankIfNull(editingItem.stock),
+        fullStock: blankIfNull(editingItem.fullStock),
+        lowStockThreshold: blankIfNull(editingItem.lowStockThreshold),
         description: editingItem.description || '',
         badge: editingItem.badge || '',
         icon: editingItem.icon || (type === 'menu' ? '🍱' : '🥪')
@@ -111,29 +137,54 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
       setFormData(emptyBaseForm(type));
     }
     setGroups(type === 'menu' ? initGroups(editingItem, products) : []);
-    setRecipe([]);
-    if (editingItem && type === 'product' && onFetchRecipe) {
-      onFetchRecipe(editingItem.id).then(ingredients => setRecipe(ingredients.map(ing => ({ stockItemId: ing.stockItemId, quantity: ing.quantity }))));
-    }
+    setRecipe(type === 'product' && editingItem
+      ? (editingItem.ingredients || []).map(ing => ({ key: ing.stockItemId, stockItemId: ing.stockItemId, name: ing.name, unit: ing.unit || '', quantity: String(ing.quantity), creating: false }))
+      : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingItem, type, isOpen]);
 
-  const toggleRecipeItem = stockItemId => {
-    setRecipe(prev => {
-      const exists = prev.find(r => r.stockItemId === stockItemId);
-      if (exists) return prev.filter(r => r.stockItemId !== stockItemId);
-      return [...prev, { stockItemId, quantity: 1 }];
-    });
+  const addRecipeRow = () => {
+    setRecipe(prev => [...prev, { key: `row-${Date.now()}-${prev.length}`, stockItemId: '', name: '', unit: '', quantity: '1', creating: false }]);
+  };
+  const updateRecipeRow = (key, patch) => {
+    setRecipe(prev => prev.map(row => (row.key === key ? { ...row, ...patch } : row)));
+  };
+  const removeRecipeRow = key => {
+    setRecipe(prev => prev.filter(row => row.key !== key));
+  };
+  const pickIngredient = (key, value) => {
+    if (value === NEW_INGREDIENT) {
+      updateRecipeRow(key, { stockItemId: '', name: '', unit: '', creating: true });
+      return;
+    }
+    const article = stockItems.find(si => si.id === value);
+    updateRecipeRow(key, article
+      ? { stockItemId: article.id, name: article.name, unit: article.unit || '', creating: false }
+      : { stockItemId: '', name: '', unit: '', creating: false });
+  };
+  // Safety net for the "new ingredient" case: a typed name that already
+  // exists (ignoring case/accents) becomes that ingredient instead of a
+  // near-duplicate -- unless another row of this recipe already uses it.
+  const adoptExistingIngredient = row => {
+    const typed = normalizeName(row.name);
+    const article = typed && stockItems.find(si => normalizeName(si.name) === typed);
+    if (article && !recipe.some(r => r.stockItemId === article.id)) {
+      updateRecipeRow(row.key, { stockItemId: article.id, name: article.name, unit: article.unit || '', creating: false });
+    }
   };
 
-  const setRecipeQuantity = (stockItemId, quantity) => {
-    setRecipe(prev => prev.map(r => (r.stockItemId === stockItemId ? { ...r, quantity } : r)));
-  };
-
-  const handleSaveRecipe = async () => {
-    setIsSavingRecipe(true);
-    await onSaveRecipe(editingItem.id, recipe.filter(r => r.quantity > 0));
-    setIsSavingRecipe(false);
+  // Linking an existing article shows ITS numbers (they're shared by every
+  // product selling it); "new article" starts blank.
+  const pickSoldArticle = stockItemId => {
+    const article = stockItems.find(si => si.id === stockItemId);
+    setFormData(prev => ({
+      ...prev,
+      stockItemId,
+      stock: article ? blankIfNull(article.stock) : '',
+      fullStock: article ? blankIfNull(article.fullStock) : '',
+      lowStockThreshold: article ? blankIfNull(article.lowStockThreshold) : '',
+      costPrice: article && article.unitCost != null ? article.unitCost : prev.costPrice
+    }));
   };
 
   if (!isOpen) return null;
@@ -171,6 +222,25 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
     }
 
     let payload = { ...formData };
+    if (type === 'product') {
+      // Only the half that matches the type is sent: a made product carries
+      // its recipe, a resold one its article and counts.
+      if (formData.kind === 'made') {
+        const filled = recipe.filter(row => row.stockItemId || row.name.trim());
+        const noQuantity = filled.find(row => !(parseFloat(row.quantity) > 0));
+        if (noQuantity) {
+          alert(`Indique une quantité pour l'ingrédient « ${noQuantity.name || 'sans nom'} » (ou retire-le de la recette).`);
+          return;
+        }
+        payload = {
+          ...payload,
+          ingredients: filled.map(row => (row.stockItemId
+            ? { stockItemId: row.stockItemId, quantity: parseFloat(row.quantity) }
+            : { name: row.name.trim(), unit: row.unit.trim(), quantity: parseFloat(row.quantity) }))
+        };
+        delete payload.stockItemId; delete payload.stock; delete payload.fullStock; delete payload.lowStockThreshold;
+      }
+    }
     if (type === 'menu') {
       const cleanGroups = groups
         .map(group => ({
@@ -231,6 +301,26 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
             </div>
           )}
 
+          {type === 'product' && (
+            <div className="form-group">
+              <label className="form-label">Type de produit</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem' }}>
+                {[
+                  { value: 'made', title: 'Fabriqué', desc: 'Préparé à partir de plusieurs ingrédients (sandwich, salade...).' },
+                  { value: 'resold', title: 'Acheté et revendu', desc: 'Vendu tel quel, avec un stock compté (canette, chips...).' }
+                ].map(option => (
+                  <label key={option.value} className={`formule-item ${formData.kind === option.value ? 'is-checked' : ''}`} style={{ alignItems: 'flex-start' }}>
+                    <input type="radio" name="product-kind" checked={formData.kind === option.value} onChange={() => setFormData({ ...formData, kind: option.value })} />
+                    <span>
+                      <strong>{option.title}</strong>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{option.desc}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
               <label className="form-label">{type === 'menu' ? 'Prix de base de la formule (€)' : 'Prix à l\'unité (€)'}</label>
@@ -285,6 +375,111 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
             </div>
           )}
 
+          {type === 'product' && formData.kind === 'made' && (
+            <div className="form-group">
+              <label className="form-label">Recette (ingrédients nécessaires)</label>
+              <p className="formule-slot-hint">
+                Ce qu'une unité de ce produit utilise. Le stock des ingrédients se tient à la main (onglet Stock) : rien n'est
+                décompté à la vente, mais un ingrédient épuisé rend ce produit indisponible et un ingrédient bas est ajouté
+                automatiquement à la liste de courses.
+              </p>
+              {recipe.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.72rem', color: 'var(--text-muted)', padding: '0 0.6rem' }}>
+                    <span style={{ flex: 1 }}>Ingrédient</span>
+                    <span style={{ width: '80px' }}>Quantité</span>
+                    <span style={{ width: '90px' }}>Unité</span>
+                    <span style={{ width: '32px' }} />
+                  </div>
+                  {recipe.map(row => {
+                    const article = row.stockItemId ? stockItems.find(si => si.id === row.stockItemId) : null;
+                    // Everything not already used by ANOTHER row (this row's own pick stays).
+                    const options = stockItems.filter(si => si.id === row.stockItemId || !recipe.some(r => r.stockItemId === si.id));
+                    return (
+                      <div key={row.key} className="formule-item is-checked" style={{ gap: '0.5rem' }}>
+                        {row.creating ? (
+                          <input
+                            className="form-input" style={{ flex: 1, minWidth: 0 }} placeholder="Nom du nouvel ingrédient"
+                            value={row.name} autoFocus
+                            onChange={e => updateRecipeRow(row.key, { name: e.target.value })}
+                            onBlur={() => adoptExistingIngredient(row)}
+                          />
+                        ) : (
+                          <select className="form-select" style={{ flex: 1, minWidth: 0 }} value={row.stockItemId} onChange={e => pickIngredient(row.key, e.target.value)}>
+                            <option value="">Choisir un ingrédient…</option>
+                            {options.map(si => <option key={si.id} value={si.id}>{si.name}</option>)}
+                            <option value={NEW_INGREDIENT}>+ Nouvel ingrédient…</option>
+                          </select>
+                        )}
+                        {article && LEVEL_LABEL[article.level] && (
+                          <span className="formule-item-cat" style={{ color: LEVEL_COLOR[article.level] }}>{LEVEL_LABEL[article.level]}</span>
+                        )}
+                        <input
+                          type="number" min="0" step="any" className="form-input" style={{ width: '80px' }}
+                          value={row.quantity}
+                          onChange={e => updateRecipeRow(row.key, { quantity: e.target.value })}
+                        />
+                        {row.creating ? (
+                          <input
+                            className="form-input" style={{ width: '90px' }} placeholder="tranche, g…"
+                            value={row.unit} onChange={e => updateRecipeRow(row.key, { unit: e.target.value })}
+                          />
+                        ) : (
+                          <span className="formule-item-cat" style={{ width: '90px' }}>{row.unit || '—'}</span>
+                        )}
+                        {row.creating && (
+                          <button type="button" className="btn btn-secondary" style={{ padding: '0.3rem 0.45rem' }} onClick={() => updateRecipeRow(row.key, { creating: false, name: '', unit: '' })} title="Choisir dans la liste des ingrédients existants">
+                            <List size={13} />
+                          </button>
+                        )}
+                        <button type="button" className="btn btn-danger" style={{ padding: '0.3rem 0.45rem' }} onClick={() => removeRecipeRow(row.key)} title="Retirer de la recette">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <button type="button" className="btn btn-secondary" onClick={addRecipeRow}>
+                <Plus size={14} /> Ajouter un ingrédient
+              </button>
+              <p className="formule-slot-hint" style={{ marginTop: '0.5rem' }}>
+                Choisis l'ingrédient dans la liste. S'il n'existe pas encore, prends « + Nouvel ingrédient… » en bas de la liste
+                (nom + unité) : il est ajouté au stock à l'enregistrement, sans quantité comptée (non suivi) -- renseigne son stock
+                dans l'onglet Stock pour qu'il alerte et bloque le produit quand il est à 0.
+              </p>
+            </div>
+          )}
+
+          {type === 'product' && formData.kind === 'resold' && (
+            <div className="form-group">
+              <label className="form-label">Stock</label>
+              <select className="form-select" value={formData.stockItemId} onChange={e => pickSoldArticle(e.target.value)} style={{ marginBottom: '0.5rem' }}>
+                <option value="">Nouvel article de stock{formData.name.trim() ? ` « ${formData.name.trim()} »` : ''}</option>
+                {stockItems.map(si => <option key={si.id} value={si.id}>{si.name}</option>)}
+              </select>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>En stock</label>
+                  <input type="number" min="0" step="any" className="form-input" placeholder="Vide = illimité" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Seuil bas</label>
+                  <input type="number" min="0" step="any" className="form-input" placeholder="Défaut 5" value={formData.lowStockThreshold} onChange={e => setFormData({ ...formData, lowStockThreshold: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Stock plein (objectif)</label>
+                  <input type="number" min="0" step="any" className="form-input" placeholder="Pour les courses" value={formData.fullStock} onChange={e => setFormData({ ...formData, fullStock: e.target.value })} />
+                </div>
+              </div>
+              <p className="formule-slot-hint">
+                Le stock diminue à chaque vente (et remonte si la commande est annulée) ; à 0 le produit disparaît de la
+                vitrine, et sous le seuil bas il est ajouté à la liste de courses. Partagé avec tous les produits qui
+                vendent ce même article, dans toutes les vitrines.
+              </p>
+            </div>
+          )}
+
           {type === 'product' && (
             <div className="form-group">
               <label className="form-label">Prix d'achat (Optionnel)</label>
@@ -298,80 +493,9 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
                 onChange={e => setFormData({ ...formData, costPrice: e.target.value })}
               />
               <p className="formule-slot-hint">
-                Ce que ce produit coûte au BDE à l'achat. Utilisé pour calculer la marge et le bénéfice dans le bilan --
-                écrasé automatiquement dès qu'une recette (ci-dessous) est définie.
-              </p>
-            </div>
-          )}
-
-          {type === 'product' && (
-            <div className="form-group">
-              <label className="form-label">Recette (ingrédients nécessaires)</label>
-              {!editingItem ? (
-                <p className="formule-slot-hint">Enregistre d'abord le produit pour pouvoir lui associer une recette.</p>
-              ) : stockItems.length === 0 ? (
-                <p className="formule-slot-hint">Aucun ingrédient défini -- ajoutes-en depuis l'onglet Stock.</p>
-              ) : (
-                <>
-                  <p className="formule-slot-hint">
-                    Combien de chaque ingrédient une unité de ce produit consomme -- le prix d'achat ci-dessus est alors
-                    recalculé automatiquement à partir du coût des ingrédients.
-                  </p>
-                  <div className="formule-item-list">
-                    {stockItems.map(si => {
-                      const entry = recipe.find(r => r.stockItemId === si.id);
-                      return (
-                        <label key={si.id} className={`formule-item ${entry ? 'is-checked' : ''}`}>
-                          <input type="checkbox" checked={!!entry} onChange={() => toggleRecipeItem(si.id)} />
-                          <span>{si.name}</span>
-                          {entry && (
-                            <input
-                              type="number" min="0" step="any" className="form-input"
-                              style={{ width: '70px', marginLeft: 'auto' }}
-                              value={entry.quantity}
-                              onClick={e => e.preventDefault()}
-                              onChange={e => setRecipeQuantity(si.id, parseFloat(e.target.value) || 0)}
-                            />
-                          )}
-                          {entry && <span className="formule-item-cat">{si.unit || ''}</span>}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <button type="button" className="btn btn-secondary" style={{ marginTop: '0.6rem' }} onClick={handleSaveRecipe} disabled={isSavingRecipe}>
-                    {isSavingRecipe ? 'Enregistrement...' : 'Enregistrer la recette'}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
-          {type === 'product' && (
-            <div className="form-group">
-              <label className="form-label">Stock (Optionnel)</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.5rem' }}>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="form-input"
-                  placeholder="Laisser vide = pas de suivi de stock (toujours disponible)"
-                  value={formData.stock}
-                  onChange={e => setFormData({ ...formData, stock: e.target.value })}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="form-input"
-                  placeholder="Seuil bas (défaut 5)"
-                  value={formData.lowStockThreshold}
-                  onChange={e => setFormData({ ...formData, lowStockThreshold: e.target.value })}
-                />
-              </div>
-              <p className="formule-slot-hint">
-                Si renseigné, le stock diminue à chaque commande et le produit passe automatiquement en rupture à 0.
-                Le stock est partagé entre toutes les vitrines/événements du même nom. Pour un produit fait à partir d'ingrédients (avec une recette), c'est le stock des ingrédients (onglet Stock) qui compte, pas celui-ci.
+                {formData.kind === 'made'
+                  ? 'Calculé automatiquement à partir du coût des ingrédients dès qu\'ils en ont un ; ce champ ne sert que tant que ce n\'est pas le cas.'
+                  : 'Prix d\'achat d\'une unité. Mis à jour automatiquement à chaque clôture de courses avec le vrai prix payé.'}
               </p>
             </div>
           )}
