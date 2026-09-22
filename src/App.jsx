@@ -166,6 +166,18 @@ export default function App() {
     }
   }, [authToken]);
 
+  // A kiosk can sit idle on its attract screen for a while with nothing else
+  // calling the API -- so a Board member locking it (or regenerating the
+  // shared code) from Gestion wouldn't otherwise be noticed until the next
+  // customer action fails. Re-checking the session periodically here means
+  // a revoked kiosk drops back to the activation screen on its own.
+  useEffect(() => {
+    if (!isKioskMode || !user) return undefined;
+    const timer = setInterval(fetchUser, 20000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKioskMode, user]);
+
   // "Admin" tab (site-themed order tracking) always follows the live
   // storefront, refreshed regularly in case staff switch it while open.
   useEffect(() => {
