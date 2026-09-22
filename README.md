@@ -94,7 +94,6 @@ students in a row can order without each one logging in with their own 42 accoun
    (`http://localhost:3000/?kiosk=1` for local testing.) This flags that browser only —
    it's remembered in its `localStorage`, so it only needs to be opened once per device.
    To turn kiosk mode back off on that device, open the same URL with `?kiosk=0`.
-   Disabled entirely when `STAGING_MODE=true` (see below).
 3. The kiosk then asks for the **6-digit PIN** (from Gestion → Équipe) once; after that
    it shows a full-screen attract page ("Commander") and stays ready for customers.
    A small invisible tap zone in the top-right corner of that attract screen lets staff

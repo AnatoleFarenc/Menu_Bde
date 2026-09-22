@@ -233,10 +233,12 @@ const getKioskSecretInfo = async () => {
 // endpoints further down): only the customer's own phone does, so there is
 // never a real account session sitting on the shared terminal that nobody
 // can force-log-out of.
+// Not gated by stagingMode: unlike the old kiosk-login (any typed 42 login,
+// no verification), this can no longer bypass the STAGING_ALLOWED_LOGINS
+// whitelist -- the pairing flow's identity step is real 42 OAuth, which
+// still goes through isStagingAllowed() below, and a guest order carries no
+// identity at all.
 app.post('/api/auth/kiosk-login', authLimiter, ah(async (req, res) => {
-  if (stagingMode) {
-    return res.status(403).json({ error: 'Le mode borne est désactivé sur l\'environnement de test.' });
-  }
   const { secret: kioskSecret } = await getKioskSecretInfo();
   const provided = String(req.body.secret || '');
   const expected = Buffer.from(kioskSecret);

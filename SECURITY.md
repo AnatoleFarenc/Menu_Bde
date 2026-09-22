@@ -173,7 +173,10 @@ Any other origin is rejected.
   **no personal identity**: `POST /api/auth/kiosk-login` requires a shared
   6-digit PIN (constant-time comparison) and mints a session with a random
   device id, never a typed 42 login and never a 42 OAuth round-trip on the
-  terminal itself. It's disabled entirely on staging (`STAGING_MODE=true`).
+  terminal itself. Unlike the earlier design, it's available on staging too:
+  activation no longer bypasses `STAGING_ALLOWED_LOGINS` (see below), since
+  attaching a real identity to an order still goes through actual 42 OAuth
+  on the customer's phone -- the only path that check ever needed to gate.
 - **The PIN** is auto-generated on first use and stored in the `AppSetting`
   table (same pattern as the Web Push VAPID keys) -- nothing to configure by
   hand. A **Board** member (`requireBoard`) can view and regenerate it from
@@ -241,7 +244,8 @@ Any other origin is rejected.
 - `dev.bde42perpignan.fr` runs the `dev` branch's code, with **its own database**
   (tests never touch real orders).
 - **Access lock**: the `STAGING_MODE=true` variable restricts login to only
-  the 42 logins listed in `STAGING_ALLOWED_LOGINS`. Kiosk mode is disabled there.
+  the 42 logins listed in `STAGING_ALLOWED_LOGINS`. Kiosk mode is available
+  there too (see §4) -- it can no longer bypass this whitelist.
 - None of these variables exist in production → no effect on the public site.
 
 ---
