@@ -191,7 +191,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
             <ArrowLeft size={16} /> Retour
           </button>
           <h1>Scanne ce QR code avec ton téléphone</h1>
-          <p>Connecte-toi avec ton compte 42 sur ton téléphone -- pas besoin de rien taper ici.</p>
+          <p>Connecte-toi avec ton compte 42 sur ton téléphone.</p>
           {pairingError ? (
             <p style={{ color: 'var(--color-accent)', fontWeight: 700 }}>{pairingError}</p>
           ) : pairing ? (
@@ -199,7 +199,12 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
               <div className="kiosk-pairing-qr">
                 <img src={pairing.qrDataUrl} alt="QR code de connexion" />
               </div>
-              <div className="kiosk-pairing-code">{pairing.code}</div>
+              <div>
+                <div className="kiosk-pairing-code">{pairing.code}</div>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                  Le QR ne scanne pas ? Ouvre le site BDE sur ton téléphone et entre ce code.
+                </p>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted)' }}>
                 <span className="kiosk-pairing-spinner" />
                 En attente de ta connexion...

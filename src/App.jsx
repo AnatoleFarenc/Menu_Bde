@@ -37,6 +37,8 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
   const [kioskSecretInput, setKioskSecretInput] = useState('');
+  const [manualPairInput, setManualPairInput] = useState('');
+  const [showManualPairEntry, setShowManualPairEntry] = useState(false);
   const [authError, setAuthError] = useState('');
 
   const [products, setProducts] = useState([]);
@@ -137,12 +139,14 @@ export default function App() {
     }
   }, []);
 
-  // Once logged in on THIS device with a REAL account (never the kiosk's own
-  // session -- a phone is never in kiosk mode), confirm any pending pairing.
-  // This is the only place an identity ever gets attached to a kiosk order,
-  // and it never hands the kiosk this session's token, only a one-shot
-  // attribution token (see POST /api/kiosk/pairing/:code/confirm).
-  useEffect(() => {
+  // Confirms whichever kiosk pairing is pending (stashed by the QR-scan
+  // effect above, or typed in by hand -- see handleManualPairSubmit) against
+  // THIS device's own REAL account (never the kiosk's session -- a phone is
+  // never in kiosk mode). This is the only place an identity ever gets
+  // attached to a kiosk order, and it never hands the kiosk this session's
+  // token, only a one-shot attribution token (see
+  // POST /api/kiosk/pairing/:code/confirm).
+  const confirmPendingPairing = () => {
     const pendingCode = localStorage.getItem(PAIR_CODE_STORAGE_KEY);
     if (!pendingCode || !user || user.role === 'kiosk_guest') return;
     localStorage.removeItem(PAIR_CODE_STORAGE_KEY);
@@ -151,8 +155,15 @@ export default function App() {
         alert('Connecté ! Tu peux continuer sur la borne.');
       })
       .catch(e => {
-        alert(e.response?.data?.error || 'Ce QR code a expiré, redemande-en un à la borne.');
+        alert(e.response?.data?.error || 'Ce code a expiré, redemande-en un à la borne.');
       });
+  };
+
+  // Runs the check above automatically as soon as a real login completes
+  // (the QR-scan path: the pending code was already stashed before the
+  // OAuth redirect).
+  useEffect(() => {
+    confirmPendingPairing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -364,6 +375,25 @@ export default function App() {
     }
   };
 
+  // Fallback for the kiosk's pairing code when scanning the QR isn't an
+  // option (no camera, bad lighting...): typed in by hand, on the
+  // customer's own phone, on this same login screen. Stores it exactly like
+  // the QR-scan path does, then either confirms immediately (already
+  // logged in) or starts the 42 login (confirmPendingPairing then runs once
+  // that completes).
+  const handleManualPairSubmit = (e) => {
+    e.preventDefault();
+    const code = manualPairInput.trim().toUpperCase();
+    if (!code) return;
+    localStorage.setItem(PAIR_CODE_STORAGE_KEY, code);
+    setManualPairInput('');
+    if (user && user.role !== 'kiosk_guest') {
+      confirmPendingPairing();
+    } else {
+      handleLogin42();
+    }
+  };
+
   // Cart Handlers
   const handleAddToCart = (product) => {
     setCart(prev => {
@@ -570,6 +600,35 @@ export default function App() {
           <button className="btn btn-primary" onClick={handleLogin42}>
             <LogIn size={18} /> Se connecter avec 42
           </button>
+
+          {/* Fallback when the kiosk's QR code can't be scanned (no camera,
+              bad lighting...): type its code in by hand instead. */}
+          {!showManualPairEntry ? (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', marginTop: '0.75rem' }}
+              onClick={() => setShowManualPairEntry(true)}
+            >
+              J'ai un code borne à saisir
+            </button>
+          ) : (
+            <form onSubmit={handleManualPairSubmit} style={{ marginTop: '0.75rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Code de la borne"
+                value={manualPairInput}
+                onChange={e => setManualPairInput(e.target.value.toUpperCase())}
+                maxLength={8}
+                autoFocus
+                style={{ marginBottom: '0.6rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.2em' }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={!manualPairInput.trim()}>
+                Valider le code
+              </button>
+            </form>
+          )}
         </div>
       </main>
     );
