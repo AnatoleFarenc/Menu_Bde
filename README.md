@@ -79,6 +79,41 @@ Then each staff member, on each device they want alerts on, opens the **Staff** 
 - **iPhone / iPad:** iOS 16.4+ only, and only for the site added to the Home Screen (Share → "Add to Home Screen"), opened from that icon.
 - Tapping a notification opens the site on the Staff tab. Only accounts that currently have the staff role receive them.
 
+### Kiosk mode
+
+A self-order terminal (tablet/PC at the counter, à la fast-food kiosk) where several
+students in a row can order without each one logging in with their own 42 account.
+
+1. Nothing to configure: the activation code is generated automatically the first time
+   it's needed. A **Board** member can view it (and regenerate it, or individually lock
+   any currently-activated terminal) from **Gestion → Équipe → Bornes de commande**.
+2. On the kiosk's browser, open the site once with `?kiosk=1` added to your public URL, e.g.:
+   ```
+   https://bde-42.mon-tailnet.ts.net/?kiosk=1
+   ```
+   (`http://localhost:3000/?kiosk=1` for local testing.) This flags that browser only —
+   it's remembered in its `localStorage`, so it only needs to be opened once per device.
+   To turn kiosk mode back off on that device, open the same URL with `?kiosk=0`.
+3. The kiosk then asks for the **activation code** (from Gestion → Équipe) once; after
+   that it shows a full-screen attract page ("Commander") and stays ready for customers.
+   A small invisible tap zone in the top-right corner of that attract screen lets staff
+   deactivate the terminal (asks for confirmation, then logs the device session out).
+
+Each customer sees: an attract screen → a choice between **"Se connecter avec mon
+compte 42"** and **"Continuer sans me connecter"** → the ordering screen (categories,
+product grid, persistent cart) → a confirmation screen with the order number.
+
+- **"Continuer sans me connecter"**: fully anonymous. The order lands in the
+  **admin/kitchen history only** and can never be attached to any account afterwards.
+- **"Se connecter"**: shows a QR code (and a short code) generated for that one
+  ordering session. The customer scans it on their **own phone**, logs in there with
+  their own 42 account (the kiosk itself never does 42 OAuth — a shared terminal can't
+  reliably be force-logged-out, so it must never hold a real session), and the order they
+  then place on the kiosk is attributed straight to their account, visible immediately in
+  their own "Mes Commandes".
+
+See [`SECURITY.md`](SECURITY.md#kiosk-mode-shared-self-order-terminal) for the full model.
+
 ## Running on Linux
 
 ### Prerequisites

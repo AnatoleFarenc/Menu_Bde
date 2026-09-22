@@ -334,6 +334,15 @@ model Order {
   totalPrice      Float
   createdAt       DateTime   @default(now())
 
+  // Order placed from the kiosk (shared, unauthenticated terminal). Whether
+  // it's tied to a real account is decided BEFORE creation, via the kiosk
+  // pairing flow (in-memory, see server/index.js): if the customer paired
+  // their phone first, `userId`/`userLogin`/`userDisplayName` above already
+  // hold their real, 42-verified identity; a guest order just keeps its
+  // kiosk-anonymous label forever. This flag only marks the order's origin
+  // for the admin/kitchen view.
+  isKioskOrder Boolean @default(false)
+
   reviewRating    Int?
   reviewComment   String?    @db.Text
   reviewCreatedAt DateTime?

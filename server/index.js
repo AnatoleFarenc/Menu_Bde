@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
+import QRCode from 'qrcode';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
@@ -72,11 +73,11 @@ const isStagingAllowed = (login) => !stagingMode || stagingAllowedLogins.include
 // SESSIONS  (random opaque token, sliding expiration)
 // ----------------------------------------------------
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
-const sessions = new Map(); // token -> { user, expiresAt }
+const sessions = new Map(); // token -> { user, expiresAt, createdAt }
 
 const createSession = (user) => {
   const token = crypto.randomBytes(32).toString('base64url');
-  sessions.set(token, { user, expiresAt: Date.now() + SESSION_TTL_MS });
+  sessions.set(token, { user, expiresAt: Date.now() + SESSION_TTL_MS, createdAt: Date.now() });
   return token;
 };
 
@@ -165,6 +166,11 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
+// db.js uses Prisma: every route touching the database is asynchronous. This
+// wrapper avoids repeating try/catch everywhere and forwards any error to the
+// global error middleware defined at the bottom of this file.
+const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 // ----------------------------------------------------
 // AUTH ROUTES (42 OAuth2)
 // ----------------------------------------------------
@@ -198,20 +204,45 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
-// Simplified login for the kiosk (kiosk mode): no 42 OAuth, just a manually
-// entered login so orders can be attributed. This account never has admin rights.
-app.post('/api/auth/kiosk-login', authLimiter, (req, res) => {
+// The kiosk activation code: forced by KIOSK_SECRET in .env when set (an
+// explicit override, same convention as VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY
+// in push.js), otherwise auto-generated on first use and kept in the
+// AppSetting table -- so it works out of the box, and a Board member can
+// view/regenerate it from Gestion > Équipe (see the requireBoard routes
+// below) without touching the server's filesystem.
+const KIOSK_SECRET_SETTING_KEY = 'kiosk_secret';
+const generateKioskSecret = () => crypto.randomBytes(18).toString('base64url');
+const getKioskSecretInfo = async () => {
+  if (process.env.KIOSK_SECRET) return { secret: process.env.KIOSK_SECRET, source: 'env' };
+  let secret = await db.getSetting(KIOSK_SECRET_SETTING_KEY);
+  if (!secret) secret = await db.setSettingIfAbsent(KIOSK_SECRET_SETTING_KEY, generateKioskSecret());
+  return { secret, source: 'db' };
+};
+
+// Activates a kiosk (shared order terminal): a device-level session backed
+// by one shared secret, never a real account. This session carries NO
+// identity at all -- it can place orders but (see GET /api/orders and the
+// review route below) can never read or claim anyone's personal history.
+// The kiosk ITSELF also never goes through 42 OAuth (see the pairing
+// endpoints further down): only the customer's own phone does, so there is
+// never a real account session sitting on the shared terminal that nobody
+// can force-log-out of.
+app.post('/api/auth/kiosk-login', authLimiter, ah(async (req, res) => {
   if (stagingMode) {
     return res.status(403).json({ error: 'Le mode borne est désactivé sur l\'environnement de test.' });
   }
-  const login = (req.body.login || '').trim().toLowerCase();
-  if (!/^[a-z0-9_-]{1,30}$/.test(login)) {
-    return res.status(400).json({ error: 'Login invalide' });
+  const { secret: kioskSecret } = await getKioskSecretInfo();
+  const provided = String(req.body.secret || '');
+  const expected = Buffer.from(kioskSecret);
+  const given = Buffer.from(provided);
+  const matches = given.length === expected.length && crypto.timingSafeEqual(given, expected);
+  if (!matches) {
+    return res.status(401).json({ error: 'Code borne invalide' });
   }
   const user = {
-    id: 'kiosk_' + login,
-    login,
-    displayName: login,
+    id: 'kiosk_' + crypto.randomBytes(8).toString('hex'),
+    login: null,
+    displayName: 'Borne',
     avatarUrl: '',
     campus: 'Borne',
     isAdmin: false,
@@ -221,7 +252,7 @@ app.post('/api/auth/kiosk-login', authLimiter, (req, res) => {
   };
   const token = createSession(user);
   res.json({ token, user });
-});
+}));
 
 app.post('/api/auth/logout', (req, res) => {
   const authHeader = req.headers.authorization || '';
@@ -230,11 +261,84 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true });
 });
 
+// ----------------------------------------------------
+// KIOSK PAIRING -- lets a customer attach the order they're about to place
+// at a kiosk to their OWN 42 account, WITHOUT the kiosk ever going through
+// 42 OAuth itself (a shared terminal can't reliably force-log-out an
+// account, so it must never hold one). Flow:
+//   1. Kiosk (its own device session) creates a pairing -> a short code
+//      shown as a QR code (?pair=<code>).
+//   2. Customer scans it on their OWN phone, in their OWN browser, and logs
+//      in normally with 42 OAuth there.
+//   3. Their phone (now holding a real, ordinary session) calls
+//      .../confirm -- this is the only place a real identity ever touches
+//      the pairing.
+//   4. The kiosk, polling for the result, receives a one-shot
+//      `attributionToken` -- NOT the phone's session token, just enough to
+//      attribute the next order it places to that account server-side.
+// Everything here is in-memory and short-lived, same pattern as `sessions`
+// and `oauthStates` above.
+// ----------------------------------------------------
+const KIOSK_PAIRING_TTL_MS = 5 * 60 * 1000;
+const PAIRING_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+const kioskPairings = new Map(); // code -> { status, userId, userLogin, userDisplayName, attributionToken, expiresAt }
+const kioskAttributions = new Map(); // attributionToken -> { userId, userLogin, userDisplayName, expiresAt }
 
-// db.js uses Prisma: every route touching the database is asynchronous. This
-// wrapper avoids repeating try/catch everywhere and forwards any error to the
-// global error middleware defined at the bottom of this file.
-const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const generatePairingCode = () => Array.from({ length: 8 }, () => PAIRING_CODE_ALPHABET[crypto.randomInt(PAIRING_CODE_ALPHABET.length)]).join('');
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, entry] of kioskPairings) if (entry.expiresAt < now) kioskPairings.delete(code);
+  for (const [token, entry] of kioskAttributions) if (entry.expiresAt < now) kioskAttributions.delete(token);
+}, 60 * 1000).unref();
+
+const requireKiosk = (req, res, next) => {
+  const user = getUserFromReq(req);
+  if (!user || user.role !== 'kiosk_guest') return res.status(403).json({ error: 'Réservé au mode borne' });
+  req.user = user;
+  next();
+};
+
+// The kiosk requests a fresh pairing right before showing its "Se connecter"
+// screen.
+app.post('/api/kiosk/pairing', requireKiosk, ah(async (req, res) => {
+  const code = generatePairingCode();
+  const expiresAt = Date.now() + KIOSK_PAIRING_TTL_MS;
+  kioskPairings.set(code, { status: 'pending', expiresAt });
+  const pairUrl = `${publicAppUrl}/?pair=${code}`;
+  const qrDataUrl = await QRCode.toDataURL(pairUrl, { margin: 1, width: 280 });
+  res.status(201).json({ code, qrDataUrl, expiresAt: new Date(expiresAt).toISOString() });
+}));
+
+// The kiosk polls this while showing the QR code.
+app.get('/api/kiosk/pairing/:code', requireKiosk, (req, res) => {
+  const entry = kioskPairings.get(req.params.code);
+  if (!entry || entry.expiresAt < Date.now()) return res.status(404).json({ status: 'expired' });
+  if (entry.status === 'confirmed') {
+    return res.json({ status: 'confirmed', displayName: entry.userDisplayName, attributionToken: entry.attributionToken });
+  }
+  res.json({ status: 'pending' });
+});
+
+// The CUSTOMER'S OWN PHONE calls this, authenticated with their own real 42
+// session (never the kiosk's) -- the only step where an identity is
+// attached to the pairing.
+app.post('/api/kiosk/pairing/:code/confirm', authLimiter, (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: 'Connexion 42 requise' });
+  if (user.role === 'kiosk_guest') return res.status(403).json({ error: 'Utilise ton propre compte, pas celui de la borne.' });
+  const entry = kioskPairings.get(req.params.code);
+  if (!entry || entry.expiresAt < Date.now()) return res.status(404).json({ error: 'Ce code a expiré, redemande un QR code à la borne.' });
+  if (entry.status === 'confirmed') return res.status(409).json({ error: 'Ce code a déjà été utilisé.' });
+  const attributionToken = crypto.randomBytes(24).toString('base64url');
+  entry.status = 'confirmed';
+  entry.userId = user.id;
+  entry.userLogin = user.login;
+  entry.userDisplayName = user.displayName;
+  entry.attributionToken = attributionToken;
+  kioskAttributions.set(attributionToken, { userId: user.id, userLogin: user.login, userDisplayName: user.displayName, expiresAt: entry.expiresAt });
+  res.json({ success: true });
+});
 
 // ----------------------------------------------------
 // PRODUCT & MENU ROUTES (Storefront)
@@ -539,14 +643,33 @@ app.post('/api/orders', ah(async (req, res) => {
     return res.status(409).json({ error: `Commande impossible -- ${unavailable.join(' ; ')}. Retire-le de ton panier.` });
   }
 
+  const isKiosk = user.role === 'kiosk_guest';
+
+  // If the customer paired their phone before ordering (see the kiosk
+  // pairing endpoints above), this single-use token proves -- server-side,
+  // via that phone's own real 42 login -- which account the order belongs
+  // to. Without one (guest checkout), the order stays kiosk-anonymous
+  // forever: it is never attributed to anyone after the fact.
+  let attribution = null;
+  if (isKiosk && req.body.attributionToken) {
+    attribution = kioskAttributions.get(String(req.body.attributionToken));
+    if (attribution) kioskAttributions.delete(req.body.attributionToken); // single-use
+  }
+
+  // Cosmetic only, for the kitchen ticket -- never used for identity/auth.
+  const customerLabel = String(req.body.customerLabel || '').trim().slice(0, 60) || 'Commande borne';
+
   const newOrder = await db.addOrder({
-    userId: user.id,
-    userLogin: user.login,
-    userDisplayName: user.displayName,
+    userId: attribution ? attribution.userId : user.id,
+    // Same convention as the admin "free/gift order" path when there's no
+    // real account attached: both fields hold the human-readable label.
+    userLogin: attribution ? attribution.userLogin : (isKiosk ? customerLabel : user.login),
+    userDisplayName: attribution ? attribution.userDisplayName : (isKiosk ? customerLabel : user.displayName),
     items,
     pickupTime: pickupTime || '12h00',
     note: note || '',
-    totalPrice: parseFloat(totalPrice) || 0
+    totalPrice: parseFloat(totalPrice) || 0,
+    isKioskOrder: isKiosk
   });
 
   // Alert the staff devices -- after the response is ready, and never able to
@@ -581,14 +704,21 @@ app.post('/api/admin/orders/free', requireAdmin, ah(async (req, res) => {
   res.status(201).json({ order: newOrder });
 }));
 
-// Get user orders
+// Get user orders. Matches on `userId` ONLY -- a real 42-verified id, never
+// the free-text `userLogin` a kiosk session used to be able to fake (see
+// SECURITY.md). The kiosk role itself is refused outright: it has no
+// account and must never read anyone's order history, including its own
+// just-placed (still-unlinked) orders.
 app.get('/api/orders', ah(async (req, res) => {
   const user = getUserFromReq(req);
   if (!user) {
     return res.json({ orders: [] });
   }
+  if (user.role === 'kiosk_guest') {
+    return res.status(403).json({ error: 'Le mode borne n\'a pas accès à l\'historique des commandes.' });
+  }
   const allOrders = await db.getOrders();
-  const userOrders = allOrders.filter(o => o.userId === String(user.id) || o.userLogin === user.login);
+  const userOrders = allOrders.filter(o => o.userId === String(user.id));
   res.json({ orders: userOrders });
 }));
 
@@ -597,6 +727,9 @@ app.post('/api/orders/:id/review', ah(async (req, res) => {
   const user = getUserFromReq(req);
   if (!user) {
     return res.status(401).json({ error: 'Connexion 42 requise' });
+  }
+  if (user.role === 'kiosk_guest') {
+    return res.status(403).json({ error: 'Le mode borne ne peut pas laisser d\'avis.' });
   }
   const rating = parseInt(req.body.rating, 10);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -1092,6 +1225,54 @@ app.delete('/api/admin/team/:login', requireBoard, ah(async (req, res) => {
   await db.removeTeamMember(req.params.login.toLowerCase());
   res.json({ success: true });
 }));
+
+// Kiosk activation code -- Board-only, shown/regenerated from Gestion >
+// Équipe so it no longer has to be read out of the server's .env file by
+// hand (see getKioskSecretInfo() above).
+app.get('/api/admin/kiosk-secret', requireBoard, ah(async (req, res) => {
+  res.json(await getKioskSecretInfo());
+}));
+
+app.post('/api/admin/kiosk-secret/regenerate', requireBoard, ah(async (req, res) => {
+  const { source } = await getKioskSecretInfo();
+  if (source === 'env') {
+    return res.status(400).json({ error: 'Le code borne est fixé par KIOSK_SECRET dans .env -- modifie cette variable puis redémarre le serveur pour le changer.' });
+  }
+  const secret = await db.setSetting(KIOSK_SECRET_SETTING_KEY, generateKioskSecret());
+  // A regenerated code should actually lock out any terminal still running
+  // on the old one -- not just block future activations with it.
+  for (const [token, entry] of sessions) {
+    if (entry.user.role === 'kiosk_guest') sessions.delete(token);
+  }
+  res.json({ secret, source: 'db' });
+}));
+
+// Currently-active kiosk terminals (one device session = one activation,
+// see POST /api/auth/kiosk-login), so a Board member can lock any ONE of
+// them individually -- e.g. a stolen/misbehaving tablet -- without
+// regenerating the shared code and force-logging out every other kiosk too.
+app.get('/api/admin/kiosk-sessions', requireBoard, (req, res) => {
+  const now = Date.now();
+  const kiosks = [];
+  for (const entry of sessions.values()) {
+    if (entry.user.role !== 'kiosk_guest' || entry.expiresAt < now) continue;
+    kiosks.push({ id: entry.user.id, createdAt: new Date(entry.createdAt).toISOString(), expiresAt: new Date(entry.expiresAt).toISOString() });
+  }
+  kiosks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json({ kiosks });
+});
+
+app.delete('/api/admin/kiosk-sessions/:id', requireBoard, (req, res) => {
+  let removed = false;
+  for (const [token, entry] of sessions) {
+    if (entry.user.role === 'kiosk_guest' && entry.user.id === req.params.id) {
+      sessions.delete(token);
+      removed = true;
+    }
+  }
+  if (!removed) return res.status(404).json({ error: 'Cette borne n\'est plus active.' });
+  res.json({ success: true });
+});
 
 // In production, serve the built React application from the same origin as the API.
 if (process.env.NODE_ENV === 'production') {

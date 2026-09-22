@@ -228,6 +228,7 @@ function serializeOrder(o) {
     userId: o.userId,
     userLogin: o.userLogin,
     userDisplayName: o.userDisplayName,
+    isKioskOrder: o.isKioskOrder,
     pickupTime: o.pickupTime,
     note: o.note,
     totalPrice: o.totalPrice,
@@ -1366,6 +1367,7 @@ class DB {
         note: orderData.note || '',
         totalPrice: parseFloat(orderData.totalPrice) || 0,
         isFree: !!orderData.isFree,
+        isKioskOrder: !!orderData.isKioskOrder,
         items: buildOrderItemsInput(orderData.items)
       },
       include: orderInclude
@@ -1669,6 +1671,13 @@ class DB {
   async setSettingIfAbsent(key, value) {
     await prisma.appSetting.createMany({ data: [{ key, value }], skipDuplicates: true });
     return this.getSetting(key);
+  }
+
+  // Unlike setSettingIfAbsent, always overwrites -- used where a Board member
+  // deliberately replaces a value (e.g. regenerating the kiosk code).
+  async setSetting(key, value) {
+    await prisma.appSetting.upsert({ where: { key }, create: { key, value }, update: { value } });
+    return value;
   }
 
   // PUSH SUBSCRIPTIONS -- the devices that get a Web Push alert for a new

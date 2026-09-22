@@ -155,20 +155,69 @@ Any other origin is rejected.
 - The `client_secret` is never exposed to the browser (code → token exchange happens server-side).
 
 ### Authorization model
-- Three levels currently: **42 user** (can order, view their orders, leave a
+- Four levels currently: **42 user** (can order, view their orders, leave a
   review), **BDE administrator** (allowlist of logins in `ADMIN_LOGINS`, live
-  order-tracking board), and **BDE manager** (allowlist of logins in
-  `MANAGER_LOGINS`, the `/gestion` event/catalog/stock tool). Admin and
-  manager are independent -- a login can hold either, both, or neither.
+  order-tracking board), **BDE manager** (allowlist of logins in
+  `MANAGER_LOGINS`, the `/gestion` event/catalog/stock tool), and **kiosk**
+  (`kiosk_guest`, see below -- can only place an order, nothing else). Admin
+  and manager are independent -- a login can hold either, both, or neither.
 - Every `/api/admin/*` route is explicitly gated by `requireAdmin`,
   `requireManager`, or `requireAdminOrManager` (the one shared read route,
   the per-storefront catalog, used by both the order board and `/gestion`).
 - Routes that write user data verify **ownership** of the resource (e.g. a
-  review can only be left on one's own order, and only if it has been picked up).
+  review can only be left on one's own order, and only if it has been picked up),
+  matched on the OAuth-verified `userId` only -- never on a free-text field.
+
+### Kiosk mode (shared, self-order terminal)
+- Activated per-browser (`?kiosk=1`), the kiosk DEVICE session itself carries
+  **no personal identity**: `POST /api/auth/kiosk-login` requires a shared
+  activation code (constant-time comparison) and mints a session with a
+  random device id, never a typed 42 login and never a 42 OAuth round-trip on
+  the terminal itself. It's disabled entirely on staging.
+- **The activation code** is auto-generated on first use and stored in the
+  `AppSetting` table (same pattern as the Web Push VAPID keys) -- nothing to
+  configure by hand. A **Board** member (`requireBoard`) can view and
+  regenerate it from Gestion > Équipe (`GET`/`POST /api/admin/kiosk-secret*`);
+  regenerating immediately force-logs-out every currently-activated kiosk.
+  Setting `KIOSK_SECRET` in `.env` forces a specific value instead (same
+  override convention as `VAPID_PUBLIC_KEY`) and disables regeneration from
+  the UI (the file is then the source of truth).
+- **Individual terminals** currently activated are also listed there
+  (`GET /api/admin/kiosk-sessions`, in-memory, same lifecycle as `sessions`),
+  each with a **Board**-only "Verrouiller" action
+  (`DELETE /api/admin/kiosk-sessions/:id`) that logs out just that one
+  device -- e.g. a lost/stolen tablet -- without rotating the shared code or
+  affecting any other active terminal.
+- A kiosk session is explicitly refused by `GET /api/orders` and
+  `POST /api/orders/:id/review` (403) -- it can never read or claim any
+  order history, including its own just-placed orders.
+- **Getting an order into a personal history** goes through a pairing step,
+  chosen by the customer, BEFORE the order is placed:
+  1. The kiosk (its own device session) calls `POST /api/kiosk/pairing`,
+     which creates a short-lived (5 min), random 8-character code and shows
+     it as a QR code (`?pair=<code>`).
+  2. The customer scans it on their OWN phone, in their OWN browser, and logs
+     in normally with 42 OAuth there -- the kiosk is never involved in that
+     OAuth exchange.
+  3. Their phone, now holding an ordinary real session, calls
+     `POST /api/kiosk/pairing/:code/confirm`. This is the only place a real
+     identity ever touches the pairing.
+  4. The kiosk, polling `GET /api/kiosk/pairing/:code`, receives a one-shot
+     `attributionToken` -- **never the phone's session token**, just enough
+     to attribute the order about to be placed. `POST /api/orders` consumes
+     it (single-use) and writes the real `userId`/`userLogin` directly.
+  A guest ("Continuer sans me connecter") order skips all of this and is
+  never attributed to anyone, ever -- it only exists in the admin/kitchen
+  history. The in-memory pairing state expires the same way `sessions`/
+  `oauthStates` do.
+- This design exists specifically so the shared terminal never holds a real
+  42 session: nothing on a kiosk (unattended, walked away from) can be
+  force-logged-out remotely, so the terminal must simply never be the thing
+  that's logged in.
 
 ### Input validation
 - Request body limited to **1 MB**.
-- Kiosk-mode identifiers are validated against a strict pattern (`^[a-z0-9_-]{1,30}$`).
+- Kiosk device activation compares the provided secret in constant time (`crypto.timingSafeEqual`).
 - Amounts/quantities are converted and bounded server-side (`parseFloat`/`parseInt`, minimums).
 - Order statuses are validated against a closed list.
 

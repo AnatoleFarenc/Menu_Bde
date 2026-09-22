@@ -1,5 +1,95 @@
 import React, { useEffect, useState } from 'react';
-import { Crown, Shield, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { Copy, Crown, Eye, EyeOff, Lock, RefreshCw, Shield, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+
+const KIOSK_SESSIONS_POLL_MS = 8000;
+
+// "il y a 3 min" -- relative to now, French, minute granularity (good enough
+// for a session that's at most 12h old).
+function formatRelative(iso) {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `il y a ${hours} h ${minutes % 60} min`;
+}
+
+// Board-only: view/regenerate the kiosk activation code, and lock individual
+// active kiosk terminals -- see the requireBoard kiosk-secret/kiosk-sessions
+// routes in server/index.js.
+function KioskPanel({ secretInfo, onFetchSecret, onRegenerate, sessions, onFetchSessions, onLockSession }) {
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    onFetchSecret();
+    onFetchSessions();
+    const timer = setInterval(onFetchSessions, KIOSK_SESSIONS_POLL_MS);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCopy = () => {
+    if (!secretInfo?.secret) return;
+    navigator.clipboard?.writeText(secretInfo.secret).catch(() => {});
+  };
+
+  return (
+    <div className="synthesis-card" style={{ marginBottom: '1.5rem' }}>
+      <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Lock size={16} color="var(--color-primary)" /> Bornes de commande
+      </h3>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+        Code à taper une fois sur chaque borne pour l'activer -- ne l'envoie qu'aux personnes qui installent physiquement une borne.
+      </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+        <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', padding: '0.45rem 0.75rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)', letterSpacing: '0.05em' }}>
+          {secretInfo ? (revealed ? secretInfo.secret : '•'.repeat(Math.min(secretInfo.secret.length, 24))) : '...'}
+        </code>
+        <button type="button" className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem' }} onClick={() => setRevealed(v => !v)} title={revealed ? 'Masquer' : 'Afficher'}>
+          {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+        </button>
+        <button type="button" className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem' }} onClick={handleCopy} title="Copier">
+          <Copy size={14} />
+        </button>
+        <button
+          type="button"
+          className="btn btn-danger"
+          style={{ padding: '0.4rem 0.7rem' }}
+          onClick={onRegenerate}
+          disabled={secretInfo?.source === 'env'}
+          title={secretInfo?.source === 'env' ? 'Fixé par KIOSK_SECRET dans .env' : 'Régénérer'}
+        >
+          <RefreshCw size={14} /> Régénérer
+        </button>
+      </div>
+      {secretInfo?.source === 'env' && (
+        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+          Fixé par la variable <code>KIOSK_SECRET</code> dans <code>.env</code> -- modifie-la puis redémarre le serveur pour le changer.
+        </p>
+      )}
+
+      <div style={{ marginTop: '1.1rem' }}>
+        <h4 style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
+          Bornes actives ({sessions.length})
+        </h4>
+        {sessions.length === 0 ? (
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Aucune borne activée en ce moment.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            {sessions.map(session => (
+              <div key={session.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', padding: '0.5rem 0.75rem', background: 'rgba(0,0,0,0.08)', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem' }}>
+                <span>Borne <code>{session.id.replace('kiosk_', '').slice(0, 8)}</code> -- activée {formatRelative(session.createdAt)}</span>
+                <button type="button" className="btn btn-danger" style={{ padding: '0.3rem 0.6rem' }} onClick={() => onLockSession(session.id)}>
+                  <Lock size={12} /> Verrouiller
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const ROLES = [
   { id: 'staff', label: 'Staff', desc: 'Suivi des commandes en direct uniquement.', icon: Shield },
@@ -16,7 +106,11 @@ function formatDate(iso) {
 // Board-only: assigns/changes/removes a member's role (roadmap 06). Backed by
 // the TeamMember table -- see resolveRole() in server/auth42.js for how this
 // combines with the legacy ADMIN_LOGINS/MANAGER_LOGINS env fallback.
-export default function TeamPanel({ members, currentLogin, onFetchTeam, onSetRole, onRemove }) {
+export default function TeamPanel({
+  members, currentLogin, onFetchTeam, onSetRole, onRemove,
+  kioskSecretInfo, onFetchKioskSecret, onRegenerateKioskSecret,
+  kioskSessions, onFetchKioskSessions, onLockKioskSession
+}) {
   const [login, setLogin] = useState('');
   const [role, setRole] = useState('staff');
   const [isSaving, setIsSaving] = useState(false);
@@ -47,6 +141,15 @@ export default function TeamPanel({ members, currentLogin, onFetchTeam, onSetRol
         Chaque rôle inclut les droits de celui du dessous : Staff (suivi commandes) &lt; Admin (+ outil de gestion) &lt; Board (+ gestion de l'équipe).
         Un login pas encore listé ici reste un membre normal.
       </p>
+
+      <KioskPanel
+        secretInfo={kioskSecretInfo}
+        onFetchSecret={onFetchKioskSecret}
+        onRegenerate={onRegenerateKioskSecret}
+        sessions={kioskSessions}
+        onFetchSessions={onFetchKioskSessions}
+        onLockSession={onLockKioskSession}
+      />
 
       <form onSubmit={handleSubmit} className="synthesis-card" style={{ display: 'flex', alignItems: 'flex-end', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <div style={{ flex: '1 1 200px' }}>

@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import MenuBuilderModal from './components/MenuBuilderModal';
 import CartDrawer from './components/CartDrawer';
+import KioskApp from './components/KioskApp';
 import AdminKitchenBoard from './components/AdminKitchenBoard';
 import AdminOrderHistory from './components/AdminOrderHistory';
 import OrderStatus from './components/OrderStatus';
@@ -13,10 +14,17 @@ import { playNewOrderSound } from './lib/sound';
 
 // Kiosk mode: hidden activation via the URL, specific to this browser only.
 // To activate on a kiosk: open the URL once with ?kiosk=1 (then ?kiosk=0 to deactivate).
+// The kiosk itself never carries a personal identity (see server/index.js) --
+// it activates with a shared device secret, not a per-customer login. The
+// customer-facing flow (attract screen, connect-by-QR-or-guest, ordering)
+// lives entirely in <KioskApp>; App.jsx only handles device activation and
+// the phone-side pairing confirmation below.
 const KIOSK_STORAGE_KEY = 'bde_kiosk_mode';
-const KIOSK_INACTIVITY_MINUTES = 3;
-const KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS = 6;
 const SOUND_STORAGE_KEY = 'bde_admin_sound_enabled';
+// Scanning a kiosk's pairing QR code lands on `?pair=<code>`; persisted here
+// across the 42 OAuth round-trip (which overwrites the URL) so it survives
+// long enough to confirm the pairing once the customer is logged in.
+const PAIR_CODE_STORAGE_KEY = 'bde_pending_pair_code';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -28,7 +36,7 @@ export default function App() {
   const [adminSubView, setAdminSubView] = useState('kitchen'); // 'kitchen' | 'history'
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
-  const [kioskLoginInput, setKioskLoginInput] = useState('');
+  const [kioskSecretInput, setKioskSecretInput] = useState('');
   const [authError, setAuthError] = useState('');
 
   const [products, setProducts] = useState([]);
@@ -115,31 +123,46 @@ export default function App() {
     if (!isAuthChecking && activeTab === 'admin' && !(user && user.isAdmin)) setActiveTab('vitrine');
   }, [isAuthChecking, user, activeTab]);
 
-  // Kiosk mode: automatic logout after inactivity.
+  // Scanning a kiosk's pairing QR code lands here with ?pair=<code>; stash it
+  // before it's overwritten by the 42 OAuth redirect below. This only ever
+  // runs on the CUSTOMER'S OWN phone/browser -- the kiosk itself never goes
+  // through this page with a `pair` param on itself.
   useEffect(() => {
-    if (!isKioskMode || !user) return undefined;
-    let timer;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        handleLogout();
-      }, KIOSK_INACTIVITY_MINUTES * 60 * 1000);
-    };
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
-    activityEvents.forEach(evt => window.addEventListener(evt, resetTimer));
-    resetTimer();
-    return () => {
-      clearTimeout(timer);
-      activityEvents.forEach(evt => window.removeEventListener(evt, resetTimer));
-    };
+    const urlParams = new URLSearchParams(window.location.search);
+    const pairCode = urlParams.get('pair');
+    if (pairCode) {
+      localStorage.setItem(PAIR_CODE_STORAGE_KEY, pairCode);
+      urlParams.delete('pair');
+      window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
+    }
+  }, []);
+
+  // Once logged in on THIS device with a REAL account (never the kiosk's own
+  // session -- a phone is never in kiosk mode), confirm any pending pairing.
+  // This is the only place an identity ever gets attached to a kiosk order,
+  // and it never hands the kiosk this session's token, only a one-shot
+  // attribution token (see POST /api/kiosk/pairing/:code/confirm).
+  useEffect(() => {
+    const pendingCode = localStorage.getItem(PAIR_CODE_STORAGE_KEY);
+    if (!pendingCode || !user || user.role === 'kiosk_guest') return;
+    localStorage.removeItem(PAIR_CODE_STORAGE_KEY);
+    axios.post(`/api/kiosk/pairing/${pendingCode}/confirm`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(() => {
+        alert('Connecté ! Tu peux continuer sur la borne.');
+      })
+      .catch(e => {
+        alert(e.response?.data?.error || 'Ce QR code a expiré, redemande-en un à la borne.');
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isKioskMode, user]);
+  }, [user]);
 
   useEffect(() => {
     fetchProducts();
     if (authToken) {
       fetchUser();
-      fetchUserOrders();
+      // The kiosk has no order history of its own to prefetch (and the
+      // server refuses that role anyway, see GET /api/orders).
+      if (!isKioskMode) fetchUserOrders();
     }
   }, [authToken]);
 
@@ -314,17 +337,18 @@ export default function App() {
     setActiveTab('vitrine');
   };
 
-  // Kiosk login: no 42 OAuth, just a manually entered login to attribute the order.
-  const handleKioskLogin = async (login) => {
-    const trimmed = (login || '').trim();
+  // Activates the kiosk device with the shared secret -- no personal
+  // identity involved (see server/index.js POST /api/auth/kiosk-login).
+  const handleKioskActivate = async (secret) => {
+    const trimmed = (secret || '').trim();
     if (!trimmed) return;
     try {
-      const res = await axios.post('/api/auth/kiosk-login', { login: trimmed });
+      const res = await axios.post('/api/auth/kiosk-login', { secret: trimmed });
       localStorage.setItem('bde_token', res.data.token);
       setAuthToken(res.data.token);
-      setKioskLoginInput('');
+      setKioskSecretInput('');
     } catch (error) {
-      alert('Erreur lors de la connexion à la borne.');
+      alert(error.response?.data?.error || 'Erreur lors de l\'activation de la borne.');
     }
   };
 
@@ -375,25 +399,22 @@ export default function App() {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Posts the order and returns the response data; callers (CartDrawer,
+  // KioskApp) handle their own success/error UI since they differ a lot
+  // between the two flows.
   const handleSubmitOrder = async (orderPayload) => {
-    try {
-      await axios.post('/api/orders', orderPayload, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      fetchUserOrders();
-      fetchProducts();
-      if (user && user.isAdmin && activeStorefront) {
-        fetchKitchenOrders(activeStorefront.id);
-      }
-      setActiveTab('orders');
-      if (isKioskMode) {
-        setTimeout(() => {
-          handleLogout();
-        }, KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS * 1000);
-      }
-    } catch (e) {
-      alert('Erreur lors de la validation de la commande.');
+    const res = await axios.post('/api/orders', orderPayload, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    fetchProducts();
+    if (user && user.isAdmin && activeStorefront) {
+      fetchKitchenOrders(activeStorefront.id);
     }
+    if (!isKioskMode) {
+      fetchUserOrders();
+      setActiveTab('orders');
+    }
+    return res.data;
   };
 
   // Order-tracking handlers below all operate on the currently ACTIVE
@@ -498,19 +519,19 @@ export default function App() {
           <div className="auth-panel">
             <div className="logo-badge"><span>42</span></div>
             <h1>Borne de commande BDE</h1>
-            <p>Entre ton login 42 pour passer commande.</p>
-            <form onSubmit={e => { e.preventDefault(); handleKioskLogin(kioskLoginInput); }}>
+            <p>Active cette borne avec le code fourni par le BDE.</p>
+            <form onSubmit={e => { e.preventDefault(); handleKioskActivate(kioskSecretInput); }}>
               <input
-                type="text"
+                type="password"
                 className="form-input"
-                placeholder="Ex: jdupont"
-                value={kioskLoginInput}
-                onChange={e => setKioskLoginInput(e.target.value)}
+                placeholder="Code borne"
+                value={kioskSecretInput}
+                onChange={e => setKioskSecretInput(e.target.value)}
                 autoFocus
                 style={{ marginBottom: '1rem', textAlign: 'center' }}
               />
               <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                <LogIn size={18} /> Continuer
+                <LogIn size={18} /> Activer la borne
               </button>
             </form>
           </div>
@@ -523,6 +544,11 @@ export default function App() {
           <div className="logo-badge"><span>42</span></div>
           <h1>Bienvenue sur BDE Sandwicherie</h1>
           <p>Connectez-vous avec votre compte 42 pour accéder à la vitrine, commander et suivre vos commandes.</p>
+          {localStorage.getItem(PAIR_CODE_STORAGE_KEY) && (
+            <p style={{ color: 'var(--color-primary-text)', fontWeight: 600, marginBottom: '1rem' }}>
+              Connecte-toi pour associer ta commande à la borne à ton compte.
+            </p>
+          )}
           {authError && (
             <p style={{ color: 'var(--color-accent)', fontWeight: 600, marginBottom: '1rem' }}>{authError}</p>
           )}
@@ -531,6 +557,29 @@ export default function App() {
           </button>
         </div>
       </main>
+    );
+  }
+
+  // Kiosk device activated: hand off entirely to the self-order-terminal
+  // flow (attract screen, connect-by-QR-or-guest, ordering, confirmation).
+  // It reuses the catalog/cart state and handlers above but owns its own,
+  // completely different, touch-first UI -- see src/components/KioskApp.jsx.
+  if (isKioskMode) {
+    return (
+      <KioskApp
+        authToken={authToken}
+        products={products}
+        menus={menus}
+        categories={categories}
+        cart={cart}
+        onAddToCart={handleAddToCart}
+        onAddMenuToCart={handleAddMenuToCart}
+        updateCartQuantity={updateCartQuantity}
+        removeCartItem={removeCartItem}
+        clearCart={() => setCart([])}
+        onSubmitOrder={handleSubmitOrder}
+        onExitKiosk={handleLogout}
+      />
     );
   }
 

@@ -59,7 +59,9 @@ student/amateur project.
 - [x] 42 Intra login (OAuth2, signed session token, CSRF protection)
 - [x] Customizable meal deals (per-product choice groups, live price calculation)
 - [x] Order tracking & customer reviews
-- [x] Kiosk mode (shared order terminal, no 42 account)
+- [x] Kiosk mode (fast-food-style self-order terminal: attract screen, no
+      personal account ever tied to the device session, optional connect
+      via a QR code scanned on the customer's own phone before ordering)
 
 ### Administration
 - [x] Catalog & stock (automatic out-of-stock at 0, restored on cancellation)

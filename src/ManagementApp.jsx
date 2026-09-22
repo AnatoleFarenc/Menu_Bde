@@ -42,6 +42,8 @@ export default function ManagementApp() {
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [kioskSecretInfo, setKioskSecretInfo] = useState(null); // { secret, source }
+  const [kioskSessions, setKioskSessions] = useState([]);
   const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
 
   // The storefront's warm background/scrollbar colors live on <body>, outside
@@ -415,6 +417,47 @@ export default function ManagementApp() {
     }
   };
 
+  // Kiosk terminal management (Board-only, Équipe tab): the activation code
+  // itself, and the individual terminals currently activated with it.
+  const fetchKioskSecret = async () => {
+    try {
+      const res = await axios.get('/api/admin/kiosk-secret', authHeaders);
+      setKioskSecretInfo(res.data);
+    } catch (e) {
+      console.error('Error fetching kiosk secret:', e);
+    }
+  };
+
+  const handleRegenerateKioskSecret = async () => {
+    if (!confirm('Régénérer le code borne ? Toutes les bornes actuellement activées seront immédiatement déconnectées.')) return;
+    try {
+      const res = await axios.post('/api/admin/kiosk-secret/regenerate', {}, authHeaders);
+      setKioskSecretInfo(res.data);
+      fetchKioskSessions();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors de la régénération du code.');
+    }
+  };
+
+  const fetchKioskSessions = async () => {
+    try {
+      const res = await axios.get('/api/admin/kiosk-sessions', authHeaders);
+      setKioskSessions(res.data.kiosks || []);
+    } catch (e) {
+      console.error('Error fetching kiosk sessions:', e);
+    }
+  };
+
+  const handleLockKioskSession = async (id) => {
+    if (!confirm('Verrouiller cette borne ? Elle devra être réactivée avec le code pour reprendre des commandes.')) return;
+    try {
+      await axios.delete(`/api/admin/kiosk-sessions/${id}`, authHeaders);
+      fetchKioskSessions();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur lors du verrouillage de la borne.');
+    }
+  };
+
   const handleToggleStock = async (id, type) => {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
@@ -748,6 +791,12 @@ export default function ManagementApp() {
               onFetchTeam={fetchTeamMembers}
               onSetRole={handleSetTeamMemberRole}
               onRemove={handleRemoveTeamMember}
+              kioskSecretInfo={kioskSecretInfo}
+              onFetchKioskSecret={fetchKioskSecret}
+              onRegenerateKioskSecret={handleRegenerateKioskSecret}
+              kioskSessions={kioskSessions}
+              onFetchKioskSessions={fetchKioskSessions}
+              onLockKioskSession={handleLockKioskSession}
             />
           )}
         </SectionShell>

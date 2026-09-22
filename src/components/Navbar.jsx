@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles, Settings } from 'lucide-react';
 
-function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, className }) {
+function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, isKioskGuest, className }) {
   return (
     <nav className={className}>
       <button
@@ -13,14 +13,18 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, className }) {
         <span className="tab-text-short">Vitrine</span>
       </button>
 
-      <button
-        className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-        onClick={() => setActiveTab('orders')}
-      >
-        <Clock size={16} />
-        <span className="tab-text-long">Mes Commandes</span>
-        <span className="tab-text-short">Commandes</span>
-      </button>
+      {/* The kiosk has no account of its own -- it must never be able to
+          browse anyone's order history, including its own just-placed orders. */}
+      {!isKioskGuest && (
+        <button
+          className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
+          onClick={() => setActiveTab('orders')}
+        >
+          <Clock size={16} />
+          <span className="tab-text-long">Mes Commandes</span>
+          <span className="tab-text-short">Commandes</span>
+        </button>
+      )}
 
       {isAdmin && (
         <button
@@ -48,6 +52,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
   const [isHidden, setIsHidden] = useState(false);
   const isAdmin = !!(user && user.isAdmin);
   const isManager = !!(user && user.isManager);
+  const isKioskGuest = user?.role === 'kiosk_guest';
 
   useEffect(() => {
     let previousScrollY = window.scrollY;
@@ -86,6 +91,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
             setActiveTab={setActiveTab}
             isAdmin={isAdmin}
             isManager={isManager}
+            isKioskGuest={isKioskGuest}
           />
 
           <div className="nav-user">
@@ -133,6 +139,7 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
         setActiveTab={setActiveTab}
         isAdmin={isAdmin}
         isManager={isManager}
+        isKioskGuest={isKioskGuest}
       />
     </>
   );

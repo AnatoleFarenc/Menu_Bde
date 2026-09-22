@@ -13,6 +13,7 @@ services:
       # Optional: derived from PUBLIC_APP_URL if not set.
       - INTRA42_REDIRECT_URI=${INTRA42_REDIRECT_URI:-}
       - ADMIN_LOGINS=${ADMIN_LOGINS}
+      - KIOSK_SECRET=${KIOSK_SECRET:-}
       - DATABASE_URL=mysql://bde_app:devpassword@mariadb:3306/bde_sandwich
     depends_on:
       - mariadb

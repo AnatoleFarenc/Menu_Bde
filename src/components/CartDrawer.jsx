@@ -32,7 +32,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
       clearCart();
       onClose();
     } catch (e) {
-      alert('Erreur lors de la validation de la commande.');
+      alert(e.response?.data?.error || 'Erreur lors de la validation de la commande.');
     } finally {
       setIsSubmitting(false);
     }
