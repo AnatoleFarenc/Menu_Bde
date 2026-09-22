@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isInstalled as isInstalledApp } from './install';
 
 // Client side of the new-order alerts (Web Push, see server/push.js): the
 // state of THIS device, and turning it on/off. Alerts are per device -- each
@@ -7,9 +8,8 @@ import axios from 'axios';
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-const isInstalledApp = () => window.navigator.standalone === true
-  || window.matchMedia('(display-mode: standalone)').matches
-  || window.matchMedia('(display-mode: fullscreen)').matches;
+const isAndroid = () => /Android/.test(navigator.userAgent);
+const isFirefox = () => /Firefox|FxiOS/.test(navigator.userAgent);
 
 const authHeaders = token => ({ headers: { Authorization: `Bearer ${token}` } });
 
@@ -26,7 +26,7 @@ const sameKey = (buffer, bytes) => {
 };
 
 // What this device can do right now:
-//   'server-off'  -- the server has no VAPID keys (feature not configured)
+//   'server-off'  -- the server couldn't set up notifications (`detail` says why)
 //   'error'       -- the server couldn't be reached
 //   'insecure'    -- page isn't HTTPS: browsers refuse notifications there
 //   'ios-install' -- iPhone/iPad only allow them for the site added to the Home Screen
@@ -36,7 +36,7 @@ const sameKey = (buffer, bytes) => {
 export async function getPushStatus(token) {
   try {
     const { data } = await axios.get('/api/admin/push/config', authHeaders(token));
-    if (!data.enabled) return { status: 'server-off' };
+    if (!data.enabled) return { status: 'server-off', detail: data.error };
     const publicKey = data.publicKey;
 
     if (!window.isSecureContext) return { status: 'insecure' };
@@ -133,6 +133,15 @@ export async function getPushDiagnostics(token) {
   lines.push(`Navigateur : ${browserName()} sur ${platformName()}`);
   lines.push(`Connexion sécurisée (https) : ${yes(window.isSecureContext)}`);
   lines.push(`Application installée : ${isInstalledApp() ? 'oui' : 'non (facultatif, sauf iPhone/iPad)'}`);
+  if (isAndroid() && isFirefox()) {
+    // Installing a Firefox PWA is cosmetic (icon/window only) -- delivery
+    // with the browser fully closed is governed by Android's battery/
+    // autostart limits on Firefox ITSELF, install or not. That's the one
+    // lever that actually matters here, so it's spelled out explicitly.
+    lines.push('⚠ Sous Firefox Android, ce qui décide si une alerte arrive app/Firefox fermé, ce sont les réglages batterie du TÉLÉPHONE pour Firefox, pas l\'installation : Réglages Android → Batterie/Applications → Firefox → mettre "Sans restriction" (et, sur Xiaomi/Huawei/Oppo/OnePlus, autoriser aussi le "démarrage automatique"/"fonctionnement en arrière-plan").');
+  } else if (isAndroid() && !isInstalledApp()) {
+    lines.push('Installer (bouton « Installer l\'application ») aide ici : Android traite alors le site comme une vraie appli, avec ses propres réglages de batterie.');
+  }
   lines.push(`Service worker supporté : ${yes('serviceWorker' in navigator)}`);
   lines.push(`Notifications push supportées : ${yes('PushManager' in window && 'Notification' in window)}`);
   if ('Notification' in window) lines.push(`Autorisation du navigateur : ${Notification.permission}${Notification.permission === 'granted' ? '' : ' (doit être « granted »)'}`);
@@ -145,12 +154,21 @@ export async function getPushDiagnostics(token) {
     if (subscription) endpointHost = new URL(subscription.endpoint).hostname;
     lines.push(`Abonnement de cet appareil : ${subscription ? `oui (${endpointHost})` : 'NON'}`);
   }
+  // What the service worker did with the last push that reached this device.
+  const lastPush = 'caches' in window
+    ? await caches.open('push-log').then(cache => cache.match('/__last-push')).then(response => (response ? response.json() : null)).catch(() => null)
+    : null;
+  if (lastPush) {
+    lines.push(`Dernier message reçu par cet appareil : ${new Date(lastPush.at).toLocaleString('fr-FR')} -- ${lastPush.shown ? 'notification affichée' : `NON affichée (${lastPush.error})`}`);
+  } else {
+    lines.push('Dernier message reçu par cet appareil : aucun pour l\'instant');
+  }
 
   lines.push('');
   lines.push('— Serveur —');
   try {
     const { data } = await axios.get('/api/admin/push/diagnostics', authHeaders(token));
-    lines.push(`Clés VAPID configurées : ${yes(data.enabled)}${data.enabled ? '' : ' -- ajoute VAPID_PUBLIC_KEY et VAPID_PRIVATE_KEY au .env du serveur, puis redémarre-le'}`);
+    lines.push(`Notifications prêtes côté serveur : ${yes(data.enabled)}${data.enabled ? ` (clés ${data.keysSource === 'env' ? 'du .env' : 'générées automatiquement'})` : ` -- ${data.error || 'raison inconnue'}`}`);
     if (data.subject) lines.push(`Contact envoyé au service de notification : ${data.subject}`);
     lines.push(`Appareils enregistrés pour ton compte : ${data.subscriptions.length}${data.subscriptions.length ? ` (${data.subscriptions.map(sub => sub.host).join(', ')})` : ' -- active les notifications sur cet appareil'}`);
     if (endpointHost && data.subscriptions.length && !data.subscriptions.some(sub => sub.host === endpointHost)) {

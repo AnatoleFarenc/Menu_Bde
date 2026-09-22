@@ -10,8 +10,9 @@ import webpush from 'web-push';
 import { db } from './db.js';
 import { resolveRole, ROLE_RANK } from './auth42.js';
 
-let configured = null;
-let vapidSubject = null;
+let configuring = null;
+let vapid = null; // { publicKey, subject, source: 'env' | 'database' } once configured
+let configError = null;
 
 // The last few send attempts (per device: which push service answered, with
 // which status), kept in memory only. Shown by the admin "Diagnostic" so a
@@ -25,32 +26,52 @@ const hostOf = endpoint => {
   try { return new URL(endpoint).hostname; } catch { return '?'; }
 };
 
-function configure() {
-  if (configured !== null) return configured;
+const SETTING_KEY = 'vapid-keys';
+
+// The VAPID key pair identifies this server to the push services. It comes
+// from VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY when both are set; otherwise it is
+// generated ONCE, on first start, and kept in the database -- so nothing has
+// to be configured (and a fresh deployment can't forget to). Whichever way,
+// it must stay the same afterwards: a device is subscribed to one specific key.
+async function loadKeys() {
   const publicKey = (process.env.VAPID_PUBLIC_KEY || '').trim();
   const privateKey = (process.env.VAPID_PRIVATE_KEY || '').trim();
-  if (!publicKey || !privateKey) {
-    configured = false;
-    return configured;
+  if (publicKey && privateKey) return { publicKey, privateKey, source: 'env' };
+
+  let stored = await db.getSetting(SETTING_KEY);
+  if (!stored) stored = await db.setSettingIfAbsent(SETTING_KEY, JSON.stringify(webpush.generateVAPIDKeys()));
+  const keys = JSON.parse(stored);
+  return { publicKey: keys.publicKey, privateKey: keys.privateKey, source: 'database' };
+}
+
+function configure() {
+  if (!configuring) {
+    configuring = (async () => {
+      try {
+        const { publicKey, privateKey, source } = await loadKeys();
+        // Push services want a way to contact the sender: a mailto: or the
+        // site's https URL (Apple rejects anything else).
+        const appUrl = (process.env.PUBLIC_APP_URL || '').trim();
+        const subject = (process.env.VAPID_SUBJECT || '').trim()
+          || (appUrl.startsWith('https://') ? appUrl : 'mailto:noreply@localhost');
+        webpush.setVapidDetails(subject, publicKey, privateKey);
+        vapid = { publicKey, subject, source };
+      } catch (e) {
+        // Prisma errors are long and multi-line: keep the last line, the actual reason.
+        configError = String(e.message).split('\n').map(line => line.trim()).filter(Boolean).pop();
+        console.error('Web Push disabled:', configError);
+        // Retry on the next call (e.g. the database wasn't reachable yet).
+        configuring = null;
+      }
+      return !!vapid;
+    })();
   }
-  // Push services want a way to contact the sender: a mailto: or the site's
-  // https URL (Apple rejects anything else).
-  const appUrl = (process.env.PUBLIC_APP_URL || '').trim();
-  const subject = (process.env.VAPID_SUBJECT || '').trim()
-    || (appUrl.startsWith('https://') ? appUrl : 'mailto:noreply@localhost');
-  try {
-    webpush.setVapidDetails(subject, publicKey, privateKey);
-    vapidSubject = subject;
-    configured = true;
-  } catch (e) {
-    console.error('Web Push disabled: invalid VAPID configuration --', e.message);
-    configured = false;
-  }
-  return configured;
+  return configuring;
 }
 
 export const isPushEnabled = () => configure();
-export const getPublicKey = () => (configure() ? process.env.VAPID_PUBLIC_KEY.trim() : null);
+export const getPublicKey = async () => ((await configure()) ? vapid.publicKey : null);
+export const getPushError = () => configError;
 
 // The server POSTs to whatever endpoint a client registers, so only the real
 // push services' hosts are accepted -- never an arbitrary URL a logged-in
@@ -109,7 +130,7 @@ const STAFF_RANK = ROLE_RANK.staff;
 // re-checked NOW, per login: someone who lost their staff role since they
 // enabled notifications stops receiving them (and their devices are dropped).
 export async function notifyNewOrder(order) {
-  if (!configure()) return;
+  if (!(await configure())) return;
   const subscriptions = await db.listPushSubscriptions();
   if (subscriptions.length === 0) {
     remember({ kind: 'order', host: '-', ok: false, message: `commande ${order.orderNumber} : aucun appareil abonné aux notifications` });
@@ -136,7 +157,7 @@ export async function notifyNewOrder(order) {
 
 // "Test" button: a notification to the caller's own devices only.
 export async function sendTestPush(login) {
-  if (!configure()) return { sent: 0, removed: 0, failed: 0, devices: [] };
+  if (!(await configure())) return { sent: 0, removed: 0, failed: 0, devices: [] };
   return sendTo(await db.listPushSubscriptions(login), {
     title: 'Notifications activées ✅',
     body: 'Tu recevras une alerte comme celle-ci à chaque nouvelle commande.',
@@ -150,9 +171,12 @@ export async function sendTestPush(login) {
 // the last sends.
 export async function getPushDiagnostics(login) {
   const subscriptions = await db.listPushSubscriptions(login);
+  const enabled = await configure();
   return {
-    enabled: configure(),
-    subject: vapidSubject,
+    enabled,
+    error: configError,
+    keysSource: vapid ? vapid.source : null,
+    subject: vapid ? vapid.subject : null,
     subscriptions: subscriptions.map(sub => ({ host: hostOf(sub.endpoint), createdAt: sub.createdAt.toISOString() })),
     recent
   };

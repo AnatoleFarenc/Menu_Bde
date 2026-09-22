@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { get42AuthUrl, handle42Callback, ROLE_RANK } from './auth42.js';
-import { isPushEnabled, getPublicKey, isKnownPushEndpoint, notifyNewOrder, sendTestPush, getPushDiagnostics } from './push.js';
+import { isPushEnabled, getPublicKey, getPushError, isKnownPushEndpoint, notifyNewOrder, sendTestPush, getPushDiagnostics } from './push.js';
 
 dotenv.config();
 
@@ -258,12 +258,12 @@ app.get('/api/admin/active-storefront', requireAdmin, ah(async (req, res) => {
 
 // NEW-ORDER ALERTS (Web Push, see push.js). Per device: a staff member turns
 // them on from the kitchen board, which subscribes that browser/app here.
-app.get('/api/admin/push/config', requireAdmin, (req, res) => {
-  res.json({ enabled: isPushEnabled(), publicKey: getPublicKey() });
-});
+app.get('/api/admin/push/config', requireAdmin, ah(async (req, res) => {
+  res.json({ enabled: await isPushEnabled(), publicKey: await getPublicKey(), error: getPushError() });
+}));
 
 app.post('/api/admin/push/subscribe', requireAdmin, ah(async (req, res) => {
-  if (!isPushEnabled()) return res.status(503).json({ error: 'Les notifications ne sont pas configurées sur le serveur (clés VAPID manquantes)' });
+  if (!(await isPushEnabled())) return res.status(503).json({ error: `Notifications indisponibles côté serveur : ${getPushError() || 'configuration manquante'}` });
   const sub = req.body.subscription;
   if (!sub || !isKnownPushEndpoint(sub.endpoint) || typeof sub.keys?.p256dh !== 'string' || typeof sub.keys?.auth !== 'string'
     || sub.keys.p256dh.length > 191 || sub.keys.auth.length > 191) {
@@ -1115,11 +1115,12 @@ app.listen(PORT, async () => {
   console.log(`   Public URL          : ${publicAppUrl}`);
   console.log(`   OAuth Redirect URI  : ${oauthRedirectUri}`);
   console.log('   ↳ this Redirect URI must be declared identically in your 42 OAuth application.');
-  console.log(`   Web Push            : ${isPushEnabled() ? 'enabled' : 'DISABLED -- VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing from .env (npm run vapid:generate)'}`);
 
   try {
     await db.ready;
     console.log('✅ Base de données MariaDB connectée avec succès.');
+    const push = await getPushDiagnostics('');
+    console.log(`   Web Push            : ${push.enabled ? `enabled (VAPID keys from ${push.keysSource === 'env' ? '.env' : 'the database, generated automatically'})` : `DISABLED -- ${push.error} (did you run \`npx prisma migrate deploy\`?)`}`);
   } catch (err) {
     console.error('❌ ERREUR: Connexion à la base de données MariaDB échouée (port 3306).');
     console.error('   Vérifiez que Docker ou le service MariaDB est démarré (`docker compose up -d`).');

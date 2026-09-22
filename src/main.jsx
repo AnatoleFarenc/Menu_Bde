@@ -4,6 +4,7 @@ import App from './App.jsx';
 import ManagementApp from './ManagementApp.jsx';
 import './index.css';
 import { registerServiceWorker } from './lib/push';
+import './lib/install'; // side effect only: attaches the beforeinstallprompt listener as early as possible
 
 registerServiceWorker();
 

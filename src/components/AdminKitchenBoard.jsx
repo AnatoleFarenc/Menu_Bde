@@ -28,6 +28,7 @@ import {
 import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
 import PushNotificationsButton from './PushNotificationsButton';
+import InstallAppButton from './InstallAppButton';
 import { normalizeChoices } from '../lib/menuChoices';
 import { playNewOrderSound, unlockAudioContext } from '../lib/sound';
 
@@ -516,6 +517,7 @@ export default function AdminKitchenBoard({
               <Bell size={15} /> Test 🔔
             </button>
             <PushNotificationsButton authToken={authToken} />
+            <InstallAppButton />
             <button
               type="button"
               className="btn btn-secondary"

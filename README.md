@@ -69,16 +69,13 @@ An administrator can access:
 
 ### New-order notifications (Web Push)
 
-Staff can get a system notification on their phone or computer whenever an order is placed, **even with the site closed or the phone locked** (the in-page sound only works while the tab is open).
+Staff can get a system notification on their phone or computer whenever an order is placed, **even with the site closed or the phone locked** (the in-page sound only works while the tab is open). Only accounts with the staff role (or higher) can turn them on.
 
-One-time setup on the server:
+Server side there is nothing to configure: after `npx prisma migrate deploy` (it creates the tables) and a restart, the server generates its own push key pair on first start and stores it in the database. The startup log says `Web Push : enabled`. The site must be served over **HTTPS** (Tailscale Funnel / your domain); `localhost` also works for testing, a plain-http LAN address does not.
 
-1. `npm run vapid:generate`, then paste `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` into `.env` and restart. Keep the pair: regenerating it disconnects every device that already enabled notifications. Without the keys the feature is simply off (the button is hidden).
-2. The site must be served over **HTTPS** (Tailscale Funnel / your domain). `localhost` also works for testing; a plain-http LAN address does not.
+Then each staff member, on each device they want alerts on, opens the **Staff** tab and presses **Notifications : Désactivées** → allow → **Tester**. If nothing arrives, the **Diagnostic** button next to it lists every step (browser permission, subscription, what the server sent and what the push service answered, whether the phone received it).
 
-Then each staff member, on each device they want alerts on, opens the **Staff** tab and presses **Notifications : Désactivées** → allow → **Tester**.
-
-- **Android / desktop (Chrome, Edge, Firefox):** works straight from the browser. Installing the site as an app (browser menu → "Install app") is optional.
+- **Android / desktop (Chrome, Edge, Firefox):** works straight from the browser. Installing the site as an app (browser menu → "Install") is optional. Android must also allow notifications for the browser itself (system settings) and not restrict its background activity.
 - **iPhone / iPad:** iOS 16.4+ only, and only for the site added to the Home Screen (Share → "Add to Home Screen"), opened from that icon.
 - Tapping a notification opens the site on the Staff tab. Only accounts that currently have the staff role receive them.
 

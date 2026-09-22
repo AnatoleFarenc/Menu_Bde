@@ -41,6 +41,14 @@ model PushSubscription {
   @@index([login])
 }
 
+// Small server-owned settings that must survive restarts and be shared by
+// every server process, but that nobody edits by hand -- today only the Web
+// Push VAPID key pair (see server/push.js), generated on first start.
+model AppSetting {
+  key   String @id
+  value String @db.Text
+}
+
 model Category {
   id        String    @id
   name      String

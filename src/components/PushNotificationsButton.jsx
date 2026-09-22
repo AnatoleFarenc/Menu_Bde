@@ -4,7 +4,6 @@ import { getPushStatus, enablePush, disablePush, sendTestPush, getPushDiagnostic
 
 // What to tell the user when this device can't (yet) get alerts.
 const HELP = {
-  'server-off': 'Les notifications ne sont pas configurées sur le serveur : il manque VAPID_PUBLIC_KEY et VAPID_PRIVATE_KEY dans son fichier .env (le .env n\'est pas envoyé avec le code). Génère-les avec « npm run vapid:generate », ajoute-les au .env du serveur puis redémarre-le.',
   error: 'Impossible de contacter le serveur pour configurer les notifications. Réessaie dans un instant.',
   blocked: 'Les notifications sont bloquées pour ce site. Autorise-les dans les réglages du navigateur (icône à gauche de l\'adresse → Notifications), puis recharge la page.',
   'ios-install': 'Sur iPhone / iPad, les notifications ne marchent que pour le site ajouté à l\'écran d\'accueil : Partager → « Sur l\'écran d\'accueil », ouvre le site depuis cette nouvelle icône, puis active-les ici (iOS 16.4 ou plus récent).',
@@ -19,6 +18,7 @@ const HELP = {
 export default function PushNotificationsButton({ authToken }) {
   const [status, setStatus] = useState('loading');
   const [publicKey, setPublicKey] = useState(null);
+  const [serverError, setServerError] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [diagnostic, setDiagnostic] = useState(null);
@@ -29,6 +29,7 @@ export default function PushNotificationsButton({ authToken }) {
       if (!alive) return;
       setStatus(result.status);
       setPublicKey(result.publicKey || null);
+      setServerError(result.detail || '');
     });
     return () => { alive = false; };
   }, [authToken]);
@@ -47,6 +48,10 @@ export default function PushNotificationsButton({ authToken }) {
   };
 
   const handleToggle = () => run(async () => {
+    if (status === 'server-off') {
+      setMessage(`Le serveur n'a pas pu activer les notifications${serverError ? ` (${serverError})` : ''}. Vérifie qu'il est à jour -- « npx prisma migrate deploy » puis redémarrage -- et regarde sa console.`);
+      return;
+    }
     if (HELP[status]) { setMessage(HELP[status]); return; }
     if (status === 'on') setStatus(await disablePush(authToken));
     else setStatus(await enablePush(authToken, publicKey));

@@ -1658,6 +1658,19 @@ class DB {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  // APP SETTINGS -- see the AppSetting model. setSettingIfAbsent never
+  // overwrites: with two processes starting at once, the first write wins and
+  // both read that same value back.
+  async getSetting(key) {
+    const row = await prisma.appSetting.findUnique({ where: { key } });
+    return row ? row.value : null;
+  }
+
+  async setSettingIfAbsent(key, value) {
+    await prisma.appSetting.createMany({ data: [{ key, value }], skipDuplicates: true });
+    return this.getSetting(key);
+  }
+
   // PUSH SUBSCRIPTIONS -- the devices that get a Web Push alert for a new
   // order (see server/push.js). One row per device, keyed by its endpoint:
   // enabling again from the same device (even as another staff member)
