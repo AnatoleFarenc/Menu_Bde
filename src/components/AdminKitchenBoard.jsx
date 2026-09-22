@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
+import AlertRow from './AlertRow';
 import PushNotificationsButton from './PushNotificationsButton';
 import InstallAppButton from './InstallAppButton';
 import { normalizeChoices } from '../lib/menuChoices';
@@ -499,27 +500,6 @@ export default function AdminKitchenBoard({
             </button>
             <button
               type="button"
-              className={`btn ${soundEnabled ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.85rem' }}
-              onClick={toggleSound}
-              title={soundEnabled ? 'Notifications sonores activées' : 'Notifications sonores désactivées'}
-            >
-              {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
-              {soundEnabled ? 'Son : Activé' : 'Son : Muet'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: '0.85rem' }}
-              onClick={handleTestSound}
-              title="Tester la notification sonore"
-            >
-              <Bell size={15} /> Test 🔔
-            </button>
-            <PushNotificationsButton authToken={authToken} />
-            <InstallAppButton />
-            <button
-              type="button"
               className="btn btn-secondary"
               style={{ fontSize: '0.85rem' }}
               onClick={onGoToManagement}
@@ -528,6 +508,32 @@ export default function AdminKitchenBoard({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ALERTS: Son (this tab only) vs. Notifications (this device, even
+          closed) look like the same kind of switch at a glance -- they
+          aren't, and that difference is the entire point of grouping them
+          here with their own one-line explanation each, instead of loose
+          buttons scattered in the header above. */}
+      <div className="synthesis-card" style={{ margin: '1rem 1.5rem 0' }}>
+        <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Bell size={16} color="var(--color-primary)" /> Alertes de nouvelle commande
+        </div>
+        <AlertRow
+          icon={soundEnabled ? Volume2 : VolumeX}
+          label="Son"
+          description="Joue ici tant que cette page reste ouverte -- rien si tu la fermes ou changes d'appli."
+          enabled={soundEnabled}
+          onToggle={toggleSound}
+        >
+          {soundEnabled && (
+            <button type="button" className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }} onClick={handleTestSound}>
+              <Bell size={13} /> Tester
+            </button>
+          )}
+        </AlertRow>
+        <PushNotificationsButton authToken={authToken} />
+        <InstallAppButton />
       </div>
 
       {/* FREE / DONATED PRODUCT FORM */}
