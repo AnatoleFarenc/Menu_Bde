@@ -210,8 +210,14 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 // AppSetting table -- so it works out of the box, and a Board member can
 // view/regenerate it from Gestion > Équipe (see the requireBoard routes
 // below) without touching the server's filesystem.
+// A 6-digit PIN (not a long random string): easy to read off a screen and
+// type on a kiosk touchscreen. Brute-forcing 10^6 combinations is
+// impractical against authLimiter (30 attempts/15 min/IP) -- and even a
+// successful guess only lets someone place orders, never read anyone's
+// history; a Board member can lock the terminal or regenerate the PIN
+// (also revoking every activated kiosk) at any time from Gestion > Équipe.
 const KIOSK_SECRET_SETTING_KEY = 'kiosk_secret';
-const generateKioskSecret = () => crypto.randomBytes(18).toString('base64url');
+const generateKioskSecret = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 const getKioskSecretInfo = async () => {
   if (process.env.KIOSK_SECRET) return { secret: process.env.KIOSK_SECRET, source: 'env' };
   let secret = await db.getSetting(KIOSK_SECRET_SETTING_KEY);

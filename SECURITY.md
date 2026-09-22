@@ -171,17 +171,21 @@ Any other origin is rejected.
 ### Kiosk mode (shared, self-order terminal)
 - Activated per-browser (`?kiosk=1`), the kiosk DEVICE session itself carries
   **no personal identity**: `POST /api/auth/kiosk-login` requires a shared
-  activation code (constant-time comparison) and mints a session with a
-  random device id, never a typed 42 login and never a 42 OAuth round-trip on
-  the terminal itself. It's disabled entirely on staging.
-- **The activation code** is auto-generated on first use and stored in the
-  `AppSetting` table (same pattern as the Web Push VAPID keys) -- nothing to
-  configure by hand. A **Board** member (`requireBoard`) can view and
-  regenerate it from Gestion > Équipe (`GET`/`POST /api/admin/kiosk-secret*`);
-  regenerating immediately force-logs-out every currently-activated kiosk.
-  Setting `KIOSK_SECRET` in `.env` forces a specific value instead (same
-  override convention as `VAPID_PUBLIC_KEY`) and disables regeneration from
-  the UI (the file is then the source of truth).
+  6-digit PIN (constant-time comparison) and mints a session with a random
+  device id, never a typed 42 login and never a 42 OAuth round-trip on the
+  terminal itself. It's disabled entirely on staging (`STAGING_MODE=true`).
+- **The PIN** is auto-generated on first use and stored in the `AppSetting`
+  table (same pattern as the Web Push VAPID keys) -- nothing to configure by
+  hand. A **Board** member (`requireBoard`) can view and regenerate it from
+  Gestion > Équipe (`GET`/`POST /api/admin/kiosk-secret*`); regenerating
+  immediately force-logs-out every currently-activated kiosk. A 6-digit PIN
+  (10^6 space) trades some entropy for something a person can actually read
+  off a screen and type -- brute-forcing it is impractical against
+  `authLimiter` (30 attempts/15 min/IP), and a successful guess only grants
+  the ability to place orders, never to read anyone's history. Setting
+  `KIOSK_SECRET` in `.env` forces a specific value instead (same override
+  convention as `VAPID_PUBLIC_KEY`) and disables regeneration from the UI
+  (the file is then the source of truth).
 - **Individual terminals** currently activated are also listed there
   (`GET /api/admin/kiosk-sessions`, in-memory, same lifecycle as `sessions`),
   each with a **Board**-only "Verrouiller" action

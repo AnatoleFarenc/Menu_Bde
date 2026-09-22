@@ -84,9 +84,9 @@ Then each staff member, on each device they want alerts on, opens the **Staff** 
 A self-order terminal (tablet/PC at the counter, à la fast-food kiosk) where several
 students in a row can order without each one logging in with their own 42 account.
 
-1. Nothing to configure: the activation code is generated automatically the first time
-   it's needed. A **Board** member can view it (and regenerate it, or individually lock
-   any currently-activated terminal) from **Gestion → Équipe → Bornes de commande**.
+1. Nothing to configure: a 6-digit PIN is generated automatically the first time it's
+   needed. A **Board** member can view it (and regenerate it, or individually lock any
+   currently-activated terminal) from **Gestion → Équipe → Bornes de commande**.
 2. On the kiosk's browser, open the site once with `?kiosk=1` added to your public URL, e.g.:
    ```
    https://bde-42.mon-tailnet.ts.net/?kiosk=1
@@ -94,8 +94,9 @@ students in a row can order without each one logging in with their own 42 accoun
    (`http://localhost:3000/?kiosk=1` for local testing.) This flags that browser only —
    it's remembered in its `localStorage`, so it only needs to be opened once per device.
    To turn kiosk mode back off on that device, open the same URL with `?kiosk=0`.
-3. The kiosk then asks for the **activation code** (from Gestion → Équipe) once; after
-   that it shows a full-screen attract page ("Commander") and stays ready for customers.
+   Disabled entirely when `STAGING_MODE=true` (see below).
+3. The kiosk then asks for the **6-digit PIN** (from Gestion → Équipe) once; after that
+   it shows a full-screen attract page ("Commander") and stays ready for customers.
    A small invisible tap zone in the top-right corner of that attract screen lets staff
    deactivate the terminal (asks for confirmation, then logs the device session out).
 

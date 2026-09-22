@@ -531,18 +531,21 @@ export default function App() {
           <div className="auth-panel">
             <div className="logo-badge"><span>42</span></div>
             <h1>Borne de commande BDE</h1>
-            <p>Active cette borne avec le code fourni par le BDE.</p>
+            <p>Active cette borne avec le code PIN à 6 chiffres fourni par le Bureau.</p>
             <form onSubmit={e => { e.preventDefault(); handleKioskActivate(kioskSecretInput); }}>
               <input
                 type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
                 className="form-input"
-                placeholder="Code borne"
+                placeholder="000000"
                 value={kioskSecretInput}
-                onChange={e => setKioskSecretInput(e.target.value)}
+                onChange={e => setKioskSecretInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 autoFocus
-                style={{ marginBottom: '1rem', textAlign: 'center' }}
+                style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.6rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.4em' }}
               />
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={kioskSecretInput.length !== 6}>
                 <LogIn size={18} /> Activer la borne
               </button>
             </form>

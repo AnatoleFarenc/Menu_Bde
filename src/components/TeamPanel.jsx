@@ -42,7 +42,7 @@ function KioskPanel({ secretInfo, onFetchSecret, onRegenerate, sessions, onFetch
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', padding: '0.45rem 0.75rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)', letterSpacing: '0.05em' }}>
+        <code style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, padding: '0.45rem 0.9rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)', letterSpacing: '0.3em' }}>
           {secretInfo ? (revealed ? secretInfo.secret : '•'.repeat(Math.min(secretInfo.secret.length, 24))) : '...'}
         </code>
         <button type="button" className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem' }} onClick={() => setRevealed(v => !v)} title={revealed ? 'Masquer' : 'Afficher'}>
