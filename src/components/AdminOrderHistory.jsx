@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import AdminOrderEditModal from './AdminOrderEditModal';
 import { normalizeChoices } from '../lib/menuChoices';
+import { showConfirm } from '../lib/dialogs.jsx';
 
 const WEEKDAYS = [
   { id: 1, name: 'Lundi', short: 'Lun' },
@@ -297,8 +298,8 @@ export default function AdminOrderHistory({
     return '';
   }, [startDate, endDate]);
 
-  const handleClearAll = () => {
-    if (window.confirm("Voulez-vous vraiment vider tout l'historique des commandes distribuées pour cette vitrine ? Cette action est irréversible.")) {
+  const handleClearAll = async () => {
+    if (await showConfirm("Voulez-vous vraiment vider tout l'historique des commandes distribuées pour cette vitrine ? Cette action est irréversible.", { danger: true })) {
       onClearOrderHistory();
     }
   };
@@ -752,8 +753,8 @@ export default function AdminOrderHistory({
                               type="button"
                               className="btn btn-danger"
                               style={{ padding: '0.3rem 0.45rem', fontSize: '0.75rem' }}
-                              onClick={() => {
-                                if (window.confirm(`Supprimer définitivement la commande ${order.orderNumber} de l'historique ?`)) {
+                              onClick={async () => {
+                                if (await showConfirm(`Supprimer définitivement la commande ${order.orderNumber} de l'historique ?`, { danger: true })) {
                                   onDeleteOrder(order.id);
                                 }
                               }}

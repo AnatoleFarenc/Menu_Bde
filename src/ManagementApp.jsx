@@ -13,6 +13,7 @@ import HistoriquePanel from './components/HistoriquePanel';
 import AvisPanel from './components/AvisPanel';
 import TeamPanel from './components/TeamPanel';
 import AdminProductModal from './components/AdminProductModal';
+import { showAlert, showConfirm, showPrompt } from './lib/dialogs.jsx';
 
 // Top-level component for the /gestion route: a genuinely separate page from
 // the storefront (see main.jsx), with its own auth check, its own state, and
@@ -161,7 +162,7 @@ export default function ManagementApp() {
       refreshAfterStockChange();
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'ajout de l\'article.');
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'ajout de l\'article.');
       return false;
     }
   };
@@ -172,18 +173,18 @@ export default function ManagementApp() {
       refreshAfterStockChange();
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la mise à jour de l\'article.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la mise à jour de l\'article.');
       return false;
     }
   };
 
   const handleDeleteStockItem = async id => {
-    if (!confirm('Supprimer cet article du stock ?')) return;
+    if (!(await showConfirm('Supprimer cet article du stock ?', { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/stock-items/${id}`, authHeaders);
       fetchStockItems();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression.');
     }
   };
 
@@ -238,7 +239,7 @@ export default function ManagementApp() {
       fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'ajout à la liste de courses.');
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'ajout à la liste de courses.');
       return false;
     }
   };
@@ -249,7 +250,7 @@ export default function ManagementApp() {
       fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de l\'article.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la modification de l\'article.');
       return false;
     }
   };
@@ -259,7 +260,7 @@ export default function ManagementApp() {
       await axios.delete(`/api/admin/shopping-list/${id}`, authHeaders);
       fetchShoppingList(selectedStorefrontId);
     } catch (e) {
-      alert('Erreur lors de la suppression.');
+      showAlert('Erreur lors de la suppression.');
     }
   };
 
@@ -269,7 +270,7 @@ export default function ManagementApp() {
       fetchShoppingList(selectedStorefrontId);
       return res.data;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la génération de la liste.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la génération de la liste.');
       return null;
     }
   };
@@ -285,14 +286,14 @@ export default function ManagementApp() {
   };
 
   const handleCloseShoppingTrip = async () => {
-    if (!confirm('Clôturer la liste de courses actuelle ? Elle passera dans l\'historique, une nouvelle liste vide démarrera, et le stock des produits liés à un seul article coché sera mis à jour.')) return false;
+    if (!(await showConfirm('Clôturer la liste de courses actuelle ? Elle passera dans l\'historique, une nouvelle liste vide démarrera, et le stock des produits liés à un seul article coché sera mis à jour.'))) return false;
     try {
       const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
       fetchShoppingList(selectedStorefrontId);
       refreshAfterStockChange(); // restocked counts, and with them product availability
       return res.data.trip;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la clôture de la liste.');
       return null;
     }
   };
@@ -378,12 +379,12 @@ export default function ManagementApp() {
   };
 
   const handleDeleteReview = async (orderId) => {
-    if (!confirm('Supprimer définitivement cet avis ?')) return;
+    if (!(await showConfirm('Supprimer définitivement cet avis ?', { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/reviews/${orderId}`, authHeaders);
       fetchReviews();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
     }
   };
 
@@ -402,18 +403,18 @@ export default function ManagementApp() {
       fetchTeamMembers();
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'attribution du rôle.');
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'attribution du rôle.');
       return false;
     }
   };
 
   const handleRemoveTeamMember = async (login) => {
-    if (!confirm(`Retirer le rôle de ${login} ? Redeviendra un membre normal (sauf s'il est encore listé dans les variables d'environnement historiques).`)) return;
+    if (!(await showConfirm(`Retirer le rôle de ${login} ? Redeviendra un membre normal (sauf s'il est encore listé dans les variables d'environnement historiques).`, { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/team/${login}`, authHeaders);
       fetchTeamMembers();
     } catch (e) {
-      alert('Erreur lors du retrait.');
+      showAlert('Erreur lors du retrait.');
     }
   };
 
@@ -429,13 +430,13 @@ export default function ManagementApp() {
   };
 
   const handleRegenerateKioskSecret = async () => {
-    if (!confirm('Régénérer le code borne ? Toutes les bornes actuellement activées seront immédiatement déconnectées.')) return;
+    if (!(await showConfirm('Régénérer le code borne ? Toutes les bornes actuellement activées seront immédiatement déconnectées.', { danger: true }))) return;
     try {
       const res = await axios.post('/api/admin/kiosk-secret/regenerate', {}, authHeaders);
       setKioskSecretInfo(res.data);
       fetchKioskSessions();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la régénération du code.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la régénération du code.');
     }
   };
 
@@ -449,12 +450,12 @@ export default function ManagementApp() {
   };
 
   const handleLockKioskSession = async (id) => {
-    if (!confirm('Verrouiller cette borne ? Elle devra être réactivée avec le code pour reprendre des commandes.')) return;
+    if (!(await showConfirm('Verrouiller cette borne ? Elle devra être réactivée avec le code pour reprendre des commandes.'))) return;
     try {
       await axios.delete(`/api/admin/kiosk-sessions/${id}`, authHeaders);
       fetchKioskSessions();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors du verrouillage de la borne.');
+      showAlert(e.response?.data?.error || 'Erreur lors du verrouillage de la borne.');
     }
   };
 
@@ -464,7 +465,7 @@ export default function ManagementApp() {
       await axios.patch(url, {}, authHeaders);
       fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
-      alert('Erreur lors de la modification du stock.');
+      showAlert('Erreur lors de la modification du stock.');
     }
   };
 
@@ -489,20 +490,20 @@ export default function ManagementApp() {
       fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
       return false;
     }
   };
 
   const handleDeleteAdminItem = async (id, type) => {
-    if (!confirm('Voulez-vous vraiment supprimer cet élément ?')) return;
+    if (!(await showConfirm('Voulez-vous vraiment supprimer cet élément ?', { danger: true }))) return;
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
       await axios.delete(url, authHeaders);
       fetchAdminCatalog(selectedStorefrontId);
       fetchStockItems(); // its article's "used by" list changed
     } catch (e) {
-      alert('Erreur lors de la suppression.');
+      showAlert('Erreur lors de la suppression.');
     }
   };
 
@@ -512,18 +513,18 @@ export default function ManagementApp() {
       setCategories(res.data.categories || []);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de la catégorie.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la création de la catégorie.');
       return false;
     }
   };
 
   const handleDeleteCategory = async id => {
-    if (!confirm('Supprimer cette catégorie ?')) return;
+    if (!(await showConfirm('Supprimer cette catégorie ?', { danger: true }))) return;
     try {
       const res = await axios.delete(`/api/admin/categories/${id}`, authHeaders);
       setCategories(res.data.categories || []);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
     }
   };
 
@@ -532,7 +533,7 @@ export default function ManagementApp() {
       const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, authHeaders);
       setCategories(res.data.categories || []);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
     }
   };
 
@@ -548,7 +549,7 @@ export default function ManagementApp() {
       setSelectedEventId(res.data.event.id);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de l\'événement.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la création de l\'événement.');
       return false;
     }
   };
@@ -556,14 +557,14 @@ export default function ManagementApp() {
   // Per-event "copy" action: duplicates that specific event's catalog under a new name.
   const handleDuplicateEvent = async id => {
     const source = events.find(ev => ev.id === id);
-    const name = prompt('Nom du nouvel événement :', source ? `${source.name} (copie)` : '');
+    const name = await showPrompt('Nom du nouvel événement :', source ? `${source.name} (copie)` : '');
     if (!name || !name.trim()) return;
     try {
       const res = await axios.post('/api/admin/events', { name, copyFromEventId: id }, authHeaders);
       await fetchAdminEvents();
       setSelectedEventId(res.data.event.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la duplication de l\'événement.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la duplication de l\'événement.');
     }
   };
 
@@ -573,19 +574,19 @@ export default function ManagementApp() {
       await fetchAdminEvents();
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de l\'événement.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la modification de l\'événement.');
       return false;
     }
   };
 
   const handleDeleteEvent = async id => {
-    if (!confirm('Supprimer cet événement enregistré ?')) return;
+    if (!(await showConfirm('Supprimer cet événement enregistré ?', { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/events/${id}`, authHeaders);
       if (selectedEventId === id) setSelectedEventId(null);
       fetchAdminEvents();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'événement.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression de l\'événement.');
     }
   };
 
@@ -599,7 +600,7 @@ export default function ManagementApp() {
       await fetchStorefronts(selectedEventId);
       setSelectedStorefrontId(res.data.storefront.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de la vitrine.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la création de la vitrine.');
     }
   };
 
@@ -609,28 +610,28 @@ export default function ManagementApp() {
       await fetchStorefronts(selectedEventId);
       setSelectedStorefrontId(res.data.storefront.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la duplication de la vitrine.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la duplication de la vitrine.');
     }
   };
 
   const handleActivateStorefront = async id => {
-    if (!confirm('Mettre cette vitrine en ligne pour les étudiants ?')) return;
+    if (!(await showConfirm('Mettre cette vitrine en ligne pour les étudiants ?'))) return;
     try {
       await axios.post(`/api/admin/storefronts/${id}/activate`, {}, authHeaders);
       await Promise.all([fetchAdminEvents(), fetchStorefronts(selectedEventId)]);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors du changement de vitrine.');
+      showAlert(e.response?.data?.error || 'Erreur lors du changement de vitrine.');
     }
   };
 
   const handleDeleteStorefront = async id => {
-    if (!confirm('Supprimer cette vitrine ?')) return;
+    if (!(await showConfirm('Supprimer cette vitrine ?', { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/storefronts/${id}`, authHeaders);
       if (selectedStorefrontId === id) setSelectedStorefrontId(null);
       fetchStorefronts(selectedEventId);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la vitrine.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression de la vitrine.');
     }
   };
 

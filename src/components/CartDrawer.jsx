@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Trash2, Clock, Plus, Minus, CheckCircle, ShoppingCart, Info } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
+import { showAlert } from '../lib/dialogs.jsx';
 
 const TIME_SLOTS = [];
 for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 30) {
@@ -32,7 +33,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
       clearCart();
       onClose();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la validation de la commande.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la validation de la commande.');
     } finally {
       setIsSubmitting(false);
     }

@@ -29,6 +29,7 @@ import AdminOrderEditModal from './AdminOrderEditModal';
 import ItemIcon from './ItemIcon';
 import AlertRow from './AlertRow';
 import PushNotificationsButton from './PushNotificationsButton';
+import { showConfirm } from '../lib/dialogs.jsx';
 import InstallAppButton from './InstallAppButton';
 import { normalizeChoices } from '../lib/menuChoices';
 import { playNewOrderSound, unlockAudioContext } from '../lib/sound';
@@ -312,8 +313,8 @@ function KitchenTicket({
                   type="button"
                   className="btn btn-secondary"
                   style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem', color: 'var(--color-danger)' }}
-                  onClick={() => {
-                    if (window.confirm(`Annuler la commande ${order.orderNumber} ?`)) {
+                  onClick={async () => {
+                    if (await showConfirm(`Annuler la commande ${order.orderNumber} ?`, { danger: true })) {
                       onUpdateOrderStatus(order.id, 'cancelled');
                     }
                   }}
@@ -328,8 +329,8 @@ function KitchenTicket({
                   type="button"
                   className="btn btn-danger"
                   style={{ padding: '0.35rem 0.55rem', fontSize: '0.8rem' }}
-                  onClick={() => {
-                    if (window.confirm(`Supprimer définitivement la commande ${order.orderNumber} ?`)) {
+                  onClick={async () => {
+                    if (await showConfirm(`Supprimer définitivement la commande ${order.orderNumber} ?`, { danger: true })) {
                       onDeleteOrder(order.id);
                     }
                   }}

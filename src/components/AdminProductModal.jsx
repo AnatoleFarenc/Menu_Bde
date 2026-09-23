@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, List } from 'lucide-react';
 import { getMenuGroups, makeGroupId } from '../lib/menuChoices';
+import { showAlert } from '../lib/dialogs.jsx';
 
 // Rebuilds a meal deal's editable groups (with migration of older ones).
 function initGroups(editingItem, products) {
@@ -217,7 +218,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.price) {
-      alert('Veuillez remplir au moins le nom et le prix.');
+      showAlert('Veuillez remplir au moins le nom et le prix.');
       return;
     }
 
@@ -229,7 +230,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         const filled = recipe.filter(row => row.stockItemId || row.name.trim());
         const noQuantity = filled.find(row => !(parseFloat(row.quantity) > 0));
         if (noQuantity) {
-          alert(`Indique une quantité pour l'ingrédient « ${noQuantity.name || 'sans nom'} » (ou retire-le de la recette).`);
+          showAlert(`Indique une quantité pour l'ingrédient « ${noQuantity.name || 'sans nom'} » (ou retire-le de la recette).`);
           return;
         }
         payload = {
@@ -251,7 +252,7 @@ export default function AdminProductModal({ isOpen, onClose, onSave, editingItem
         .filter(group => group.name || group.productIds.length);
 
       if (cleanGroups.length === 0) {
-        alert('Ajoutez au moins un groupe de choix (avec un nom ou des produits cochés).');
+        showAlert('Ajoutez au moins un groupe de choix (avec un nom ou des produits cochés).');
         return;
       }
       payload.groups = cleanGroups;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Plus, Search } from 'lucide-react';
+import { showPrompt } from '../lib/dialogs.jsx';
 
 const GROUPS = [
   { status: 'ongoing', label: 'En cours' },
@@ -33,7 +34,7 @@ export default function EventSwitcher({ events, selectedEvent, onSelectEvent, on
   };
 
   const handleCreate = async () => {
-    const name = prompt('Nom du nouvel événement :');
+    const name = await showPrompt('Nom du nouvel événement :');
     if (!name || !name.trim()) return;
     const ok = await onCreateEvent({ name: name.trim() });
     if (ok) {

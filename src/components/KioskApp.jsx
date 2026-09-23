@@ -4,6 +4,7 @@ import { Plus, Minus, Trash2, Sparkles, Layers, User, LogIn, ArrowLeft, Check, S
 import ItemIcon from './ItemIcon';
 import MenuBuilderModal from './MenuBuilderModal';
 import { normalizeChoices } from '../lib/menuChoices';
+import { showConfirm } from '../lib/dialogs.jsx';
 
 // Back to the attract screen after this long without a touch -- clears
 // whatever the previous customer had on screen (cart, pairing, choices).
@@ -156,7 +157,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
         <button
           className="kiosk-exit-tap"
           aria-label="Désactiver la borne"
-          onClick={e => { e.stopPropagation(); if (window.confirm('Désactiver cette borne ?')) onExitKiosk(); }}
+          onClick={async e => { e.stopPropagation(); if (await showConfirm('Désactiver cette borne ?')) onExitKiosk(); }}
         />
       )}
 
@@ -228,7 +229,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
         <div className="kiosk-order fade-in">
           <div className="kiosk-order-main">
             <div className="kiosk-topbar">
-              <button className="btn btn-secondary" onClick={() => { if (window.confirm('Annuler cette commande ?')) resetAll(); }}>
+              <button className="btn btn-secondary" onClick={async () => { if (await showConfirm('Annuler cette commande ?')) resetAll(); }}>
                 <ArrowLeft size={16} /> Annuler
               </button>
               <div className="kiosk-topbar-identity">

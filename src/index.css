@@ -1062,6 +1062,18 @@ main h3 {
   margin-top: 1.5rem;
 }
 
+/* Alert/confirm/prompt replacements (see src/lib/dialogs.jsx) -- a narrow
+   variant of .modal-content. */
+.dialog-content {
+  max-width: 420px;
+}
+
+.dialog-message {
+  color: var(--text-main);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
 /* Menu builder (formula composition): choosing one product per group. */
 .menu-price-summary {
   display: flex;

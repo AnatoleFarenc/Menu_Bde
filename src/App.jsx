@@ -11,6 +11,7 @@ import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
 import { Layers, LogIn, Sparkles } from 'lucide-react';
 import { playNewOrderSound } from './lib/sound';
+import { showAlert, showConfirm } from './lib/dialogs.jsx';
 
 // Kiosk mode: hidden activation via the URL, specific to this browser only.
 // To activate on a kiosk: open the URL once with ?kiosk=1 (then ?kiosk=0 to deactivate).
@@ -152,10 +153,10 @@ export default function App() {
     localStorage.removeItem(PAIR_CODE_STORAGE_KEY);
     axios.post(`/api/kiosk/pairing/${pendingCode}/confirm`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(() => {
-        alert('Connecté ! Tu peux continuer sur la borne.');
+        showAlert('Connecté ! Tu peux continuer sur la borne.');
       })
       .catch(e => {
-        alert(e.response?.data?.error || 'Ce code a expiré, redemande-en un à la borne.');
+        showAlert(e.response?.data?.error || 'Ce code a expiré, redemande-en un à la borne.');
       });
   };
 
@@ -327,7 +328,7 @@ export default function App() {
       });
       fetchUserOrders();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
     }
   };
 
@@ -338,12 +339,12 @@ export default function App() {
       if (res.data?.url) {
         window.location.href = res.data.url;
       } else {
-        alert('Erreur: URL d\'authentification manquante reçue du serveur.');
+        showAlert('Erreur: URL d\'authentification manquante reçue du serveur.');
       }
     } catch (error) {
       const serverErr = error.response?.data?.error;
       const networkErr = !error.response ? 'Impossible de contacter le serveur backend. Vérifiez que le serveur est bien démarré (npm run dev).' : null;
-      alert(serverErr || networkErr || error.message || 'Erreur lors de la redirection vers 42 Intra OAuth.');
+      showAlert(serverErr || networkErr || error.message || 'Erreur lors de la redirection vers 42 Intra OAuth.');
     }
   };
 
@@ -371,7 +372,7 @@ export default function App() {
       setAuthToken(res.data.token);
       setKioskSecretInput('');
     } catch (error) {
-      alert(error.response?.data?.error || 'Erreur lors de l\'activation de la borne.');
+      showAlert(error.response?.data?.error || 'Erreur lors de l\'activation de la borne.');
     }
   };
 
@@ -470,12 +471,12 @@ export default function App() {
       fetchKitchenOrders(activeStorefront?.id);
       fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
-      alert('Erreur lors de la mise à jour du statut.');
+      showAlert('Erreur lors de la mise à jour du statut.');
     }
   };
 
   const handleClearOrderHistory = async () => {
-    if (!confirm('Supprimer définitivement tout l\'historique des commandes de cette vitrine ? Cette action est irréversible.')) return;
+    if (!(await showConfirm('Supprimer définitivement tout l\'historique des commandes de cette vitrine ? Cette action est irréversible.', { danger: true }))) return;
     try {
       await axios.delete('/api/admin/orders', {
         params: { storefrontId: activeStorefront?.id },
@@ -483,7 +484,7 @@ export default function App() {
       });
       fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
-      alert('Erreur lors de la suppression de l\'historique.');
+      showAlert('Erreur lors de la suppression de l\'historique.');
     }
   };
 
@@ -495,7 +496,7 @@ export default function App() {
       fetchKitchenOrders(activeStorefront?.id);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de la commande.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la modification de la commande.');
       return false;
     }
   };
@@ -509,13 +510,13 @@ export default function App() {
       fetchKitchenProducts(activeStorefront?.id);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création du don.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la création du don.');
       return false;
     }
   };
 
   const handleDeleteOrder = async (orderId) => {
-    if (!confirm('Supprimer définitivement cette commande ?')) return;
+    if (!(await showConfirm('Supprimer définitivement cette commande ?', { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${authToken}` }
@@ -523,7 +524,7 @@ export default function App() {
       fetchKitchenOrders(activeStorefront?.id);
       fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
     }
   };
 
@@ -534,7 +535,7 @@ export default function App() {
       });
       fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
     }
   };
 
