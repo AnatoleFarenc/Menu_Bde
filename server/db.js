@@ -50,8 +50,18 @@ function serializeStorefront(sf) {
     eventId: sf.eventId,
     name: sf.name,
     isActive: sf.isActive,
+    orderWindowStart: sf.orderWindowStart,
+    orderWindowEnd: sf.orderWindowEnd,
     createdAt: sf.createdAt.toISOString()
   };
+}
+
+// Parses a "12h00" or "12:00"-style clock string to minutes since midnight;
+// null on anything unparseable/absent. Shared by validatePickupTime below.
+function parseClockTime(value) {
+  const match = typeof value === 'string' && value.match(/^(\d{1,2})[h:](\d{2})$/);
+  if (!match) return null;
+  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
 }
 
 function serializeShoppingListItem(item) {
@@ -578,8 +588,34 @@ class DB {
     if (!existing) return null;
     const data = {};
     if (updates.name !== undefined) data.name = updates.name.trim();
+    if (updates.orderWindowStart !== undefined) {
+      data.orderWindowStart = updates.orderWindowStart ? String(updates.orderWindowStart) : null;
+    }
+    if (updates.orderWindowEnd !== undefined) {
+      data.orderWindowEnd = updates.orderWindowEnd ? String(updates.orderWindowEnd) : null;
+    }
     const updated = await prisma.storefront.update({ where: { id }, data });
     return serializeStorefront(updated);
+  }
+
+  // Never trusts the client's chosen pickup time (same posture as
+  // priceCartItems): re-checks it against the storefront's own order window
+  // (if the Board/Manager set one) and against the current wall-clock time --
+  // no ordering for a slot that has already gone by today. Returns a
+  // human-readable reason when invalid, null when the time is fine.
+  validatePickupTime(storefront, pickupTime) {
+    const requested = parseClockTime(pickupTime);
+    if (requested === null) return "Heure de retrait invalide";
+    const now = new Date();
+    if (requested < now.getHours() * 60 + now.getMinutes()) {
+      return 'Cette heure de retrait est déjà passée, choisis-en une autre';
+    }
+    const start = parseClockTime(storefront.orderWindowStart) ?? 0;
+    const end = parseClockTime(storefront.orderWindowEnd) ?? (24 * 60);
+    if (requested < start || requested > end) {
+      return `Les commandes ne sont acceptées qu'entre ${storefront.orderWindowStart} et ${storefront.orderWindowEnd}`;
+    }
+    return null;
   }
 
   // Switches the live catalog to this storefront. Nothing is destroyed: the
@@ -1327,6 +1363,63 @@ class DB {
     return problems;
   }
 
+  // Re-derives price/costPrice for every cart line from the live catalog --
+  // see POST /api/orders and "Input validation" in SECURITY.md. Only
+  // ids/menuId and quantities are ever trusted from the client; the money
+  // never is (a client-supplied price/totalPrice used to be persisted as-is,
+  // letting anyone order for free). Silently drops a line whose product/menu
+  // no longer exists on this storefront (stale cart), same posture as
+  // getUnavailableCartItems just above rather than erroring the whole order
+  // out.
+  async priceCartItems(items, storefrontId) {
+    const quantities = this._productQuantities(items);
+    const products = await prisma.product.findMany({ where: { id: { in: [...quantities.keys()] }, storefrontId } });
+    const productById = new Map(products.map(p => [p.id, p]));
+
+    const menuIds = (items || []).filter(item => item.type === 'menu').map(item => item.menuId || item.id);
+    const menus = menuIds.length ? await prisma.menu.findMany({ where: { id: { in: menuIds }, storefrontId } }) : [];
+    const menuById = new Map(menus.map(m => [m.id, m]));
+
+    const priced = (items || []).map(item => {
+      const quantity = parseInt(item.quantity, 10) || 1;
+      if (item.type === 'menu') {
+        const menu = menuById.get(item.menuId || item.id);
+        if (!menu) return null;
+        const rawChoices = Array.isArray(item.choices) ? item.choices : Object.values(item.choices || {});
+        const choices = rawChoices
+          .filter(entry => entry && entry.product && productById.has(entry.product.id))
+          .map(entry => ({ label: entry.label || '', product: productById.get(entry.product.id) }));
+        const extra = choices.reduce((sum, c) => sum + (c.product.extraMenuPrice || 0), 0);
+        const hasCost = choices.some(c => c.product.costPrice != null);
+        return {
+          type: 'menu',
+          id: item.id,
+          menuId: menu.id,
+          name: menu.name,
+          category: null,
+          price: menu.price + extra,
+          costPrice: hasCost ? choices.reduce((sum, c) => sum + (c.product.costPrice || 0), 0) : null,
+          quantity,
+          choices
+        };
+      }
+      const product = productById.get(item.id);
+      if (!product) return null;
+      return {
+        type: 'product',
+        id: product.id,
+        name: product.name,
+        category: product.categoryId,
+        price: product.price,
+        costPrice: product.costPrice,
+        quantity
+      };
+    }).filter(Boolean);
+
+    const totalPrice = priced.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return { items: priced, totalPrice };
+  }
+
   // Sells (delta -1) or gives back (delta +1) the stock of an order's
   // products. Only a `resold` product's own count moves: a made product's
   // ingredients are kept by hand (see StockItem), so selling one deducts
@@ -1733,6 +1826,95 @@ class DB {
     } catch {
       return false;
     }
+  }
+
+  // LEGAL / RGPD -- see the User, LegalDocument and CguAcceptance models.
+  // Upserted on every 42 OAuth login (never for kiosk_guest sessions, which
+  // carry no real identity) so it stays in sync with the 42 profile.
+  async upsertUser({ login, displayName, email }) {
+    return prisma.user.upsert({
+      where: { login },
+      create: { login, displayName, email: email || null },
+      update: { displayName, email: email || null }
+    });
+  }
+
+  async getLatestLegalDocument(kind) {
+    return prisma.legalDocument.findFirst({ where: { kind }, orderBy: { version: 'desc' } });
+  }
+
+  async listLegalDocumentVersions(kind) {
+    return prisma.legalDocument.findMany({ where: { kind }, orderBy: { version: 'desc' } });
+  }
+
+  async publishLegalDocument(kind, title, content, publishedBy) {
+    const latest = await this.getLatestLegalDocument(kind);
+    const version = (latest?.version || 0) + 1;
+    return prisma.legalDocument.create({
+      data: { kind, version, title, content, publishedBy: publishedBy || null }
+    });
+  }
+
+  // Whether `login` has accepted the CURRENT published version of `kind`
+  // (only meaningful for 'cgu' -- 'mentions'/'privacy' never block anything).
+  async getCguStatus(login) {
+    const document = await this.getLatestLegalDocument('cgu');
+    if (!document) return { needsAcceptance: false, document: null };
+    const accepted = await prisma.cguAcceptance.findUnique({
+      where: { userLogin_documentId: { userLogin: login, documentId: document.id } }
+    });
+    return {
+      needsAcceptance: !accepted,
+      document: { id: document.id, version: document.version, title: document.title, content: document.content }
+    };
+  }
+
+  // Idempotent: a double-click just hits the unique(userLogin, documentId)
+  // constraint and updates the same row instead of erroring.
+  async acceptCgu(login, documentId, version) {
+    await prisma.cguAcceptance.upsert({
+      where: { userLogin_documentId: { userLogin: login, documentId } },
+      create: { userLogin: login, documentId, version },
+      update: { version, acceptedAt: new Date() }
+    });
+  }
+
+  async getCguAcceptanceStats() {
+    const document = await this.getLatestLegalDocument('cgu');
+    const totalUsers = await prisma.user.count();
+    if (!document) return { currentVersion: null, acceptedCount: 0, totalUsers };
+    const acceptedCount = await prisma.cguAcceptance.count({ where: { documentId: document.id } });
+    return { currentVersion: document.version, acceptedCount, totalUsers };
+  }
+
+  // Full acceptance history, across every CGU version ever published -- who
+  // signed what, when. A row disappears from here the moment its account is
+  // erased (CguAcceptance cascades with User, see deleteUserAccount): this
+  // is a live record of CURRENT accounts' consent, not a permanent legal
+  // archive of ex-accounts.
+  async listCguAcceptances() {
+    const rows = await prisma.cguAcceptance.findMany({
+      where: { document: { kind: 'cgu' } },
+      orderBy: { acceptedAt: 'desc' },
+      select: { userLogin: true, version: true, acceptedAt: true }
+    });
+    return rows.map(r => ({ login: r.userLogin, version: r.version, acceptedAt: r.acceptedAt.toISOString() }));
+  }
+
+  // Right-to-erasure: anonymizes past orders (kept for the BDE's own sales
+  // stats/accounting, per the user's explicit choice) and hard-deletes
+  // everything else that identifies the person. CguAcceptance rows cascade
+  // away with the User row (onDelete: Cascade in schema.prisma).
+  async deleteUserAccount(login) {
+    await prisma.$transaction([
+      prisma.order.updateMany({
+        where: { userLogin: login },
+        data: { userId: 'compte-supprime', userLogin: 'compte-supprime', userDisplayName: 'Utilisateur supprimé' }
+      }),
+      prisma.pushSubscription.deleteMany({ where: { login } }),
+      prisma.teamMember.deleteMany({ where: { login } }),
+      prisma.user.deleteMany({ where: { login } })
+    ]);
   }
 }
 

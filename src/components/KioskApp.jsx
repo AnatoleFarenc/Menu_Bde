@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Plus, Minus, Trash2, Sparkles, Layers, User, LogIn, ArrowLeft, Check, ShoppingBag, X } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 import MenuBuilderModal from './MenuBuilderModal';
 import { normalizeChoices } from '../lib/menuChoices';
+import { getPickupTimeSlots } from '../lib/pickupTime';
 import { showConfirm } from '../lib/dialogs.jsx';
 
 // Back to the attract screen after this long without a touch -- clears
@@ -12,13 +13,6 @@ const IDLE_RESET_MS = 3 * 60 * 1000;
 const PAIRING_POLL_MS = 2000;
 const CONFIRMATION_DISPLAY_MS = 14000;
 
-const TIME_SLOTS = [];
-for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 30) {
-  const h = Math.floor(minutes / 60);
-  const m = String(minutes % 60).padStart(2, '0');
-  TIME_SLOTS.push(`${h}h${m}`);
-}
-
 // A self-order-terminal-style flow (attract screen -> connect-or-guest ->
 // order -> confirmation), fully separate from the regular mobile storefront.
 // Security model (see server/index.js): the kiosk's OWN session never goes
@@ -26,7 +20,7 @@ for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 30) {
 // to scan on THEIR phone, which does the real login and hands back a
 // single-use `attributionToken` (never a session token) for the order about
 // to be placed.
-export default function KioskApp({ authToken, products, menus, categories, cart, onAddToCart, onAddMenuToCart, updateCartQuantity, removeCartItem, clearCart, onSubmitOrder, onExitKiosk }) {
+export default function KioskApp({ authToken, products, menus, categories, cart, onAddToCart, onAddMenuToCart, updateCartQuantity, removeCartItem, clearCart, onSubmitOrder, onExitKiosk, orderWindow }) {
   const [stage, setStage] = useState('home'); // home | choice | pairing | order | confirmation
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [builderMenu, setBuilderMenu] = useState(null);
@@ -35,7 +29,9 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
   const [pairingError, setPairingError] = useState('');
   const [attribution, setAttribution] = useState(null); // { displayName, attributionToken }
 
-  const [pickupTime, setPickupTime] = useState('12h00');
+  // Recomputed each time the order stage is entered (see getPickupTimeSlots).
+  const slots = useMemo(() => (stage === 'order' ? getPickupTimeSlots(orderWindow) : []), [stage, orderWindow]);
+  const [pickupTime, setPickupTime] = useState('');
   const [note, setNote] = useState('');
   const [customerLabel, setCustomerLabel] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -115,6 +111,12 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
+
+  // Defaults to the first available slot whenever the list changes.
+  useEffect(() => {
+    if (slots.length > 0 && !slots.includes(pickupTime)) setPickupTime(slots[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots]);
 
   const visibleCategoryIds = new Set(categories.filter(c => c.isVisible !== false).map(c => c.id));
   const visibleProducts = products.filter(p => visibleCategoryIds.has(p.category));
@@ -361,13 +363,17 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
             <div className="kiosk-cart-footer">
               <div>
                 <label className="form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>Heure de retrait</label>
+                {slots.length === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Plus aucun créneau disponible pour aujourd'hui.</p>
+                ) : (
                 <div className="kiosk-time-grid">
-                  {TIME_SLOTS.map(slot => (
+                  {slots.map(slot => (
                     <button key={slot} className={`kiosk-time-btn ${pickupTime === slot ? 'active' : ''}`} onClick={() => setPickupTime(slot)}>
                       {slot}
                     </button>
                   ))}
                 </div>
+                )}
               </div>
 
               {!attribution && (
@@ -395,8 +401,8 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
                 <span>Total</span>
                 <span>{cartTotal.toFixed(2)} €</span>
               </div>
-              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1.05rem' }} disabled={cart.length === 0 || isSubmitting} onClick={handleSubmit}>
-                {isSubmitting ? 'Envoi...' : 'Valider ma commande'}
+              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1.05rem' }} disabled={cart.length === 0 || isSubmitting || !pickupTime} onClick={handleSubmit}>
+                {isSubmitting ? 'Envoi...' : !pickupTime ? 'Aucun créneau disponible' : 'Valider ma commande'}
               </button>
             </div>
           </div>

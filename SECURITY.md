@@ -227,6 +227,15 @@ Any other origin is rejected.
 - Kiosk device activation compares the provided secret in constant time (`crypto.timingSafeEqual`).
 - Amounts/quantities are converted and bounded server-side (`parseFloat`/`parseInt`, minimums).
 - Order statuses are validated against a closed list.
+- **Order pricing is never trusted from the client.** `POST /api/orders` only
+  ever reads product/menu **ids** and **quantities** from the request body —
+  `db.priceCartItems` re-derives every line's price (and the order total)
+  from the live `Product`/`Menu` records before the order is created. A
+  client that sends `price: 0` or a fabricated `totalPrice` has no effect;
+  it's simply never read. (The admin-only "free/gift order" and manual
+  order-edit routes are the one deliberate exception — a Board/Admin member
+  is trusted to set an arbitrary price there, same as any other admin
+  write.)
 
 ---
 
@@ -322,11 +331,11 @@ Identified points, not yet addressed (by priority):
 | `debian` retains broad `sudo` | A deliberate decision while the infra is still being built (see [§3](#3-server-hardening-vps)). To be restricted to deployment commands only once stabilized — the principle (dedicated application account + named commands) is already in place for `bde-ops`; it will just need to be duplicated. |
 | `fail2ban` | Not installed — to be added (SSH + application). |
 | Automatic security updates | `unattended-upgrades` to be enabled. |
-| Backups | No **automatic encrypted backup** of `server/data/db.json` to external storage. |
+| Backups | **Partial.** `infra/backup-db.sh` (cron, daily) dumps and rotates both databases locally on the VPS — see `infra/README.md` §8. Protects against a bad migration/bug/accidental delete, **not** against losing the VPS itself; no off-site/external copy yet. |
 | Database | Plain-text JSON file on disk. Migration to **SQLite** possible (locked file, transactional integrity). |
 | Audit log | No traceability of administrator actions. |
-| Dependency scanning | To be set up (`npm audit` in CI, Dependabot). |
-| GDPR compliance | Privacy policy, retention/purge periods, right-to-erasure procedure, processing register: to be written once the data model has stabilized. |
+| Dependency scanning | To be set up (`npm audit` in CI, Dependabot). Current `npm audit` flags known issues in `mysql2`/`mariadb` (pulled in by `@prisma/adapter-mariadb`) and `qs` (pulled in by `express`) — no fix available yet for the first without a breaking Prisma major upgrade; `npm audit fix` resolves `qs`. |
+| GDPR compliance | **Done** (2026-09): versioned, must-accept CGU (`CguAcceptance`/`LegalDocument` models), public mentions légales / politique de confidentialité / CGU pages, and a self-service, automated right-to-erasure ("Supprimer mon compte" → anonymizes past orders, hard-deletes everything else identifying the account). Mentions légales still carry `[À COMPLÉTER]` placeholders pending the association's SIRET/RNA. |
 
 ---
 

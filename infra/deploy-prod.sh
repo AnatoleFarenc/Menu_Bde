@@ -14,6 +14,12 @@ echo "▶ git pull (main)..."
 sudo -u bde-app HOME="$APP_HOME" git pull origin main
 echo "▶ npm install..."
 sudo -u bde-app HOME="$APP_HOME" npm install --no-audit --no-fund
+# npm install's postinstall hook already runs this, but making it explicit
+# means a schema change is never silently served by a stale Prisma Client
+# (e.g. new columns coming back undefined) even if that hook is ever
+# skipped -- cheap to run twice.
+echo "▶ Prisma generate (client)..."
+sudo -u bde-app HOME="$APP_HOME" npx prisma generate
 echo "▶ Prisma migrations (MariaDB)..."
 sudo -u bde-app HOME="$APP_HOME" npx prisma migrate deploy
 echo "▶ build..."

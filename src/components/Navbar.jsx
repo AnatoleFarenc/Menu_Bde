@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles, Settings } from 'lucide-react';
+import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles, Settings, UserCog } from 'lucide-react';
+import AccountModal from './AccountModal';
 
 function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, isKioskGuest, className }) {
   return (
@@ -48,8 +49,9 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, isKioskGuest, cl
   );
 }
 
-export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart }) {
+export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart, onDeleteAccount }) {
   const [isHidden, setIsHidden] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
   const isAdmin = !!(user && user.isAdmin);
   const isManager = !!(user && user.isManager);
   const isKioskGuest = user?.role === 'kiosk_guest';
@@ -110,6 +112,15 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
                     {rolePillLabel}
                   </span>
                 </div>
+                {!isKioskGuest && (
+                  <button
+                    className="btn btn-secondary user-logout"
+                    onClick={() => setIsAccountOpen(true)}
+                    title="Mon compte"
+                  >
+                    <UserCog size={14} />
+                  </button>
+                )}
                 <button
                   className="btn btn-secondary user-logout"
                   onClick={onLogout}
@@ -141,6 +152,14 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
         isManager={isManager}
         isKioskGuest={isKioskGuest}
       />
+
+      {isAccountOpen && user && !isKioskGuest && (
+        <AccountModal
+          user={user}
+          onClose={() => setIsAccountOpen(false)}
+          onDeleteAccount={onDeleteAccount}
+        />
+      )}
     </>
   );
 }

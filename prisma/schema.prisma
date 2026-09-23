@@ -86,6 +86,11 @@ model Storefront {
   name      String
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
+  // "HH:MM" (24h, as produced by <input type="time">), or null = no bound.
+  // Restricts which pickup-time slots are offered to students -- see
+  // getPickupTimeSlots (src/lib/pickupTime.js) and db.validatePickupTime.
+  orderWindowStart String?
+  orderWindowEnd   String?
 
   products      Product[]
   menus         Menu[]
@@ -312,6 +317,60 @@ model MenuGroupProduct {
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([menuGroupId, productId])
+}
+
+// ---------------------------------------------------------------------------
+// RGPD / legal
+// ---------------------------------------------------------------------------
+
+// Profil minimal et persistant d'un compte 42 réel (jamais pour une session
+// kiosk_guest, qui ne porte aucune identité). Mis à jour à chaque connexion
+// OAuth pour rester synchronisé avec le profil 42. Existe uniquement pour
+// donner un point d'ancrage stable aux acceptations de CGU et à la demande
+// de suppression -- la session elle-même reste en mémoire (voir `sessions`
+// dans server/index.js).
+model User {
+  login       String   @id
+  displayName String
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cguAcceptances CguAcceptance[]
+}
+
+// Une version publiée d'un document légal. `kind`: 'cgu' | 'mentions' |
+// 'privacy'. Seul 'cgu' bloque l'usage du site (voir CguAcceptance) --
+// 'mentions' et 'privacy' sont juste versionnés et lisibles publiquement.
+model LegalDocument {
+  id          String   @id @default(cuid())
+  kind        String
+  version     Int
+  title       String
+  content     String   @db.Text
+  publishedAt DateTime @default(now())
+  publishedBy String?
+
+  acceptances CguAcceptance[]
+
+  @@unique([kind, version])
+  @@index([kind])
+}
+
+// Preuve qu'un utilisateur a accepté une version précise des CGU, à un
+// instant donné. Jamais modifiée, seulement créée -- et supprimée en bloc
+// (jamais sélectivement) quand le compte est effacé.
+model CguAcceptance {
+  id         String        @id @default(cuid())
+  userLogin  String
+  user       User          @relation(fields: [userLogin], references: [login], onDelete: Cascade)
+  documentId String
+  document   LegalDocument @relation(fields: [documentId], references: [id])
+  version    Int
+  acceptedAt DateTime      @default(now())
+
+  @@unique([userLogin, documentId])
+  @@index([userLogin])
 }
 
 // ---------------------------------------------------------------------------

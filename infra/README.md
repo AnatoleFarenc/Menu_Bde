@@ -14,6 +14,7 @@ Version-controlled server configuration (OVH VPS, bde42perpignan.fr).
 | `systemd/bde-menu-staging.service` | Staging service (port 5002), runs as `bde-app-staging` |
 | `sudoers.d/20-bde-ops` | Limited permissions for the `bde-ops` group (version-controlled copy of `/etc/sudoers.d/`) |
 | `deploy-prod.sh` / `deploy-staging.sh` | `git pull` + build + restart (copies in `~debian/`) |
+| `backup-db.sh` | Daily local `mysqldump` of both databases, compressed, rotated (see [§8](#8-database-backups)) |
 
 ---
 
@@ -165,3 +166,32 @@ docker compose down -v         # stops AND wipes local data
 - HTTPS: Caddy + automatic Let's Encrypt certificates.
 - systemd hardening for both services: `ProtectSystem=strict`, `NoNewPrivileges`,
   `PrivateTmp`, capabilities cleared, etc. — details in `SECURITY.md` at the repository root.
+
+---
+
+## 8. Database Backups
+
+`infra/backup-db.sh` dumps both `bde_sandwich` and `bde_sandwich_staging`
+(compressed with gzip) to `/var/backups/bde-menu/`, keeping the last 14 days
+by default and pruning older ones automatically. **Local only** — protects
+against a bad migration, a bug, or an accidental delete; not against losing
+the VPS itself. The dumps contain personal data, so the backup directory and
+every file in it are kept root-only (`700`/`600`).
+
+### One-time setup (as root/sudo, on the VPS)
+
+```bash
+sudo crontab -e
+```
+
+Add:
+
+```cron
+0 4 * * * /opt/Menu_Bde/infra/backup-db.sh >> /var/log/bde-backup.log 2>&1
+```
+
+Runs daily at 4am. Restoring a dump:
+
+```bash
+gunzip -c /var/backups/bde-menu/bde_sandwich_20260923_040000.sql.gz | mysql -u root bde_sandwich
+```

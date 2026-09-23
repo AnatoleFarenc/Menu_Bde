@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, ClipboardList, History, LineChart, Package, ShoppingCart, Star, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, ClipboardList, History, LineChart, Package, ScrollText, ShoppingCart, Star, TrendingUp, Users } from 'lucide-react';
 import EventHeader from './EventHeader';
 import StorefrontTabs from './StorefrontTabs';
 
@@ -32,6 +32,7 @@ export default function Dashboard({
   onDuplicateStorefront,
   onActivateStorefront,
   onDeleteStorefront,
+  onEditStorefrontHours,
   products,
   shoppingList,
   report,
@@ -117,6 +118,11 @@ export default function Dashboard({
               <div className="section-card-title">Équipe</div>
               <div className="section-card-desc">Rôles Board / Admin / Staff des membres BDE (pas lié à cet événement).</div>
             </button>
+            <button type="button" className="section-card" onClick={() => onSelectSection('legal')}>
+              <div className="section-card-icon"><ScrollText size={19} /></div>
+              <div className="section-card-title">Légal</div>
+              <div className="section-card-desc">Mentions légales, confidentialité, CGU (pas lié à cet événement).</div>
+            </button>
           </div>
         </div>
       )}
@@ -131,6 +137,7 @@ export default function Dashboard({
           onDuplicate={onDuplicateStorefront}
           onActivate={onActivateStorefront}
           onDelete={onDeleteStorefront}
+          onEditHours={onEditStorefrontHours}
         />
       </div>
     </div>

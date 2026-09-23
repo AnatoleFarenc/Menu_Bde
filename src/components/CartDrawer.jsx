@@ -1,20 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Trash2, Clock, Plus, Minus, CheckCircle, ShoppingCart, Info } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 import { normalizeChoices } from '../lib/menuChoices';
+import { getPickupTimeSlots } from '../lib/pickupTime';
 import { showAlert } from '../lib/dialogs.jsx';
 
-const TIME_SLOTS = [];
-for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 30) {
-  const h = Math.floor(minutes / 60);
-  const m = String(minutes % 60).padStart(2, '0');
-  TIME_SLOTS.push(`${h}h${m}`);
-}
-
-export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, removeItem, clearCart, onSubmitOrder, user }) {
-  const [pickupTime, setPickupTime] = useState('12h00');
+export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, removeItem, clearCart, onSubmitOrder, user, orderWindow }) {
+  // Recomputed on every open, not just once at import time (see
+  // getPickupTimeSlots): a slot valid an hour ago may have passed since.
+  const slots = useMemo(() => (isOpen ? getPickupTimeSlots(orderWindow) : []), [isOpen, orderWindow]);
+  const [pickupTime, setPickupTime] = useState('');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Defaults to the first available slot whenever the list changes (drawer
+  // just opened, or the previously-selected slot just fell out of range).
+  useEffect(() => {
+    if (slots.length > 0 && !slots.includes(pickupTime)) setPickupTime(slots[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots]);
 
   if (!isOpen) return null;
 
@@ -143,8 +147,13 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Clock size={16} color="var(--color-primary)" /> Heure de retrait au local BDE
                 </label>
+                {slots.length === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Plus aucun créneau de retrait disponible pour aujourd'hui.
+                  </p>
+                ) : (
                 <div className="pickup-time-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
-                  {TIME_SLOTS.map(slot => (
+                  {slots.map(slot => (
                     <button
                       key={slot}
                       type="button"
@@ -164,6 +173,7 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
                     </button>
                   ))}
                 </div>
+                )}
               </div>
 
               {/* CUSTOM NOTE */}
@@ -212,9 +222,9 @@ export default function CartDrawer({ isOpen, onClose, cart, updateQuantity, remo
               className="btn btn-primary"
               style={{ width: '100%', padding: '0.85rem', fontSize: '1rem' }}
               onClick={handlePlaceOrder}
-              disabled={isSubmitting || !user}
+              disabled={isSubmitting || !user || !pickupTime}
             >
-              {isSubmitting ? 'Validation en cours...' : user ? 'Envoyer la Précommande au BDE' : 'Connectez-vous avec 42 pour commander'}
+              {isSubmitting ? 'Validation en cours...' : !user ? 'Connectez-vous avec 42 pour commander' : !pickupTime ? 'Aucun créneau disponible' : 'Envoyer la Précommande au BDE'}
             </button>
           </div>
         )}

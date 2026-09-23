@@ -12,6 +12,8 @@ import ForecastPanel from './components/ForecastPanel';
 import HistoriquePanel from './components/HistoriquePanel';
 import AvisPanel from './components/AvisPanel';
 import TeamPanel from './components/TeamPanel';
+import LegalPanel from './components/LegalPanel';
+import StorefrontHoursModal from './components/StorefrontHoursModal';
 import AdminProductModal from './components/AdminProductModal';
 import { showAlert, showConfirm, showPrompt } from './lib/dialogs.jsx';
 
@@ -28,6 +30,7 @@ export default function ManagementApp() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [storefronts, setStorefronts] = useState([]);
   const [selectedStorefrontId, setSelectedStorefrontId] = useState(null);
+  const [hoursModalStorefront, setHoursModalStorefront] = useState(null);
 
   // 'dashboard' = the event's own hub; 'section' = one of the tab pages below it.
   const [view, setView] = useState('dashboard');
@@ -45,6 +48,10 @@ export default function ManagementApp() {
   const [teamMembers, setTeamMembers] = useState([]);
   const [kioskSecretInfo, setKioskSecretInfo] = useState(null); // { secret, source }
   const [kioskSessions, setKioskSessions] = useState([]);
+  const [legalDocs, setLegalDocs] = useState({ mentions: null, privacy: null, cgu: null });
+  const [legalVersions, setLegalVersions] = useState({ mentions: [], privacy: [], cgu: [] });
+  const [cguStats, setCguStats] = useState(null);
+  const [cguAcceptances, setCguAcceptances] = useState([]);
   const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
 
   // The storefront's warm background/scrollbar colors live on <body>, outside
@@ -418,6 +425,59 @@ export default function ManagementApp() {
     }
   };
 
+  // LEGAL DOCUMENTS -- see LegalPanel.jsx. /api/legal/:kind is public (no
+  // auth) since it's the same route the storefront's footer links use.
+  const fetchLegalDoc = async (kind) => {
+    try {
+      const res = await axios.get(`/api/legal/${kind}`);
+      setLegalDocs(prev => ({ ...prev, [kind]: res.data.document }));
+    } catch (e) {
+      setLegalDocs(prev => ({ ...prev, [kind]: null }));
+    }
+  };
+
+  const fetchLegalVersions = async (kind) => {
+    try {
+      const res = await axios.get(`/api/admin/legal/${kind}/versions`, authHeaders);
+      setLegalVersions(prev => ({ ...prev, [kind]: res.data.versions || [] }));
+    } catch (e) {
+      console.error('Error fetching legal versions:', e);
+    }
+  };
+
+  const fetchCguStats = async () => {
+    try {
+      const res = await axios.get('/api/admin/legal/cgu/acceptance-stats', authHeaders);
+      setCguStats(res.data);
+    } catch (e) {
+      console.error('Error fetching CGU acceptance stats:', e);
+    }
+  };
+
+  const handlePublishLegal = async (kind, title, content) => {
+    try {
+      await axios.post(`/api/admin/legal/${kind}`, { title, content }, authHeaders);
+      fetchLegalDoc(kind);
+      fetchLegalVersions(kind);
+      if (kind === 'cgu') fetchCguStats();
+      return true;
+    } catch (e) {
+      showAlert(e.response?.data?.error || 'Erreur lors de la publication.');
+      return false;
+    }
+  };
+
+  // Full "who accepted what, when" history, across every CGU version --
+  // see LegalPanel.jsx.
+  const fetchCguAcceptances = async () => {
+    try {
+      const res = await axios.get('/api/admin/legal/cgu/acceptances', authHeaders);
+      setCguAcceptances(res.data.acceptances || []);
+    } catch (e) {
+      console.error('Error fetching CGU acceptance history:', e);
+    }
+  };
+
   // Kiosk terminal management (Board-only, Équipe tab): the activation code
   // itself, and the individual terminals currently activated with it.
   const fetchKioskSecret = async () => {
@@ -635,6 +695,15 @@ export default function ManagementApp() {
     }
   };
 
+  const handleUpdateStorefrontHours = async (id, updates) => {
+    try {
+      await axios.patch(`/api/admin/storefronts/${id}`, updates, authHeaders);
+      fetchStorefronts(selectedEventId);
+    } catch (e) {
+      showAlert(e.response?.data?.error || 'Erreur lors de la mise à jour des horaires.');
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await axios.post('/api/auth/logout', {}, authHeaders);
@@ -704,6 +773,7 @@ export default function ManagementApp() {
             onDuplicateStorefront={handleDuplicateStorefront}
             onActivateStorefront={handleActivateStorefront}
             onDeleteStorefront={handleDeleteStorefront}
+            onEditStorefrontHours={setHoursModalStorefront}
             products={adminProducts}
             shoppingList={shoppingList}
             report={dashboardReport}
@@ -732,6 +802,7 @@ export default function ManagementApp() {
               onDuplicateStorefront={handleDuplicateStorefront}
               onActivateStorefront={handleActivateStorefront}
               onDeleteStorefront={handleDeleteStorefront}
+              onEditStorefrontHours={setHoursModalStorefront}
             />
           )}
           {activeSection === 'stock' && (
@@ -800,6 +871,19 @@ export default function ManagementApp() {
               onLockKioskSession={handleLockKioskSession}
             />
           )}
+          {activeSection === 'legal' && user.isBoard && (
+            <LegalPanel
+              documents={legalDocs}
+              versions={legalVersions}
+              cguStats={cguStats}
+              cguAcceptances={cguAcceptances}
+              onFetchDoc={fetchLegalDoc}
+              onFetchVersions={fetchLegalVersions}
+              onPublish={handlePublishLegal}
+              onFetchCguStats={fetchCguStats}
+              onFetchCguAcceptances={fetchCguAcceptances}
+            />
+          )}
         </SectionShell>
       )}
 
@@ -813,6 +897,14 @@ export default function ManagementApp() {
         products={adminProducts}
         stockItems={stockItems}
       />
+
+      {hoursModalStorefront && (
+        <StorefrontHoursModal
+          storefront={hoursModalStorefront}
+          onClose={() => setHoursModalStorefront(null)}
+          onSave={handleUpdateStorefrontHours}
+        />
+      )}
     </div>
   );
 }

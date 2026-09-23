@@ -21,7 +21,8 @@ export default function CataloguePanel({
   onCreateStorefront,
   onDuplicateStorefront,
   onActivateStorefront,
-  onDeleteStorefront
+  onDeleteStorefront,
+  onEditStorefrontHours
 }) {
   const selectedStorefront = storefronts.find(sf => sf.id === selectedStorefrontId);
 
@@ -42,6 +43,7 @@ export default function CataloguePanel({
           onDuplicate={onDuplicateStorefront}
           onActivate={onActivateStorefront}
           onDelete={onDeleteStorefront}
+          onEditHours={onEditStorefrontHours}
         />
       </div>
 

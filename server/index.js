@@ -192,6 +192,7 @@ app.get('/api/auth/42/callback', authLimiter, async (req, res) => {
     if (!isStagingAllowed(user.login)) {
       return res.redirect(`${publicAppUrl}/?error=${encodeURIComponent('Accès réservé aux testeurs sur cet environnement de développement.')}`);
     }
+    await db.upsertUser({ login: user.login, displayName: user.displayName, email: user.email });
     const token = createSession(user);
     res.redirect(`${publicAppUrl}/?token=${token}`);
   } catch (error) {
@@ -200,9 +201,63 @@ app.get('/api/auth/42/callback', authLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/auth/me', requireAuth, (req, res) => {
-  res.json({ user: req.user });
-});
+app.get('/api/auth/me', requireAuth, ah(async (req, res) => {
+  const cguStatus = req.user.role === 'kiosk_guest' ? null : await db.getCguStatus(req.user.login);
+  res.json({ user: req.user, cguStatus });
+}));
+
+// ----------------------------------------------------
+// LEGAL / RGPD
+// ----------------------------------------------------
+
+// Public: no auth, read only the latest published version of a document.
+app.get('/api/legal/:kind', ah(async (req, res) => {
+  const document = await db.getLatestLegalDocument(req.params.kind);
+  if (!document) return res.status(404).json({ error: 'Document non publié' });
+  res.json({
+    document: { id: document.id, kind: document.kind, version: document.version, title: document.title, content: document.content, publishedAt: document.publishedAt }
+  });
+}));
+
+app.post('/api/account/accept-cgu', requireAuth, ah(async (req, res) => {
+  if (req.user.role === 'kiosk_guest') return res.status(403).json({ error: 'Sans objet pour une session borne' });
+  const document = await db.getLatestLegalDocument('cgu');
+  if (!document) return res.status(404).json({ error: 'Aucune CGU publiée' });
+  await db.acceptCgu(req.user.login, document.id, document.version);
+  res.json({ success: true });
+}));
+
+// Right-to-erasure, self-service and immediate: see db.deleteUserAccount for
+// what's anonymized (past orders, for the BDE's own stats/accounting) vs.
+// hard-deleted (everything else that identifies the person).
+app.delete('/api/account', requireAuth, ah(async (req, res) => {
+  if (req.user.role === 'kiosk_guest') return res.status(403).json({ error: 'Sans objet pour une session borne' });
+  await db.deleteUserAccount(req.user.login);
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (token) sessions.delete(token);
+  res.json({ success: true });
+}));
+
+app.get('/api/admin/legal/:kind/versions', requireBoard, ah(async (req, res) => {
+  const versions = await db.listLegalDocumentVersions(req.params.kind);
+  res.json({ versions });
+}));
+
+app.post('/api/admin/legal/:kind', requireBoard, ah(async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+  const document = await db.publishLegalDocument(req.params.kind, title, content, req.user.login);
+  res.json({ document });
+}));
+
+app.get('/api/admin/legal/cgu/acceptance-stats', requireBoard, ah(async (req, res) => {
+  res.json(await db.getCguAcceptanceStats());
+}));
+
+app.get('/api/admin/legal/cgu/acceptances', requireBoard, ah(async (req, res) => {
+  res.json({ acceptances: await db.listCguAcceptances() });
+}));
 
 // The kiosk activation code: forced by KIOSK_SECRET in .env when set (an
 // explicit override, same convention as VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY
@@ -352,12 +407,14 @@ app.post('/api/kiosk/pairing/:code/confirm', authLimiter, (req, res) => {
 // PRODUCT & MENU ROUTES (Storefront)
 // ----------------------------------------------------
 app.get('/api/products', ah(async (req, res) => {
-  const [products, menus, categories] = await Promise.all([
+  const [products, menus, categories, activeStorefront] = await Promise.all([
     db.getPublicProducts(),
     db.getPublicMenus(),
-    db.getCategories()
+    db.getCategories(),
+    db.getActiveStorefront()
   ]);
-  res.json({ products, menus, categories });
+  const orderWindow = { start: activeStorefront.orderWindowStart, end: activeStorefront.orderWindowEnd };
+  res.json({ products, menus, categories, orderWindow });
 }));
 
 // The single storefront currently live for students -- used by the
@@ -636,7 +693,7 @@ app.patch('/api/admin/menus/:id/toggle-stock', requireManager, ah(async (req, re
 // ----------------------------------------------------
 app.post('/api/orders', ah(async (req, res) => {
   const user = getUserFromReq(req);
-  const { items, pickupTime, note, totalPrice } = req.body;
+  const { items, pickupTime, note } = req.body;
 
   if (!user) {
     return res.status(401).json({ error: 'Connexion 42 requise pour commander' });
@@ -649,6 +706,23 @@ app.post('/api/orders', ah(async (req, res) => {
   const unavailable = await db.getUnavailableCartItems(items);
   if (unavailable.length > 0) {
     return res.status(409).json({ error: `Commande impossible -- ${unavailable.join(' ; ')}. Retire-le de ton panier.` });
+  }
+
+  // Price/totalPrice are NEVER taken from req.body: only product/menu ids
+  // and quantities are trusted from the client, the money is always
+  // re-derived from the live catalog (see db.priceCartItems).
+  const activeStorefront = await db.getActiveStorefront();
+  const { items: pricedItems, totalPrice } = await db.priceCartItems(items, activeStorefront.id);
+  if (pricedItems.length === 0) {
+    return res.status(400).json({ error: 'Panier invalide' });
+  }
+
+  // Same posture as the price above: the chosen pickup time is re-validated
+  // server-side against the storefront's own order window and the current
+  // time, never trusted as-is.
+  const pickupTimeError = db.validatePickupTime(activeStorefront, pickupTime);
+  if (pickupTimeError) {
+    return res.status(400).json({ error: pickupTimeError });
   }
 
   const isKiosk = user.role === 'kiosk_guest';
@@ -668,15 +742,16 @@ app.post('/api/orders', ah(async (req, res) => {
   const customerLabel = String(req.body.customerLabel || '').trim().slice(0, 60) || 'Commande borne';
 
   const newOrder = await db.addOrder({
+    storefrontId: activeStorefront.id,
     userId: attribution ? attribution.userId : user.id,
     // Same convention as the admin "free/gift order" path when there's no
     // real account attached: both fields hold the human-readable label.
     userLogin: attribution ? attribution.userLogin : (isKiosk ? customerLabel : user.login),
     userDisplayName: attribution ? attribution.userDisplayName : (isKiosk ? customerLabel : user.displayName),
-    items,
-    pickupTime: pickupTime || '12h00',
+    items: pricedItems,
+    pickupTime,
     note: note || '',
-    totalPrice: parseFloat(totalPrice) || 0,
+    totalPrice,
     isKioskOrder: isKiosk
   });
 

@@ -9,6 +9,8 @@ import AdminKitchenBoard from './components/AdminKitchenBoard';
 import AdminOrderHistory from './components/AdminOrderHistory';
 import OrderStatus from './components/OrderStatus';
 import ItemIcon from './components/ItemIcon';
+import CguGateModal from './components/CguGateModal';
+import Footer from './components/Footer';
 import { Layers, LogIn, Sparkles } from 'lucide-react';
 import { playNewOrderSound } from './lib/sound';
 import { showAlert, showConfirm } from './lib/dialogs.jsx';
@@ -31,6 +33,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [cguStatus, setCguStatus] = useState(null); // { needsAcceptance, document } -- see GET /api/auth/me
   // A tap on a new-order notification opens the site on `?tab=admin` (see
   // public/sw.js); the tab only actually shows for a signed-in admin, below.
   const [activeTab, setActiveTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'admin' ? 'admin' : 'vitrine')); // 'vitrine' | 'orders' | 'admin'
@@ -45,6 +48,7 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [orderWindow, setOrderWindow] = useState(null); // { start, end } -- see /api/products
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
@@ -253,6 +257,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setUser(res.data.user);
+      setCguStatus(res.data.cguStatus);
       setIsAuthChecking(false);
     } catch (e) {
       setUser(null);
@@ -262,12 +267,41 @@ export default function App() {
     }
   };
 
+  const handleAcceptCgu = async () => {
+    try {
+      await axios.post('/api/account/accept-cgu', {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      setCguStatus(prev => (prev ? { ...prev, needsAcceptance: false } : prev));
+    } catch (e) {
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'enregistrement de ton acceptation, réessaie.');
+    }
+  };
+
+  // Right to erasure, self-service (see AccountModal.jsx / Navbar.jsx): the
+  // server anonymizes past orders and hard-deletes everything else that
+  // identifies the account, then this just logs the browser out like
+  // handleLogout does.
+  const handleDeleteAccount = async () => {
+    try {
+      await axios.delete('/api/account', { headers: { Authorization: `Bearer ${authToken}` } });
+    } catch (e) {
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression du compte.');
+      return;
+    }
+    setUser(null);
+    setCguStatus(null);
+    setAuthToken('');
+    localStorage.removeItem('bde_token');
+    setActiveTab('vitrine');
+    showAlert('Ton compte a été supprimé.');
+  };
+
   const fetchProducts = async () => {
     try {
       const res = await axios.get('/api/products');
       setProducts(res.data.products || []);
       setMenus(res.data.menus || []);
       setCategories(res.data.categories || []);
+      setOrderWindow(res.data.orderWindow || null);
     } catch (e) {
       console.error('Error fetching products:', e);
     }
@@ -355,6 +389,7 @@ export default function App() {
       });
     } catch (e) {}
     setUser(null);
+    setCguStatus(null);
     setAuthToken('');
     setIsAuthChecking(false);
     localStorage.removeItem('bde_token');
@@ -654,6 +689,7 @@ export default function App() {
         clearCart={() => setCart([])}
         onSubmitOrder={handleSubmitOrder}
         onExitKiosk={handleLogout}
+        orderWindow={orderWindow}
       />
     );
   }
@@ -674,6 +710,7 @@ export default function App() {
         onLogin42={handleLogin42}
         onLogout={handleLogout}
         onOpenCart={() => setIsCartOpen(true)}
+        onDeleteAccount={handleDeleteAccount}
       />
 
       {/* TAB 1: STUDENT VITRINE */}
@@ -789,6 +826,8 @@ export default function App() {
         )
       )}
 
+      <Footer />
+
       {/* FLOATING CART BAR (WHEN CART NOT EMPTY & DRAWER CLOSED) */}
       {cart.length > 0 && !isCartOpen && (
         <div className="cart-floating-bar" onClick={() => setIsCartOpen(true)} style={{ cursor: 'pointer' }}>
@@ -829,7 +868,14 @@ export default function App() {
         clearCart={() => setCart([])}
         onSubmitOrder={handleSubmitOrder}
         user={user}
+        orderWindow={orderWindow}
       />
+
+      {/* CGU GATE -- blocks the app until the current CGU version is
+          accepted (first login ever, or a new version was published). */}
+      {cguStatus?.needsAcceptance && cguStatus.document && (
+        <CguGateModal document={cguStatus.document} onAccept={handleAcceptCgu} />
+      )}
     </div>
   );
 }
