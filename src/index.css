@@ -16,7 +16,7 @@
   --color-accent: #9a3d3d;
   --color-warning: #d79a3b;
   --color-danger: #9a3d3d;
-  --color-success: #7fbf9e;
+  --color-success: #1f6b3f;
   --text-main: #2d261d;
   --text-muted: #4a3a26;
   --text-dim: #88714d;
@@ -177,12 +177,16 @@ main h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  gap: 1rem;
 }
 
 .logo-group {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex-shrink: 0;
 }
 
 .logo-badge {
@@ -220,6 +224,9 @@ main h3 {
   color: #e2d3b8;
   border-color: transparent;
   background: transparent;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  gap: 0.3rem;
 }
 
 .navbar .tab-btn:hover {
@@ -249,13 +256,17 @@ main h3 {
 .nav-tabs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .nav-user {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .logo-labels {
@@ -301,12 +312,22 @@ main h3 {
   color: #e3a0a0;
 }
 
-/* Libellés courts réservés au mobile */
 .tab-text-short {
   display: none;
 }
 
-/* Barre de navigation basse — masquée hors mobile */
+/* The navbar always uses the short label (both the top bar and the mobile
+   bottom bar share this class) -- keeps four tabs plus the user badge on
+   one line instead of wrapping or crowding it. */
+.nav-tabs .tab-text-long {
+  display: none;
+}
+
+.nav-tabs .tab-text-short {
+  display: inline;
+}
+
+/* Bottom navigation bar — hidden outside mobile */
 .nav-tabs-bottom {
   display: none;
 }
@@ -454,6 +475,233 @@ main h3 {
   white-space: nowrap;
 }
 
+/* Admin tool shell: icon rail + event list + event header/storefront tabs +
+   section content. See the .admin-modern block further down for the actual
+   (light, neutral) look -- these rules are pure layout/structure. */
+.admin-shell {
+  display: flex;
+  height: 100vh;
+}
+
+.admin-shell-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 1.25rem 1.75rem 3rem;
+  overflow-y: auto;
+}
+
+.admin-shell-content {
+  margin-top: 1.25rem;
+  /* The catalog table's column-hiding breakpoints react to this container's
+     actual width, not the viewport's -- the icon rail + event sidebar eat
+     ~280px that a plain @media query has no way to account for. */
+  container-type: inline-size;
+  container-name: admin-content;
+}
+
+.icon-rail {
+  flex-shrink: 0;
+  width: 60px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0;
+  overflow-y: auto;
+}
+
+.icon-rail-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-bottom: 0.6rem;
+}
+
+.icon-rail-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.event-sidebar {
+  flex-shrink: 0;
+  width: 220px;
+  overflow-y: auto;
+}
+
+.event-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0.9rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.event-sidebar-new-form {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+}
+
+.event-sidebar-list {
+  padding: 0.4rem 0.6rem 1rem;
+}
+
+.event-sidebar-group {
+  margin-bottom: 0.9rem;
+}
+
+.event-sidebar-group-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 0.4rem 0.3rem;
+}
+
+.event-sidebar-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.event-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.event-sidebar-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.event-sidebar-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.83rem;
+}
+
+.event-sidebar-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.event-sidebar-item-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.event-sidebar-item-actions button {
+  background: transparent;
+  border: none;
+  padding: 0.15rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.event-header {
+  padding: 0 0 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.event-header-editing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.9rem;
+}
+
+.storefront-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e4e7ec);
+  overflow-x: auto;
+}
+
+.storefront-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.storefront-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.storefront-tab-actions {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.storefront-tab-actions button {
+  background: transparent;
+  border: none;
+  padding: 0.1rem;
+  cursor: pointer;
+  display: flex;
+  border-radius: 4px;
+}
+
+.storefront-tab-add {
+  background: transparent;
+  border: 1px dashed var(--border-color, #cfd4d9);
+  border-radius: 7px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .hero-text h1 {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.6rem);
@@ -518,83 +766,32 @@ main h3 {
   border-top: 1px solid var(--border-color);
 }
 
+/* One product/menu row: icon+text on the left (.card-main, grows and wraps),
+   price+action on the right (.card-footer, fixed). Plain flexbox -- the
+   previous version mixed CSS grid with a floated icon, which misaligned the
+   footer whenever a row's content height varied (e.g. an expanded menu
+   description), making the price/button appear to drift out of the row. */
 .product-card {
-  background: #ead7b2;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  padding: 1.1rem;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.2rem 0;
+  border-bottom: 1px dashed var(--border-color);
   position: relative;
-  overflow: hidden;
-  box-shadow: 0 5px 14px rgba(67, 48, 26, 0.07);
+  transition: background 0.2s ease;
+}
+
+.menu-list .product-card:last-child {
+  border-bottom: none;
 }
 
 .product-card:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-color-glow);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-glow);
-}
-
-.menu-list .product-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  column-gap: 1.5rem;
-  border: 0;
-  border-bottom: 1px dashed var(--border-color);
-  border-radius: 0;
-  box-shadow: none;
-  padding: 1.2rem 0;
-  background: transparent;
-}
-
-.menu-list .product-card:hover {
   background: rgba(215, 154, 59, 0.07);
-  transform: none;
-  box-shadow: none;
 }
 
 .menu-accordion-list {
-  background: rgba(93, 55, 27, 0.08);
-  border: 1px solid #aa8f63;
   padding: 0 1rem;
-}
-
-.menu-accordion-list .product-card {
-  background: transparent;
-}
-
-.menu-list .product-card > div:first-child {
-  grid-row: 1 / span 2;
-}
-
-.menu-list .card-header {
-  float: left;
-  margin: 0 1rem 0 0;
-}
-
-.menu-list .card-icon {
-  width: 42px;
-  height: 42px;
-}
-
-.menu-list .card-footer {
-  border: 0;
-  padding: 0;
-  gap: 1rem;
-}
-
-.menu-list .card-price {
-  font-size: 1rem;
-}
-
-.menu-list .card-desc {
-  max-width: 70ch;
-  margin-bottom: 0;
 }
 
 .menu-details-toggle {
@@ -614,6 +811,7 @@ main h3 {
 
 .menu-details {
   margin-top: 0.5rem;
+  max-width: 60ch;
 }
 
 .product-card.out-of-stock {
@@ -621,18 +819,19 @@ main h3 {
   filter: grayscale(0.4);
 }
 
-.card-header {
+.card-main {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
+  gap: 1rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .card-icon {
-  font-size: 2.5rem;
+  flex-shrink: 0;
   background: rgba(119, 73, 31, 0.1);
-  width: 54px;
-  height: 54px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -640,11 +839,19 @@ main h3 {
   border: 1px solid var(--border-color);
 }
 
+.card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .card-badges {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.3rem;
+  flex-shrink: 0;
 }
 
 .badge {
@@ -713,15 +920,14 @@ main h3 {
   font-size: 0.85rem;
   color: var(--text-muted);
   line-height: 1.4;
-  margin-bottom: 1.25rem;
-  flex-grow: 1;
+  max-width: 60ch;
+  overflow-wrap: anywhere;
   font-style: italic;
 }
 
 .card-extra {
-  display: inline-block;
-  margin-top: -0.8rem;
-  margin-bottom: 0.8rem;
+  display: block;
+  margin-top: 0.3rem;
   color: var(--color-accent);
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -731,16 +937,16 @@ main h3 {
 .card-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color);
+  gap: 1rem;
+  flex-shrink: 0;
 }
 
 .card-price {
   font-family: var(--font-mono);
-  font-size: 1.3rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: #2d261d;
+  white-space: nowrap;
 }
 
 /* Cart Drawer */
@@ -829,6 +1035,146 @@ main h3 {
   overflow-y: auto;
   padding: 1.75rem;
   box-shadow: 0 20px 40px rgba(0,0,0,0.8), var(--shadow-glow);
+}
+
+.modal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.modal-close-btn {
+  padding: 0.4rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* Alert/confirm/prompt replacements (see src/lib/dialogs.jsx) -- a narrow
+   variant of .modal-content. */
+.dialog-content {
+  max-width: 420px;
+}
+
+.dialog-message {
+  color: var(--text-main);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+/* Menu builder (formula composition): choosing one product per group. */
+.menu-price-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(93, 55, 27, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.menu-price-base {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.menu-price-delta {
+  font-size: 0.85rem;
+  color: var(--color-primary-text);
+  font-weight: 600;
+}
+
+.menu-price-total {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.menu-price-total-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+.menu-price-total-value {
+  font-size: 1.4rem;
+  color: var(--color-primary-text);
+}
+
+.menu-option-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-main);
+}
+
+.menu-option-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.menu-option-empty {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.menu-option {
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(93, 55, 27, 0.06);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.menu-option:hover {
+  border-color: var(--border-color-glow);
+}
+
+.menu-option.is-selected {
+  background: var(--color-primary-glow);
+  border-color: var(--color-primary);
+}
+
+.menu-option-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.menu-option-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.menu-option-extra {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  border: 1px solid var(--border-color-glow);
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* Form inputs */
@@ -921,6 +1267,458 @@ main h3 {
   font-size: 0.85rem;
   padding: 0.2rem 0;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+/* ---------------------------------------------------------------------------
+ * Espace Staff / Kitchen Display Board (KDS)
+ * --------------------------------------------------------------------------- */
+.kitchen-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.kitchen-kpi-bar {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.kitchen-kpi-card {
+  flex: 1 1 130px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.kitchen-kpi-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.kitchen-kpi-card.active {
+  border-color: var(--color-primary-text);
+  background: var(--board-alt);
+  box-shadow: 0 0 10px rgba(215, 154, 59, 0.2);
+}
+
+.kitchen-kpi-count {
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-primary-text);
+}
+
+.kitchen-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kitchen-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.kitchen-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.07);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  flex: 1 1 200px;
+  max-width: 300px;
+}
+
+.kitchen-search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.kitchen-view-switcher {
+  display: flex;
+  gap: 0.25rem;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0.2rem;
+  border-radius: var(--radius-sm);
+}
+
+.kitchen-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kitchen-view-btn.active {
+  background: var(--board-alt);
+  color: var(--color-primary-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.kitchen-slots-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-slot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kitchen-slot-chip:hover {
+  border-color: var(--color-primary);
+}
+
+.kitchen-slot-chip.active {
+  background: var(--color-primary-text);
+  color: #fff;
+  border-color: var(--color-primary-text);
+}
+
+.kitchen-slot-badge {
+  background: rgba(0,0,0,0.12);
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+}
+
+.kitchen-slot-chip.active .kitchen-slot-badge {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+/* Kitchen Ticket (KDS Card) */
+.kitchen-ticket {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+
+.kitchen-ticket:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.kitchen-ticket-status-pending {
+  border-left: 5px solid #d97706;
+}
+
+.kitchen-ticket-status-preparing {
+  border-left: 5px solid #2563eb;
+}
+
+.kitchen-ticket-status-ready {
+  border-left: 5px solid #059669;
+}
+
+.kitchen-ticket-status-completed {
+  border-left: 5px solid #64748b;
+  opacity: 0.9;
+}
+
+.kitchen-ticket-status-cancelled {
+  border-left: 5px solid #dc2626;
+  opacity: 0.75;
+}
+
+.kitchen-ticket-header {
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.kitchen-ticket-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 800;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-text);
+  color: #fff;
+}
+
+.kitchen-ticket-num {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--color-primary-text);
+}
+
+.kitchen-ticket-client {
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.kitchen-ticket-body {
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1;
+}
+
+.kitchen-prep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.kitchen-prep-item {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+}
+
+.kitchen-prep-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.kitchen-qty-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.85rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  background: var(--color-primary-text);
+  color: #fff;
+  border-radius: var(--radius-sm);
+}
+
+.kitchen-item-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  flex: 1;
+}
+
+.kitchen-menu-choices {
+  margin-top: 0.45rem;
+  padding-left: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-left: 2px solid var(--color-primary);
+}
+
+.kitchen-choice-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.kitchen-choice-label {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+}
+
+.kitchen-choice-name {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.kitchen-ticket-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(215, 154, 59, 0.18);
+  border: 1px solid #d79a3b;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6e3a10;
+}
+
+.kitchen-ticket-footer {
+  padding: 0.65rem 0.95rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.kitchen-ticket-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.kitchen-ticket-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-btn-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+/* Kanban Layout */
+.kitchen-kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.kitchen-kanban-col {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+}
+
+.kitchen-kanban-col-head {
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.04);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.kitchen-kanban-col-body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Tickets Grid View */
+.kitchen-tickets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+/* Compact Table View */
+.kitchen-compact-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.kitchen-compact-table th {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.kitchen-compact-table td {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  vertical-align: middle;
+}
+
+.kitchen-compact-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+@media (max-width: 900px) {
+  .kitchen-kanban-grid {
+    grid-template-columns: 1fr;
+  }
+  .kitchen-tickets-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Composition d'une formule (modale admin) */
@@ -1042,7 +1840,7 @@ main h3 {
     padding: 0 1rem calc(5.5rem + env(safe-area-inset-bottom));
   }
 
-  /* --- Barre du haut : compacte et discrète --- */
+  /* --- Top bar: compact and discreet --- */
   .navbar {
     padding: 0.45rem 0.85rem;
     margin-bottom: 1rem;
@@ -1077,7 +1875,7 @@ main h3 {
     text-overflow: ellipsis;
   }
 
-  /* Onglets de la barre du haut : déplacés vers la barre basse */
+  /* Top bar tabs: moved to the bottom bar */
   .navbar .nav-tabs {
     display: none;
   }
@@ -1169,6 +1967,31 @@ main h3 {
     padding: 1.25rem 0 1rem;
   }
 
+  .admin-shell {
+    flex-direction: column;
+    width: 100%;
+    left: 0;
+    margin-left: 0;
+  }
+
+  .icon-rail {
+    flex-direction: row;
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  .event-sidebar {
+    width: 100%;
+  }
+
+  .event-sidebar-list {
+    max-height: 40vh;
+  }
+
+  .admin-shell-main {
+    padding: 1rem;
+  }
+
   .hero-text h1 {
     font-size: 2rem;
   }
@@ -1196,8 +2019,9 @@ main h3 {
     padding: 0 0.75rem;
   }
 
-  .menu-list .product-card {
-    grid-template-columns: 1fr;
+  .product-card {
+    flex-direction: column;
+    align-items: stretch;
     gap: 0.6rem;
     padding: 1rem 0;
   }
@@ -1209,28 +2033,18 @@ main h3 {
     overflow-wrap: anywhere;
   }
 
-  .card-title-row .card-badges {
-    max-width: 45%;
-  }
-
-  .menu-list .product-card > div:first-child {
-    grid-row: auto;
-  }
-
-  .menu-list .card-header {
-    margin-right: 0.6rem;
-  }
-
-  .menu-list .card-footer {
-    justify-content: space-between;
-  }
-
   .card-title-row {
     align-items: flex-start;
   }
 
   .card-title-row .card-badges {
+    max-width: 45%;
     text-align: right;
+  }
+
+  .card-footer {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .cart-floating-bar {
@@ -1394,5 +2208,2043 @@ main h3 {
   .menu-list .card-title-row .card-badges {
     align-items: flex-start;
     text-align: left;
+  }
+}
+
+/* =============================================================================
+   ADMIN MODERN THEME
+   Scoped under .admin-modern: the management/admin panel (event workspace,
+   product & menu editing, order dashboard) gets its own light, dense,
+   neutral look -- independent from the storefront's warm/artisanal style,
+   which stays untouched everywhere outside this scope.
+   ============================================================================= */
+
+.admin-modern {
+  --bg-page: #f7f6f2;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1efe8;
+  --bg-inset: #f2f0e9;
+  --border-color: #e6e1d6;
+  --border-color-glow: rgba(53, 97, 143, 0.35);
+  --color-primary: #35618f;
+  --color-primary-hover: #2b4f76;
+  --color-primary-glow: rgba(53, 97, 143, 0.1);
+  --color-primary-text: #2b4f76;
+  --color-accent: #b3492f;
+  --color-warning: #b4790f;
+  --color-danger: #b3402e;
+  --color-success: #4c7a3f;
+  --text-main: #262220;
+  --text-muted: #7a7269;
+  --text-dim: #a39a8d;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(38, 34, 32, 0.06);
+  --shadow-glow: 0 4px 16px rgba(38, 34, 32, 0.08);
+  --shadow-glow-strong: 0 4px 16px rgba(38, 34, 32, 0.08);
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Muted, warm-compatible tag colors for category dots / item-avatar tiles
+     in the catalog table -- cycled by category, never used as large fills. */
+  --tag-1: #35618f;
+  --tag-2: #a3652c;
+  --tag-3: #8a5a7a;
+  --tag-4: #8a6d1f;
+
+  background: var(--bg-page);
+  color: var(--text-main);
+  font-family: var(--font-family);
+}
+
+.admin-modern h1,
+.admin-modern h2,
+.admin-modern h3 {
+  font-family: var(--font-family);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+/* The global `*` scrollbar rule near the top of this file is scoped to the
+   warm storefront and always wins over inheritance, so it has to be beaten
+   here with an equally direct selector rather than just redefined on the
+   .admin-modern root. */
+.admin-modern,
+.admin-modern * {
+  scrollbar-color: var(--text-dim) var(--bg-inset);
+}
+
+.admin-modern ::-webkit-scrollbar-track {
+  background: var(--bg-inset);
+}
+
+.admin-modern ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}
+
+.admin-modern ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+.admin-modern .icon-rail {
+  background: #211d19;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-modern .icon-rail-spacer {
+  flex: 1;
+}
+
+.admin-modern .icon-rail-divider {
+  width: 26px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 6px 0;
+}
+
+.admin-modern .icon-rail-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(53, 97, 143, 0.25);
+  color: #b9cfe3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.admin-modern .icon-rail-logo {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.admin-modern .icon-rail-btn {
+  color: #9aa1ad;
+}
+
+.admin-modern .icon-rail-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.admin-modern .icon-rail-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.admin-modern .event-sidebar {
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-color);
+}
+
+.admin-modern .event-sidebar-header,
+.admin-modern .event-sidebar-group-label {
+  color: var(--text-dim);
+}
+
+.admin-modern .event-sidebar-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.admin-modern .event-sidebar-item.is-selected {
+  background: var(--color-primary-glow);
+}
+
+.admin-modern .event-sidebar-item.is-selected .event-sidebar-item-name {
+  color: var(--color-primary-text);
+  font-weight: 600;
+}
+
+.admin-modern .event-sidebar-active-dot {
+  background: var(--success);
+}
+
+.admin-modern .event-sidebar-item-actions button {
+  color: var(--text-dim);
+}
+
+.admin-modern .event-sidebar-item-actions button:hover {
+  color: var(--color-primary-text);
+  background: var(--color-primary-glow);
+}
+
+.admin-modern .event-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .storefront-tabs {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .storefront-tab {
+  color: var(--text-muted);
+}
+
+.admin-modern .storefront-tab:hover {
+  background: var(--bg-card-hover);
+}
+
+.admin-modern .storefront-tab.active {
+  background: var(--text-main);
+  color: #fff;
+}
+
+.admin-modern .storefront-tab-dot {
+  background: var(--success);
+}
+
+.admin-modern .storefront-tab.active .storefront-tab-dot {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.admin-modern .storefront-tab-actions button {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.admin-modern .storefront-tab-actions button:hover {
+  opacity: 1;
+}
+
+.admin-modern .storefront-tab-add {
+  color: var(--text-dim);
+  border-color: var(--border-color);
+}
+
+.admin-modern .storefront-tab-add:hover {
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+}
+
+/* Buttons */
+.admin-modern .btn {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.9rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-modern .btn-primary {
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.admin-modern .btn-primary:hover {
+  background: var(--color-primary-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-modern .btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+}
+
+.admin-modern .btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color);
+  transform: none;
+}
+
+.admin-modern .btn-secondary.active {
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+  box-shadow: none;
+}
+
+.admin-modern .btn-complete {
+  color: var(--color-success);
+  border-color: #bbf7d0;
+}
+
+.admin-modern .btn-complete:hover {
+  color: #15803d;
+  border-color: var(--color-success);
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.admin-modern .btn-admin,
+.admin-modern .btn-danger {
+  background: #fff1f2;
+  color: var(--color-danger);
+  border: 1px solid #fecdd3;
+}
+
+.admin-modern .btn-admin:hover,
+.admin-modern .btn-danger:hover {
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+/* Badges / status chips: soft tinted pills instead of flat italic text */
+.admin-modern .badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-style: normal;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-inset);
+  color: var(--text-muted);
+}
+
+.admin-modern .badge-best {
+  font-style: normal;
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+}
+
+.admin-modern .badge-stock-out {
+  font-style: normal;
+  background: #fff1f2;
+  color: var(--color-danger);
+}
+
+.admin-modern .status-badge {
+  font-style: normal;
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.6rem;
+}
+
+.admin-modern .status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-modern .status-preparing {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.admin-modern .status-ready {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.admin-modern .status-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-modern .status-cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Cards */
+.admin-modern .synthesis-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .synthesis-title {
+  color: var(--text-main);
+}
+
+.admin-modern .synthesis-item {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .order-card,
+.admin-modern .order-card[style] {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .order-card > div[style*="rgba(0,0,0"] {
+  background: var(--bg-inset) !important;
+  border-color: var(--border-color) !important;
+}
+
+.admin-modern .order-card span[style*="rgba(255,255,255"],
+.admin-modern .order-card span[style*="rgba(255, 255, 255"] {
+  background: var(--bg-inset) !important;
+}
+
+/* Forms */
+.admin-modern .form-input,
+.admin-modern .form-select,
+.admin-modern .form-textarea {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+.admin-modern .form-select {
+  color-scheme: light;
+}
+
+.admin-modern .form-select option {
+  background: #ffffff;
+  color: var(--text-main);
+}
+
+.admin-modern .form-input:focus,
+.admin-modern .form-select:focus,
+.admin-modern .form-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.admin-modern .formule-item {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-color);
+}
+
+.admin-modern .formule-item.is-checked {
+  background: var(--color-primary-glow);
+  border-color: var(--color-primary);
+}
+
+.admin-modern .formule-config {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-color);
+}
+
+/* Product/meal-deal cards reused from the storefront: strip the vintage
+   italic-serif treatment for a cleaner catalog-management look. */
+.admin-modern .product-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .product-card:hover {
+  background: var(--bg-card);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-modern .card-title {
+  font-family: var(--font-family);
+  font-weight: 700;
+}
+
+.admin-modern .card-desc {
+  font-style: normal;
+}
+
+.admin-modern .card-price {
+  font-family: var(--font-family);
+  color: var(--text-main);
+}
+
+/* Modal (product/menu add-edit) */
+.admin-modern.modal-overlay {
+  background: rgba(38, 34, 32, 0.55);
+}
+
+.admin-modern .modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+}
+
+/* Tables */
+.admin-modern table thead tr {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.admin-modern table tbody tr {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.admin-modern table tbody tr:hover {
+  background: var(--bg-card-hover);
+}
+
+/* Sidebar "new event" quick form + history cards inherit the tokens above
+   automatically since they're written with var(...) throughout. */
+
+/* -----------------------------------------------------------------------
+   Catalog table (CatalogTable.jsx): replaces the product/menu card grid
+   with a dense data table -- filters/search, initials avatars instead of
+   emoji, and per-category muted tag colors (--tag-1..4).
+   ----------------------------------------------------------------------- */
+.admin-modern .catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.admin-modern .catalog-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.65rem;
+  width: 240px;
+  color: var(--text-dim);
+}
+
+.admin-modern .catalog-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  width: 100%;
+  font-family: var(--font-family);
+}
+
+.admin-modern .chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-modern .chip.active {
+  background: var(--color-primary-glow);
+  border-color: transparent;
+  color: var(--color-primary-text);
+}
+
+.admin-modern .catalog-toolbar-spacer {
+  flex: 1;
+}
+
+.admin-modern .catalog-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  margin: 1.6rem 0 0.6rem;
+}
+
+.admin-modern .catalog-section-label:first-of-type {
+  margin-top: 0;
+}
+
+.admin-modern .catalog-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-full);
+}
+
+.admin-modern .data-table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.admin-modern .data-table-wrap table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+/* Secondary bookkeeping columns (supplement, cost, margin, badge) step out
+   of the way before the table would ever need to scroll -- the row-actions
+   and primary columns (name, price, stock, status) always stay put. A
+   @container query (not @media) reacts to the actual space left for the
+   table, not the viewport -- the icon rail + event sidebar already eat
+   ~280px that a viewport breakpoint has no way to account for. */
+@container admin-content (max-width: 900px) {
+  .admin-modern .col-optional {
+    display: none;
+  }
+}
+
+@container admin-content (max-width: 620px) {
+  .admin-modern .col-category {
+    display: none;
+  }
+}
+
+.admin-modern .data-table-wrap thead th {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-inset);
+  white-space: nowrap;
+}
+
+.admin-modern .data-table-wrap th.num,
+.admin-modern .data-table-wrap td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-modern .data-table-wrap td {
+  padding: 0.6rem 0.85rem;
+  vertical-align: middle;
+}
+
+.admin-modern .catalog-empty-row {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem;
+}
+
+.admin-modern .item-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.admin-modern .item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.admin-modern .item-icon.tag-1 { background: rgba(53, 97, 143, 0.12); color: var(--tag-1); }
+.admin-modern .item-icon.tag-2 { background: rgba(163, 101, 44, 0.12); color: var(--tag-2); }
+.admin-modern .item-icon.tag-3 { background: rgba(138, 90, 122, 0.12); color: var(--tag-3); }
+.admin-modern .item-icon.tag-4 { background: rgba(138, 109, 31, 0.12); color: var(--tag-4); }
+
+.admin-modern .item-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.admin-modern .item-desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-modern .cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-modern .cat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-modern .cat-dot.tag-1 { background: var(--tag-1); }
+.admin-modern .cat-dot.tag-2 { background: var(--tag-2); }
+.admin-modern .cat-dot.tag-3 { background: var(--tag-3); }
+.admin-modern .cat-dot.tag-4 { background: var(--tag-4); }
+
+.admin-modern .badge-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+}
+
+.admin-modern .margin-pos { color: var(--color-success); font-weight: 700; }
+.admin-modern .margin-neg { color: var(--color-danger); font-weight: 700; }
+.admin-modern .dim { color: var(--text-dim); }
+.admin-modern .stock-low { color: var(--color-warning); font-weight: 700; }
+.admin-modern .stock-out { color: var(--color-danger); font-weight: 700; }
+
+.admin-modern .switch {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: var(--radius-full);
+  background: var(--border-color);
+  display: inline-block;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.admin-modern .switch.on {
+  background: var(--color-success);
+}
+
+.admin-modern .switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(38, 34, 32, 0.3);
+  transition: left 0.15s;
+}
+
+.admin-modern .switch.on::after {
+  left: 17px;
+}
+
+.admin-modern .row-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.4;
+  transition: opacity 0.1s;
+}
+
+.admin-modern tr:hover .row-actions,
+.admin-modern tr:focus-within .row-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .admin-modern .row-actions {
+    opacity: 1;
+  }
+}
+
+.admin-modern .icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.admin-modern .icon-btn:hover {
+  background: var(--bg-inset);
+  color: var(--text-main);
+}
+
+.admin-modern .icon-btn.danger:hover {
+  background: rgba(179, 64, 46, 0.1);
+  color: var(--color-danger);
+}
+
+@media (max-width: 640px) {
+  .admin-modern .item-desc {
+    max-width: 140px;
+  }
+}
+
+/* -----------------------------------------------------------------------
+   /gestion page shell: top bar + event switcher + breadcrumb/tabs.
+   Replaces the old icon-rail + event-sidebar layout -- the event is
+   reached through the switcher instead of an always-visible list, so nav
+   space no longer depends on a fixed sidebar width.
+   ----------------------------------------------------------------------- */
+.admin-modern .gestion-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-modern .gestion-topbar {
+  height: 64px;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 20px;
+}
+
+.admin-modern .gestion-logo-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.admin-modern .gestion-logo-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.admin-modern .gestion-logo-title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.admin-modern .gestion-topbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+.admin-modern .gestion-topbar-spacer {
+  flex: 1;
+}
+
+.admin-modern .gestion-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Event switcher */
+.admin-modern .event-switcher {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.admin-modern .event-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-page);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 320px;
+}
+
+.admin-modern .event-switcher-btn.is-open {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.admin-modern .event-switcher-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-modern .event-switcher-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+
+.admin-modern .event-switcher-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 340px;
+  max-width: 90vw;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(38, 34, 32, 0.16);
+  padding: 10px;
+  z-index: 50;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.admin-modern .event-switcher-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  color: var(--text-dim);
+}
+
+.admin-modern .event-switcher-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-main);
+  width: 100%;
+  font-family: inherit;
+}
+
+.admin-modern .event-switcher-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  padding: 6px 8px 2px;
+}
+
+.admin-modern .event-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  color: var(--text-main);
+}
+
+.admin-modern .event-switcher-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.admin-modern .event-switcher-item.is-selected {
+  background: var(--color-primary-glow);
+  color: var(--color-primary-text);
+}
+
+.admin-modern .event-switcher-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-modern .event-switcher-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary-text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  margin-top: 6px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+/* Breadcrumb + section tabs */
+.admin-modern .gestion-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 28px;
+  height: 46px;
+  font-size: 12.5px;
+}
+
+.admin-modern .gestion-breadcrumb-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  padding: 0;
+  font-family: inherit;
+}
+
+.admin-modern .gestion-breadcrumb-link:hover {
+  color: var(--color-primary-text);
+}
+
+.admin-modern .gestion-breadcrumb-sep {
+  color: var(--border-color);
+}
+
+.admin-modern .gestion-breadcrumb-current {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.admin-modern .gestion-tabbar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modern .gestion-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 28px;
+  overflow-x: auto;
+}
+
+.admin-modern .gestion-tab {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-modern .gestion-tab:hover {
+  color: var(--text-main);
+}
+
+.admin-modern .gestion-tab.active {
+  font-weight: 700;
+  color: var(--color-primary-text);
+  border-bottom-color: var(--color-primary);
+}
+
+.admin-modern .gestion-content {
+  flex: 1;
+  padding: 24px 28px 60px;
+  /* The catalog table's column-hiding breakpoints (see .col-optional /
+     .col-category below) react to this container's actual width via
+     @container, not the viewport's -- there's no sidebar to eat space
+     anymore, but a narrower browser window still needs the same collapse. */
+  container-type: inline-size;
+  container-name: admin-content;
+}
+
+.admin-modern .gestion-content-narrow {
+  max-width: 760px;
+}
+
+/* Dashboard */
+.admin-modern .dashboard-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.admin-modern .stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.admin-modern .stat-tile.is-warning {
+  border-color: rgba(179, 64, 46, 0.25);
+}
+
+.admin-modern .stat-tile-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.admin-modern .stat-tile-value {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.admin-modern .stat-tile-value.is-warning {
+  color: var(--color-danger);
+}
+
+.admin-modern .stat-tile-suffix {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.admin-modern .dashboard-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.admin-modern .section-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.admin-modern .section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.admin-modern .section-card:hover {
+  border-color: var(--color-primary);
+}
+
+.admin-modern .section-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--color-primary-glow);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-modern .section-card-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.admin-modern .section-card-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .admin-modern .section-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-modern .section-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-modern .gestion-topbar {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .admin-modern .gestion-breadcrumb,
+  .admin-modern .gestion-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Historique accordion */
+.admin-modern .history-group {
+  margin-bottom: 26px;
+}
+
+.admin-modern .history-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+
+.admin-modern .history-group-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  padding: 1px 7px;
+  border-radius: 99px;
+}
+
+.admin-modern .history-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.admin-modern .history-row.is-ongoing {
+  border: 1.5px solid var(--color-primary);
+}
+
+.admin-modern .history-row-head {
+  cursor: pointer;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.admin-modern .history-row-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-modern .history-row-date {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.admin-modern .history-row-body {
+  padding: 4px 16px 16px;
+}
+
+.admin-modern .history-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.admin-modern .history-stat-tile {
+  background: var(--bg-inset);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.admin-modern .history-stat-tile-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.admin-modern .history-stat-tile-value {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.admin-modern .history-subsection {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.admin-modern .history-subsection-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.admin-modern .day-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.admin-modern .day-stepper button {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-modern .day-stepper button:hover {
+  background: var(--bg-inset);
+}
+
+.admin-modern .day-stepper-value {
+  width: 44px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* Charts (Statistiques tab) */
+.admin-modern .chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.admin-modern .chart-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.admin-modern .chart-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.admin-modern .chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.admin-modern .chart-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-modern .chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary, var(--text-muted));
+  font-weight: 600;
+}
+
+.admin-modern .chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-modern .chart-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Courses (shopping-trip checklist): roomier rows than a dense table, sized
+   for a phone at arm's length while walking a store aisle. */
+.admin-modern .shopping-trip-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-modern .shopping-trip-item.is-bought {
+  background: var(--bg-inset);
+  box-shadow: none;
+}
+
+.admin-modern .shopping-trip-checkbox {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.admin-modern .shopping-trip-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-warning);
+  background: rgba(180, 121, 15, 0.07);
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .admin-modern .chart-row {
+    grid-template-columns: 1fr;
+  }
+  .admin-modern .history-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ===================================================================
+   KIOSK MODE -- a full-screen, touch-first ordering flow modeled on
+   fast-food self-order terminals (large tap targets, an attract/home
+   screen, a persistent cart panel instead of a drawer).
+   =================================================================== */
+.kiosk-app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-main);
+  overflow: hidden;
+}
+
+/* --- Attract / home screen ---
+   Every size below is fluid (clamp/vw), not just switched at a breakpoint:
+   kiosk terminals come in very different physical sizes, from a large
+   tablet down to a phone-sized screen, often landscape with little height
+   to spare -- `overflow-y: auto` is a safety net so nothing ever gets
+   silently clipped by .kiosk-app's own `overflow: hidden`. */
+.kiosk-home {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.25rem, 5vh, 2.5rem);
+  text-align: center;
+  padding: clamp(1.25rem, 5vw, 2rem);
+  overflow-y: auto;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 246, 220, 0.4), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(215, 154, 59, 0.18), transparent 45%);
+}
+
+.kiosk-home-logo {
+  width: clamp(84px, 22vw, 180px);
+  height: clamp(84px, 22vw, 180px);
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: #241c12;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.6rem, 7vw, 3.2rem);
+  box-shadow: var(--shadow-glow-strong), 0 20px 50px rgba(0, 0, 0, 0.35);
+  animation: pulseGlow 3.5s infinite ease-in-out;
+}
+
+.kiosk-home h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 7vw, 3.4rem);
+  color: #5a351d;
+}
+
+.kiosk-home p {
+  font-size: clamp(0.9rem, 3vw, 1.2rem);
+  color: var(--text-muted);
+  max-width: 32rem;
+}
+
+.kiosk-home-cta {
+  padding: clamp(0.75rem, 3vw, 1.1rem) clamp(1.75rem, 8vw, 3rem);
+  font-size: clamp(1rem, 3.5vw, 1.3rem);
+  border-radius: var(--radius-lg);
+  animation: pulseGlow 3.5s infinite ease-in-out;
+}
+
+.kiosk-exit-tap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  background: none;
+  opacity: 0;
+}
+
+/* --- Choice screen (connect vs. guest) --- */
+.kiosk-choice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.25rem, 5vh, 2.5rem);
+  padding: clamp(1.25rem, 5vw, 2rem);
+  overflow-y: auto;
+}
+
+.kiosk-choice h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 5vw, 2.6rem);
+  text-align: center;
+}
+
+.kiosk-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1rem, 4vw, 1.75rem);
+  width: 100%;
+  max-width: 60rem;
+}
+
+.kiosk-choice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: clamp(1.5rem, 6vw, 3rem) clamp(1rem, 4vw, 1.5rem);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  font-size: clamp(1rem, 3.5vw, 1.3rem);
+  font-weight: 700;
+  color: var(--text-main);
+  transition: all 0.2s ease;
+}
+
+.kiosk-choice-card:hover,
+.kiosk-choice-card:active {
+  border-color: var(--color-primary);
+  background: var(--bg-card-hover);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow);
+}
+
+.kiosk-choice-card.primary {
+  background: var(--color-primary);
+  color: #241c12;
+  border-color: var(--color-primary);
+}
+
+.kiosk-choice-icon {
+  width: clamp(52px, 14vw, 88px);
+  height: clamp(52px, 14vw, 88px);
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.kiosk-choice-icon svg {
+  width: clamp(20px, 5vw, 40px);
+  height: clamp(20px, 5vw, 40px);
+}
+
+.kiosk-choice-desc {
+  font-size: 0.95rem;
+  font-weight: 500;
+  opacity: 0.85;
+  text-align: center;
+}
+
+.kiosk-back-btn {
+  align-self: flex-start;
+}
+
+/* --- Pairing screen --- */
+.kiosk-pairing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.85rem, 3vh, 1.5rem);
+  padding: clamp(1.25rem, 5vw, 2rem);
+  overflow-y: auto;
+  text-align: center;
+}
+
+.kiosk-pairing h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 4.5vw, 2.2rem);
+}
+
+.kiosk-pairing-qr {
+  background: #fff;
+  padding: clamp(0.75rem, 3vw, 1.25rem);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.kiosk-pairing-qr img {
+  display: block;
+  width: clamp(150px, 45vw, 260px);
+  height: clamp(150px, 45vw, 260px);
+}
+
+.kiosk-pairing-code {
+  font-family: var(--font-mono);
+  font-size: clamp(1.2rem, 5vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--color-primary-text);
+}
+
+.kiosk-pairing-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--color-primary);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Order screen --- */
+.kiosk-order {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.kiosk-order-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(0.75rem, 3vw, 1.25rem) clamp(0.75rem, 4vw, 1.5rem);
+  overflow: hidden;
+}
+
+.kiosk-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.kiosk-topbar-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: clamp(0.8rem, 2.5vw, 1rem);
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-full);
+  background: rgba(215, 154, 59, 0.16);
+  color: var(--color-primary-text);
+}
+
+/* Always-reachable cart access point (same role as the navbar cart button
+   in the regular storefront) -- the floating bar further down is an extra
+   prompt, not the only way in. */
+.kiosk-cart-btn {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.kiosk-categories {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.65rem;
+  flex-shrink: 0;
+}
+
+.kiosk-category-btn {
+  padding: clamp(0.5rem, 2vw, 0.85rem) clamp(0.85rem, 3vw, 1.5rem);
+  border-radius: var(--radius-full);
+  background: rgba(239, 220, 181, 0.5);
+  border: 2px solid var(--border-color);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: clamp(0.82rem, 2.3vw, 1.05rem);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.kiosk-category-btn.active {
+  background: var(--color-primary);
+  color: #241c12;
+  border-color: var(--color-primary);
+}
+
+.kiosk-product-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(128px, 38vw, 210px), 1fr));
+  gap: clamp(0.6rem, 2.5vw, 1.1rem);
+  padding: 0.25rem 0.25rem 1.5rem;
+  align-content: start;
+}
+
+.kiosk-product-tile {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.kiosk-product-tile:active {
+  transform: scale(0.97);
+}
+
+.kiosk-product-tile.out-of-stock {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+.kiosk-product-visual {
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(215, 154, 59, 0.16);
+  color: var(--color-primary-text);
+  position: relative;
+}
+
+.kiosk-product-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: var(--color-accent);
+  color: #fff8e9;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.kiosk-product-info {
+  padding: 0.85rem 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.kiosk-product-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.kiosk-product-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.5rem;
+}
+
+.kiosk-product-price {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.kiosk-product-add {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #241c12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* --- Cart: hidden by default, opened on demand (same pattern as the
+   regular storefront's CartDrawer -- a floating bar, then a drawer sliding
+   in from the right over a dimmed backdrop), at every screen size. --- */
+.kiosk-cart-floating-bar {
+  cursor: pointer;
+}
+
+.kiosk-cart-drawer {
+  width: 100%;
+  max-width: 460px;
+  background: #d8bd88;
+  color: #241c12;
+  border-left: 1px solid var(--border-color);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.kiosk-cart-header {
+  padding: clamp(0.85rem, 3vw, 1.25rem) clamp(0.85rem, 3vw, 1.25rem) 0.6rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 3.5vw, 1.3rem);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.kiosk-cart-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 clamp(0.85rem, 3vw, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.kiosk-cart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: rgba(36, 28, 18, 0.55);
+  padding: 2rem 1.5rem;
+  font-weight: 600;
+}
+
+.kiosk-cart-item {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kiosk-cart-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.kiosk-cart-item-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.kiosk-cart-item-qty {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.kiosk-cart-qty-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(36, 28, 18, 0.1);
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kiosk-cart-footer {
+  padding: 0.85rem clamp(0.85rem, 3vw, 1.25rem) 1.1rem;
+  border-top: 1px solid rgba(36, 28, 18, 0.2);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.kiosk-time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 0.35rem;
+}
+
+.kiosk-time-btn {
+  padding: 0.5rem 0.15rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(36, 28, 18, 0.25);
+  color: #241c12;
+}
+
+.kiosk-time-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.kiosk-cart-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* --- Confirmation screen --- */
+.kiosk-confirmation {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.85rem, 4vh, 1.25rem);
+  text-align: center;
+  padding: clamp(1.25rem, 5vw, 2rem);
+  overflow-y: auto;
+}
+
+.kiosk-confirmation-check {
+  width: clamp(72px, 20vw, 120px);
+  height: clamp(72px, 20vw, 120px);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-success);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 50px rgba(31, 107, 63, 0.35);
+}
+
+.kiosk-confirmation-check svg {
+  width: clamp(36px, 10vw, 64px);
+  height: clamp(36px, 10vw, 64px);
+}
+
+.kiosk-confirmation h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 6vw, 2.8rem);
+}
+
+.kiosk-confirmation-number {
+  font-family: var(--font-mono);
+  font-size: clamp(1.5rem, 7vw, 2.2rem);
+  font-weight: 800;
+  color: var(--color-primary-text);
+}
+
+@media (max-width: 860px) {
+  .kiosk-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phone-width kiosks: tighter paddings/gaps throughout. */
+@media (max-width: 420px) {
+  .kiosk-choice-card {
+    gap: 0.5rem;
+  }
+  .kiosk-choice-desc {
+    font-size: 0.85rem;
+  }
+  .kiosk-product-info {
+    padding: 0.6rem 0.65rem 0.75rem;
+  }
+  .kiosk-product-add {
+    width: 32px;
+    height: 32px;
+  }
+  .kiosk-cart-qty-btn {
+    width: 27px;
+    height: 27px;
+  }
+}
+
+/* Short / landscape screens (a lot of kiosk hardware is a wide, short
+   panel): the centered stages need to start from the top and shrink their
+   big decorative elements, or the CTA button can end up below the fold. */
+@media (max-height: 560px) {
+  .kiosk-home,
+  .kiosk-choice,
+  .kiosk-pairing,
+  .kiosk-confirmation {
+    justify-content: flex-start;
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+  .kiosk-home-logo {
+    width: 72px;
+    height: 72px;
+    font-size: 1.5rem;
+  }
+  .kiosk-choice-icon {
+    width: 48px;
+    height: 48px;
+  }
+  .kiosk-choice-card {
+    padding: 1.25rem 1rem;
+  }
+  .kiosk-pairing-qr img {
+    width: 140px;
+    height: 140px;
+  }
+  .kiosk-confirmation-check {
+    width: 64px;
+    height: 64px;
   }
 }

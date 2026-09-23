@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Applique infra/authorized_keys au fichier ~/.ssh/authorized_keys de l'utilisateur courant.
-# À lancer sur le VPS après un `git pull` sur main.
+# Applies infra/authorized_keys to the current user's ~/.ssh/authorized_keys file.
+# Run this on the VPS after a `git pull` on main.
 #
 #   cd /opt/Menu_Bde && git pull && infra/sync-authorized-keys.sh
 #
@@ -14,7 +14,7 @@ if [ ! -f "$SRC" ]; then
   exit 1
 fi
 
-# Ne garde que les vraies lignes de clés (ignore commentaires et lignes vides)
+# Only keep actual key lines (ignore comments and blank lines)
 CLEAN="$(grep -E '^(ssh-|ecdsa-|sk-)' "$SRC" || true)"
 
 if [ -z "$CLEAN" ]; then

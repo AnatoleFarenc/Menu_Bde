@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f7f6f2; color: #262220; }
+    a { color: #2b4f76; text-decoration: none; }
+    .icon { display: block; flex-shrink: 0; }
+    td, th { text-align: left; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 560px; background: #f7f6f2; display: flex; flex-direction: column;">
+
+  <!-- TOP BAR -->
+  <div style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6;">
+    <div style="height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <div style="width: 28px; height: 28px; border-radius: 7px; background: #35618f; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">42</div>
+        <span style="font-weight: 700; font-size: 14px;">Gestion BDE</span>
+      </div>
+
+      <div style="width: 1px; height: 20px; background: #e6e1d6;"></div>
+
+      <button style="display: flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 7px; border: 1px solid #e6e1d6; background: #f7f6f2; cursor: pointer; font-size: 12.5px; font-weight: 600;">
+        <span style="width: 6px; height: 6px; border-radius: 50%; background: #4c7a3f;"></span>
+        Sandwich Piscine Septembre 2026
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7a7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <div style="flex: 1;"></div>
+
+      <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+
+      <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(53,97,143,0.14); color: #2b4f76; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">AF</div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 4px; padding: 0 24px;">
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: #2b4f76; border-bottom: 2px solid #35618f;">Catalogue</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent;">Bilan</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent;">Historique</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent;">Avis</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div style="flex: 1; padding: 24px 32px 60px; display: flex; flex-direction: column; gap: 18px;">
+
+    <!-- TOOLBAR -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #e6e1d6; border-radius: 8px; padding: 7px 10px; width: 240px; color: #a39a8d;">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span style="font-size: 13px;">Rechercher...</span>
+      </div>
+      <span style="font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 99px; background: rgba(53,97,143,0.1); color: #2b4f76;">Tout</span>
+      <span style="font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 99px; border: 1px solid #e6e1d6; color: #7a7269; display: flex; align-items: center; gap: 6px;"><span style="width:7px;height:7px;border-radius:50%;background:#a3652c;"></span>Plat</span>
+      <span style="font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 99px; border: 1px solid #e6e1d6; color: #7a7269; display: flex; align-items: center; gap: 6px;"><span style="width:7px;height:7px;border-radius:50%;background:#35618f;"></span>Boisson</span>
+      <span style="font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 99px; border: 1px solid #e6e1d6; color: #7a7269; display: flex; align-items: center; gap: 6px;"><span style="width:7px;height:7px;border-radius:50%;background:#8a5a7a;"></span>Dessert</span>
+      <div style="flex: 1;"></div>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid #e6e1d6; background: #ffffff; font-size: 13px; font-weight: 700; cursor: pointer;">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Formule
+      </button>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid #35618f; background: #35618f; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Produit
+      </button>
+    </div>
+
+    <!-- TABLE: FORMULES -->
+    <div>
+      <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #a39a8d; margin-bottom: 8px;">Formules Menus</div>
+      <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #f2f0e9;">
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Formule</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d; text-align: right;">Prix</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 10px 14px; font-weight: 700;">Formule Plouf</td>
+              <td style="padding: 10px 14px; text-align: right;">4,50 €</td>
+              <td style="padding: 10px 14px;"><span style="width: 30px; height: 17px; border-radius: 99px; background: #4c7a3f; display: inline-block;"></span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 10px 14px; font-weight: 700;">Formule Jaws</td>
+              <td style="padding: 10px 14px; text-align: right;">5,50 €</td>
+              <td style="padding: 10px 14px;"><span style="width: 30px; height: 17px; border-radius: 99px; background: #4c7a3f; display: inline-block;"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TABLE: PRODUITS -->
+    <div>
+      <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #a39a8d; margin-bottom: 8px;">Produits à l'unité</div>
+      <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #f2f0e9;">
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Produit</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Catégorie</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d; text-align: right;">Prix</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d; text-align: right;">Stock</th>
+              <th style="padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; color: #a39a8d;">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 10px 14px; font-weight: 700;">Café/Thé</td>
+              <td style="padding: 10px 14px; color: #7a7269;">Boisson</td>
+              <td style="padding: 10px 14px; text-align: right;">0,50 €</td>
+              <td style="padding: 10px 14px; text-align: right; color: #a39a8d;">Illimité</td>
+              <td style="padding: 10px 14px;"><span style="width: 30px; height: 17px; border-radius: 99px; background: #4c7a3f; display: inline-block;"></span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 10px 14px; font-weight: 700;">Croissant</td>
+              <td style="padding: 10px 14px; color: #7a7269;">Dessert</td>
+              <td style="padding: 10px 14px; text-align: right;">0,80 €</td>
+              <td style="padding: 10px 14px; text-align: right; color: #a39a8d;">Illimité</td>
+              <td style="padding: 10px 14px;"><span style="width: 30px; height: 17px; border-radius: 99px; background: #e6e1d6; display: inline-block;"></span></td>
+            </tr>
+            <tr style="border-top: 1px solid #e6e1d6;">
+              <td style="padding: 10px 14px; font-weight: 700;">Club sandwich thon</td>
+              <td style="padding: 10px 14px; color: #7a7269;">Plat</td>
+              <td style="padding: 10px 14px; text-align: right;">2,00 €</td>
+              <td style="padding: 10px 14px; text-align: right; color: #a39a8d;">Illimité</td>
+              <td style="padding: 10px 14px;"><span style="width: 30px; height: 17px; border-radius: 99px; background: #4c7a3f; display: inline-block;"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

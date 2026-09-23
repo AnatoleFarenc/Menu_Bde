@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles } from 'lucide-react';
+import { ShoppingBag, ShieldCheck, LogOut, Utensils, Clock, Sparkles, Settings, UserCog } from 'lucide-react';
+import AccountModal from './AccountModal';
 
-function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
+function NavTabs({ activeTab, setActiveTab, isAdmin, isManager, isKioskGuest, className }) {
   return (
     <nav className={className}>
       <button
@@ -13,14 +14,18 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
         <span className="tab-text-short">Vitrine</span>
       </button>
 
-      <button
-        className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-        onClick={() => setActiveTab('orders')}
-      >
-        <Clock size={16} />
-        <span className="tab-text-long">Mes Commandes</span>
-        <span className="tab-text-short">Commandes</span>
-      </button>
+      {/* The kiosk has no account of its own -- it must never be able to
+          browse anyone's order history, including its own just-placed orders. */}
+      {!isKioskGuest && (
+        <button
+          className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
+          onClick={() => setActiveTab('orders')}
+        >
+          <Clock size={16} />
+          <span className="tab-text-long">Mes Commandes</span>
+          <span className="tab-text-short">Commandes</span>
+        </button>
+      )}
 
       {isAdmin && (
         <button
@@ -28,17 +33,28 @@ function NavTabs({ activeTab, setActiveTab, isAdmin, className }) {
           onClick={() => setActiveTab('admin')}
         >
           <ShieldCheck size={16} />
-          <span className="tab-text-long">Espace Admin BDE</span>
-          <span className="tab-text-short">Admin</span>
+          <span className="tab-text-long">Espace Staff BDE</span>
+          <span className="tab-text-short">Staff</span>
         </button>
+      )}
+
+      {isManager && (
+        <a className="tab-btn tab-btn-admin" href="/gestion">
+          <Settings size={16} />
+          <span className="tab-text-long">Gestion événements</span>
+          <span className="tab-text-short">Gestion</span>
+        </a>
       )}
     </nav>
   );
 }
 
-export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart }) {
+export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLogin42, onLogout, onOpenCart, onDeleteAccount }) {
   const [isHidden, setIsHidden] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
   const isAdmin = !!(user && user.isAdmin);
+  const isManager = !!(user && user.isManager);
+  const isKioskGuest = user?.role === 'kiosk_guest';
 
   useEffect(() => {
     let previousScrollY = window.scrollY;
@@ -52,6 +68,11 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Role hierarchy (see ROLE_RANK in server/auth42.js): board > admin > staff.
+  const ROLE_LABELS = { board: 'Bureau BDE', admin: 'Gestion BDE', staff: 'Suivi commandes BDE' };
+  const rolePillLabel = ROLE_LABELS[user?.role]
+    || (user?.role === 'kiosk_guest' ? 'Commande borne' : 'Étudiant 42');
 
   return (
     <>
@@ -71,6 +92,8 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             isAdmin={isAdmin}
+            isManager={isManager}
+            isKioskGuest={isKioskGuest}
           />
 
           <div className="nav-user">
@@ -85,10 +108,19 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
                 )}
                 <div className="user-badge-info">
                   <span className="user-name">{user.displayName || user.login}</span>
-                  <span className={`role-pill ${user.isAdmin ? 'role-admin' : 'role-student'}`}>
-                    {user.isAdmin ? 'BDE Admin' : user.role === 'kiosk_guest' ? 'Commande borne' : 'Étudiant 42'}
+                  <span className={`role-pill ${isAdmin || isManager ? 'role-admin' : 'role-student'}`}>
+                    {rolePillLabel}
                   </span>
                 </div>
+                {!isKioskGuest && (
+                  <button
+                    className="btn btn-secondary user-logout"
+                    onClick={() => setIsAccountOpen(true)}
+                    title="Mon compte"
+                  >
+                    <UserCog size={14} />
+                  </button>
+                )}
                 <button
                   className="btn btn-secondary user-logout"
                   onClick={onLogout}
@@ -117,7 +149,17 @@ export default function Navbar({ user, activeTab, setActiveTab, cartCount, onLog
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isAdmin={isAdmin}
+        isManager={isManager}
+        isKioskGuest={isKioskGuest}
       />
+
+      {isAccountOpen && user && !isKioskGuest && (
+        <AccountModal
+          user={user}
+          onClose={() => setIsAccountOpen(false)}
+          onDeleteAccount={onDeleteAccount}
+        />
+      )}
     </>
   );
 }

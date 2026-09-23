@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Save, Trash2, Minus, Plus } from 'lucide-react';
 import ItemIcon from './ItemIcon';
+import { showAlert } from '../lib/dialogs.jsx';
 
 const TIME_SLOTS = [];
 for (let minutes = 9 * 60; minutes <= 18 * 60; minutes += 15) {
@@ -53,7 +54,7 @@ export default function AdminOrderEditModal({ order, products = [], onClose, onS
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (items.length === 0) {
-      alert('Une commande doit contenir au moins un article.');
+      showAlert('Une commande doit contenir au moins un article.');
       return;
     }
     setIsSaving(true);

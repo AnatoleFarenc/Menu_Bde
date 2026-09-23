@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f7f6f2; color: #262220; }
+    a { color: #2b4f76; text-decoration: none; }
+    a:hover { color: #35618f; }
+    .icon { display: block; flex-shrink: 0; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 640px; background: #f7f6f2; display: flex; flex-direction: column;">
+
+  <!-- TOP BAR -->
+  <div style="height: 64px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6; display: flex; align-items: center; padding: 0 28px; gap: 20px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 32px; height: 32px; border-radius: 8px; background: #35618f; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">42</div>
+      <span style="font-weight: 700; font-size: 15px; letter-spacing: -0.01em;">Gestion BDE</span>
+    </div>
+
+    <div style="width: 1px; height: 24px; background: #e6e1d6;"></div>
+
+    <button style="display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; cursor: pointer; font-size: 13px; font-weight: 600; color: #262220;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #4c7a3f; flex-shrink: 0;"></span>
+      Sandwich Piscine Septembre 2026
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+
+    <div style="flex: 1;"></div>
+
+    <div style="display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; color: #a39a8d; width: 220px;">
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="font-size: 13px;">Rechercher...</span>
+    </div>
+
+    <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(53,97,143,0.14); color: #2b4f76; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">AF</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div style="flex: 1; padding: 36px 0 60px; display: flex; justify-content: center;">
+    <div style="width: 1080px; display: flex; flex-direction: column; gap: 32px;">
+
+      <!-- EVENT HEADER -->
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <div style="display: flex; align-items: baseline; gap: 12px;">
+          <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.015em;">Sandwich Piscine Septembre 2026</h1>
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 99px; background: rgba(76,122,63,0.12); color: #4c7a3f;">En cours</span>
+        </div>
+        <a href="#" style="font-size: 13px; font-weight: 600;">Modifier l'événement</a>
+      </div>
+
+      <!-- STAT TILES -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+
+        <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 18px 20px;">
+          <div style="font-size: 12px; color: #7a7269; margin-bottom: 6px;">Produits actifs</div>
+          <div style="font-size: 24px; font-weight: 800;">4 <span style="font-size: 13px; font-weight: 500; color: #a39a8d;">/ 5</span></div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 18px 20px;">
+          <div style="font-size: 12px; color: #7a7269; margin-bottom: 6px;">Produits au catalogue</div>
+          <div style="font-size: 24px; font-weight: 800;">5</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #b3402e33; border-radius: 12px; padding: 18px 20px;">
+          <div style="font-size: 12px; color: #7a7269; margin-bottom: 6px;">Ruptures de stock</div>
+          <div style="font-size: 24px; font-weight: 800; color: #b3402e;">1</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 18px 20px;">
+          <div style="font-size: 12px; color: #7a7269; margin-bottom: 6px;">Liste de courses</div>
+          <div style="font-size: 24px; font-weight: 800;">0 <span style="font-size: 13px; font-weight: 500; color: #a39a8d;">articles</span></div>
+        </div>
+
+      </div>
+
+      <!-- SECTION CARDS -->
+      <div>
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #a39a8d; margin-bottom: 12px;">Gérer cet événement</div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+
+          <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: pointer;">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(53,97,143,0.1); display: flex; align-items: center; justify-content: center; color: #35618f;">
+              <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px;">Catalogue</div>
+            <div style="font-size: 12.5px; color: #7a7269; line-height: 1.4;">5 produits, catégories et stock.</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: pointer;">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(53,97,143,0.1); display: flex; align-items: center; justify-content: center; color: #35618f;">
+              <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px;">Stock</div>
+            <div style="font-size: 12.5px; color: #7a7269; line-height: 1.4;">Niveaux de stock et liste de courses.</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: pointer;">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(53,97,143,0.1); display: flex; align-items: center; justify-content: center; color: #35618f;">
+              <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px;">Bilan</div>
+            <div style="font-size: 12.5px; color: #7a7269; line-height: 1.4;">Chiffre d'affaires, coûts et marge par période.</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: pointer;">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(53,97,143,0.1); display: flex; align-items: center; justify-content: center; color: #35618f;">
+              <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px;">Statistiques</div>
+            <div style="font-size: 12.5px; color: #7a7269; line-height: 1.4;">Ventes, catégories et produits les plus vendus.</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: pointer;">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(53,97,143,0.1); display: flex; align-items: center; justify-content: center; color: #35618f;">
+              <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px;">Historique</div>
+            <div style="font-size: 12.5px; color: #7a7269; line-height: 1.4;">3 événements terminés, réutilisables comme modèle.</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: pointer;">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(53,97,143,0.1); display: flex; align-items: center; justify-content: center; color: #35618f;">
+              <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px;">Avis</div>
+            <div style="font-size: 12.5px; color: #7a7269; line-height: 1.4;">Retours et notes laissés par les étudiants.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- STOREFRONTS -->
+      <div>
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #a39a8d; margin-bottom: 12px;">Vitrines de l'événement</div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #35618f; box-shadow: 0 0 0 3px rgba(53,97,143,0.08);">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #4c7a3f;"></span>
+            <span style="font-size: 13.5px; font-weight: 700;">Vitrine principale</span>
+            <span style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: #4c7a3f;">Active</span>
+          </div>
+          <button style="display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 10px; border: 1px dashed #e6e1d6; background: transparent; color: #a39a8d; font-size: 13px; font-weight: 600; cursor: pointer;">
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Ajouter une vitrine
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
