@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, Minus, Trash2, Sparkles, Layers, User, LogIn, ArrowLeft, Check, ShoppingBag } from 'lucide-react';
+import { Plus, Minus, Trash2, Sparkles, Layers, User, LogIn, ArrowLeft, Check, ShoppingBag, X } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 import MenuBuilderModal from './MenuBuilderModal';
 import { normalizeChoices } from '../lib/menuChoices';
@@ -40,6 +40,10 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [confirmedOrder, setConfirmedOrder] = useState(null);
+  // Cart hidden by default, opened on demand -- same pattern as the regular
+  // storefront (a floating bar while it's closed, a drawer once opened),
+  // used identically at every screen size rather than a permanent sidebar.
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   const resetAll = () => {
     clearCart();
@@ -54,6 +58,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
     setCustomerLabel('');
     setOrderError('');
     setConfirmedOrder(null);
+    setIsCartOpen(false);
   };
 
   // Idle reset: once past the attract screen, any stretch of inactivity
@@ -230,6 +235,12 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
                 <User size={16} />
                 {attribution ? `Commande pour ${attribution.displayName}` : 'Commande invité'}
               </div>
+              {/* Always reachable, not just the floating bar below -- same as
+                  the cart button in the regular storefront's navbar. */}
+              <button className="btn btn-secondary kiosk-cart-btn" onClick={() => setIsCartOpen(true)}>
+                <ShoppingBag size={18} />
+                {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+              </button>
             </div>
 
             <div className="kiosk-categories">
@@ -283,8 +294,39 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
             </div>
           </div>
 
-          <div className="kiosk-cart-panel">
-            <div className="kiosk-cart-header"><ShoppingBag size={22} /> Ta commande ({cartCount})</div>
+          {/* Cart stays hidden until the customer taps this bar -- same
+              pattern as the regular storefront, and used the same way
+              whatever the screen size (no more permanent sidebar). */}
+          {cart.length > 0 && !isCartOpen && (
+            <div className="cart-floating-bar kiosk-cart-floating-bar" onClick={() => setIsCartOpen(true)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <ShoppingBag size={22} />
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                    {cartCount} produit{cartCount > 1 ? 's' : ''} dans ta commande
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>
+                    Touche pour voir ton panier
+                  </span>
+                </div>
+              </div>
+              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem' }}>
+                Voir ({cartTotal.toFixed(2)} €)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {stage === 'order' && isCartOpen && (
+        <div className="cart-overlay" onClick={() => setIsCartOpen(false)}>
+          <div className="kiosk-cart-drawer fade-in" onClick={e => e.stopPropagation()}>
+            <div className="kiosk-cart-header">
+              <ShoppingBag size={22} /> Ta commande ({cartCount})
+              <button className="btn btn-secondary" style={{ marginLeft: 'auto', padding: '0.4rem', borderRadius: '50%' }} onClick={() => setIsCartOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
             {cart.length === 0 ? (
               <div className="kiosk-cart-empty">Touche un produit pour l'ajouter à ta commande.</div>
             ) : (

@@ -3838,7 +3838,9 @@ main h3 {
 .kiosk-order {
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .kiosk-order-main {
@@ -3869,6 +3871,15 @@ main h3 {
   border-radius: var(--radius-full);
   background: rgba(215, 154, 59, 0.16);
   color: var(--color-primary-text);
+}
+
+/* Always-reachable cart access point (same role as the navbar cart button
+   in the regular storefront) -- the floating bar further down is an extra
+   prompt, not the only way in. */
+.kiosk-cart-btn {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .kiosk-categories {
@@ -3994,16 +4005,24 @@ main h3 {
   flex-shrink: 0;
 }
 
-/* --- Persistent cart panel --- */
-.kiosk-cart-panel {
-  flex: 0 0 380px;
-  max-width: 380px;
+/* --- Cart: hidden by default, opened on demand (same pattern as the
+   regular storefront's CartDrawer -- a floating bar, then a drawer sliding
+   in from the right over a dimmed backdrop), at every screen size. --- */
+.kiosk-cart-floating-bar {
+  cursor: pointer;
+}
+
+.kiosk-cart-drawer {
+  width: 100%;
+  max-width: 460px;
   background: #d8bd88;
   color: #241c12;
   border-left: 1px solid var(--border-color);
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: slideInRight 0.3s ease-out;
 }
 
 .kiosk-cart-header {
@@ -4157,23 +4176,7 @@ main h3 {
   color: var(--color-primary-text);
 }
 
-/* Cart panel becomes a full-width section below the product grid instead
-   of a sidebar -- the main structural change needed for anything from a
-   small tablet down to a phone screen. */
 @media (max-width: 860px) {
-  .kiosk-order {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  .kiosk-cart-panel {
-    flex: none;
-    max-width: none;
-    border-left: none;
-    border-top: 1px solid var(--border-color);
-  }
-  .kiosk-cart-items {
-    max-height: 40vh;
-  }
   .kiosk-choice-grid {
     grid-template-columns: 1fr;
   }
