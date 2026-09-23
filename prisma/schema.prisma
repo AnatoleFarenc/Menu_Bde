@@ -1,0 +1,449 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---------------------------------------------------------------------------
+// Storefront
+// ---------------------------------------------------------------------------
+
+// A BDE member's role, assigned by a Board member from the /gestion team
+// screen. Keyed by 42 login (lowercase) and looked up at login time. A login
+// with no row here is a plain Member (no admin rights) unless it's still
+// covered by the legacy ADMIN_LOGINS/MANAGER_LOGINS env fallback -- see
+// resolveRole() in auth42.js.
+model TeamMember {
+  login     String   @id
+  role      String   // 'board' | 'admin' | 'staff'
+  addedBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// One device (browser / installed app) that asked to be alerted when a new
+// order arrives -- Web Push, so the alert reaches it even with the site
+// closed or the phone locked. `endpoint` is the push service's address for
+// that device and identifies it; `p256dh`/`auth` are the keys the payload is
+// encrypted with. `login` is the staff member who enabled it: it is re-checked
+// against their CURRENT role every time a push is sent, so losing the staff
+// role stops the alerts without anyone having to unsubscribe.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique @db.VarChar(512)
+  p256dh    String
+  auth      String
+  login     String
+  createdAt DateTime @default(now())
+
+  @@index([login])
+}
+
+// Small server-owned settings that must survive restarts and be shared by
+// every server process, but that nobody edits by hand -- today only the Web
+// Push VAPID key pair (see server/push.js), generated on first start.
+model AppSetting {
+  key   String @id
+  value String @db.Text
+}
+
+model Category {
+  id        String    @id
+  name      String
+  icon      String    @default("📦")
+  isVisible Boolean   @default(true)
+  products  Product[]
+}
+
+// A dated sale (a "piscine", a midterm, a party...). An event can hold
+// several storefronts (e.g. "Petit-déjeuner" and "Déjeuner" for the same
+// event) -- each with its own catalog, orders and resource list. Exactly one
+// storefront across the whole app is live at a time; that storefront's
+// parent event is implicitly "the current event".
+model Event {
+  id          String    @id @default(cuid())
+  name        String
+  description String    @default("")
+  status      String    @default("upcoming") // upcoming | ongoing | completed
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  storefronts Storefront[]
+
+  @@index([status])
+}
+
+// One catalog + order stream within an event. Switching which storefront is
+// active never destroys the others: past storefronts (and past events) stay
+// intact and queryable, just no longer shown to students.
+model Storefront {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  // "HH:MM" (24h, as produced by <input type="time">), or null = no bound.
+  // Restricts which pickup-time slots are offered to students -- see
+  // getPickupTimeSlots (src/lib/pickupTime.js) and db.validatePickupTime.
+  orderWindowStart String?
+  orderWindowEnd   String?
+
+  products      Product[]
+  menus         Menu[]
+  orders        Order[]
+  shoppingList  ShoppingListItem[]
+  shoppingTrips ShoppingTrip[]
+
+  @@index([eventId])
+  @@index([isActive])
+}
+
+// One shopping trip for a storefront: items added while it's open belong to
+// it; "closing" it (Courses tab) freezes it as one entry in the shopping-
+// list history and the next item added lazily opens a new one. Exactly one
+// open (closedAt: null) trip exists per storefront at a time -- see
+// getOrCreateOpenTrip in db.js.
+model ShoppingTrip {
+  id           String     @id @default(cuid())
+  storefrontId String
+  storefront   Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  closedAt     DateTime?
+  createdAt    DateTime   @default(now())
+
+  items ShoppingListItem[]
+
+  @@index([storefrontId])
+}
+
+// One line of a shopping trip: what was bought to run the storefront, so
+// another team can rebuild it later. Every field but name is optional --
+// the info isn't always known or tracked.
+model ShoppingListItem {
+  id               String       @id @default(cuid())
+  storefrontId     String
+  storefront       Storefront   @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  tripId           String
+  trip             ShoppingTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name             String
+  quantity         Float?
+  unit             String?
+  forDays          Int?
+  forPeople        Int?
+  unitCost         Float?
+  totalCost        Float?
+  purchaseLocation String?
+  note             String?      @db.Text
+  bought           Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+
+  products   ShoppingListItemProduct[]
+  menus      ShoppingListItemMenu[]
+  stockItems ShoppingListItemStockItem[]
+
+  @@index([storefrontId])
+  @@index([tripId])
+}
+
+// A shopping list line can be destined for several catalog products (e.g.
+// "20 baguettes" feeds several different sandwiches).
+model ShoppingListItemProduct {
+  shoppingListItemId String
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([shoppingListItemId, productId])
+}
+
+// A shopping list line can also be destined for a meal deal directly (e.g.
+// "20 baguettes" bought specifically to restock the "Formule Petit-déj"),
+// separate from ShoppingListItemProduct since a Menu has no stock of its
+// own to update -- this link is informational only (see closeShoppingTrip
+// in db.js, which only ever restocks through the product-link, never this
+// one: there's no quantified recipe saying how much of the article goes
+// into the meal deal's own components).
+model ShoppingListItemMenu {
+  shoppingListItemId String
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id], onDelete: Cascade)
+  menuId             String
+  menu               Menu             @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@id([shoppingListItemId, menuId])
+}
+
+// THE stock model. One StockItem = one physical thing the BDE keeps a count
+// of, whether it is bought to be cooked into something (ham, bread, butter:
+// a recipe ingredient) or bought and sold untouched (a canned Coca).
+// Global, like the pantry it stands for: every storefront and event of the
+// app reads and writes the same count. Counts are ALWAYS edited by hand or
+// by closing a shopping trip -- the only automatic movement is a "resold"
+// product's own sales (see Product.kind).
+//
+// stock === null means "not tracked": never low, never out, never blocks a
+// product. It is how a hard-to-measure ingredient (a pinch of salt) or an
+// unlimited drink (tap coffee) opts out.
+model StockItem {
+  id                String   @id @default(cuid())
+  name              String
+  normalizedName    String   @unique
+  unit              String?
+  stock             Float?
+  // Target level a restock aims for -- distinct from lowStockThreshold
+  // (the trigger) since "how much is low" and "how much is enough" are
+  // different questions an admin sets independently.
+  fullStock         Float?
+  lowStockThreshold Float?
+  unitCost          Float?
+  createdAt         DateTime @default(now())
+
+  // Made products whose recipe uses this article.
+  recipeLinks       ProductIngredient[]
+  // Resold products that sell this article as-is.
+  soldAs            Product[]
+  shoppingListLinks ShoppingListItemStockItem[]
+
+  @@index([normalizedName])
+}
+
+// The recipe of a "made" product: how much of a StockItem one unit of it
+// uses (e.g. "Sandwich Jambon-Beurre" needs 2 of "Jambon" + 1 of "Pain").
+// Informational for stock (nothing is deducted automatically -- see
+// StockItem), but it drives (1) the product's derived costPrice, (2) its
+// availability (a required ingredient at 0 makes the product unavailable)
+// and (3) which products a low ingredient affects. See recomputeProductCost
+// and productStockStatus in db.js.
+model ProductIngredient {
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockItemId String
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  quantity    Float
+
+  @@id([productId, stockItemId])
+}
+
+// A shopping list line destined for a raw StockItem, not a catalog Product
+// -- this is the one that actually feeds closeShoppingTrip's restock
+// (ShoppingListItemProduct never did for finished goods, since buying a
+// "Sandwich Jambon-Beurre" makes no sense; buying "Jambon" does).
+model ShoppingListItemStockItem {
+  shoppingListItemId String
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id], onDelete: Cascade)
+  stockItemId        String
+  stockItem          StockItem        @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@id([shoppingListItemId, stockItemId])
+}
+
+// A sellable catalog entry, per storefront. `kind` says where its stock
+// comes from:
+//   made   -- assembled from several ingredients (`ingredients`, the
+//             recipe). Nothing is deducted when it sells; its stock status
+//             is derived from its ingredients' (manually kept) counts.
+//   resold -- bought and sold untouched: exactly one StockItem
+//             (`stockItem`), decremented on every sale and restored on a
+//             cancellation. Unavailable at 0, suggested for restock when low.
+// `enabled` is the manual on/off switch only; what the storefront actually
+// checks is `available` = enabled AND not out of stock, computed at read
+// time (serializeProduct) so it can never drift out of sync with the counts.
+model Product {
+  id             String     @id @default(cuid())
+  storefrontId   String
+  storefront     Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  name           String
+  categoryId     String
+  category       Category   @relation(fields: [categoryId], references: [id])
+  price          Float
+  extraMenuPrice Float      @default(0)
+  costPrice      Float?
+  kind           String     @default("made") // made | resold
+  stockItemId    String?
+  stockItem      StockItem? @relation(fields: [stockItemId], references: [id], onDelete: Restrict)
+  description    String?    @db.Text
+  badge          String     @default("")
+  enabled        Boolean    @default(true) @map("available")
+  icon           String     @default("🥪")
+  createdAt      DateTime   @default(now())
+
+  menuGroups        MenuGroupProduct[]
+  shoppingListLinks ShoppingListItemProduct[]
+  ingredients       ProductIngredient[]
+
+  @@index([categoryId])
+  @@index([storefrontId])
+  @@index([stockItemId])
+}
+
+model Menu {
+  id           String     @id @default(cuid())
+  storefrontId String
+  storefront   Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  name         String
+  price        Float
+  description  String?    @db.Text
+  badge        String     @default("")
+  available    Boolean    @default(true)
+  icon         String     @default("🍱")
+  createdAt    DateTime   @default(now())
+  groups       MenuGroup[]
+
+  shoppingListLinks ShoppingListItemMenu[]
+
+  @@index([storefrontId])
+}
+
+// A meal-deal choice group (e.g. "Main", "Drink").
+model MenuGroup {
+  id       String  @id @default(cuid())
+  menuId   String
+  menu     Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  name     String
+  position Int     @default(0)
+
+  products MenuGroupProduct[]
+
+  @@index([menuId])
+}
+
+// Products offered in a choice group (many-to-many Menu group <-> Product).
+model MenuGroupProduct {
+  menuGroupId String
+  menuGroup   MenuGroup @relation(fields: [menuGroupId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([menuGroupId, productId])
+}
+
+// ---------------------------------------------------------------------------
+// RGPD / legal
+// ---------------------------------------------------------------------------
+
+// Profil minimal et persistant d'un compte 42 réel (jamais pour une session
+// kiosk_guest, qui ne porte aucune identité). Mis à jour à chaque connexion
+// OAuth pour rester synchronisé avec le profil 42. Existe uniquement pour
+// donner un point d'ancrage stable aux acceptations de CGU et à la demande
+// de suppression -- la session elle-même reste en mémoire (voir `sessions`
+// dans server/index.js).
+model User {
+  login       String   @id
+  displayName String
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cguAcceptances CguAcceptance[]
+}
+
+// Une version publiée d'un document légal. `kind`: 'cgu' | 'mentions' |
+// 'privacy'. Seul 'cgu' bloque l'usage du site (voir CguAcceptance) --
+// 'mentions' et 'privacy' sont juste versionnés et lisibles publiquement.
+model LegalDocument {
+  id          String   @id @default(cuid())
+  kind        String
+  version     Int
+  title       String
+  content     String   @db.Text
+  publishedAt DateTime @default(now())
+  publishedBy String?
+
+  acceptances CguAcceptance[]
+
+  @@unique([kind, version])
+  @@index([kind])
+}
+
+// Preuve qu'un utilisateur a accepté une version précise des CGU, à un
+// instant donné. Jamais modifiée, seulement créée -- et supprimée en bloc
+// (jamais sélectivement) quand le compte est effacé.
+model CguAcceptance {
+  id         String        @id @default(cuid())
+  userLogin  String
+  user       User          @relation(fields: [userLogin], references: [login], onDelete: Cascade)
+  documentId String
+  document   LegalDocument @relation(fields: [documentId], references: [id])
+  version    Int
+  acceptedAt DateTime      @default(now())
+
+  @@unique([userLogin, documentId])
+  @@index([userLogin])
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+model Order {
+  id              String     @id @default(cuid())
+  storefrontId    String
+  storefront      Storefront @relation(fields: [storefrontId], references: [id])
+  orderNumber     String     @unique
+  status          String     @default("pending") // pending | preparing | ready | completed | cancelled
+  isPaid          Boolean    @default(false)
+  isFree          Boolean    @default(false)
+  userId          String
+  userLogin       String
+  userDisplayName String
+  pickupTime      String
+  note            String     @default("") @db.Text
+  totalPrice      Float
+  createdAt       DateTime   @default(now())
+
+  // Order placed from the kiosk (shared, unauthenticated terminal). Whether
+  // it's tied to a real account is decided BEFORE creation, via the kiosk
+  // pairing flow (in-memory, see server/index.js): if the customer paired
+  // their phone first, `userId`/`userLogin`/`userDisplayName` above already
+  // hold their real, 42-verified identity; a guest order just keeps its
+  // kiosk-anonymous label forever. This flag only marks the order's origin
+  // for the admin/kitchen view.
+  isKioskOrder Boolean @default(false)
+
+  reviewRating    Int?
+  reviewComment   String?    @db.Text
+  reviewCreatedAt DateTime?
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([storefrontId])
+}
+
+// An order line. Name/price/cost are duplicated here at order time
+// (snapshot), deliberately: history must stay accurate even if the
+// original product or meal deal is later changed or deleted.
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String  // 'product' | 'menu'
+  refId     String  // id of the product/meal deal at order time
+  name      String
+  category  String? // snapshot, used only for the displayed icon
+  price     Float
+  costPrice Float?
+  quantity  Int
+
+  choices OrderItemChoice[]
+
+  @@index([orderId])
+}
+
+// For a "meal deal" line: which product was chosen in each group.
+// Also a snapshot (name + cost at order time).
+model OrderItemChoice {
+  id          String    @id @default(cuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  groupName   String
+  productId   String
+  productName String
+  costPrice   Float?
+
+  @@index([orderItemId])
+}

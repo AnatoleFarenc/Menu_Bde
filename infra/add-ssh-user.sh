@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Ajoute les clés SSH publiques d'un compte GitHub à infra/authorized_keys.
+# Adds a GitHub account's public SSH keys to infra/authorized_keys.
 #
-#   infra/add-ssh-user.sh <pseudo-github> ["Prénom Nom - rôle"]
+#   infra/add-ssh-user.sh <github-username> ["First Last - role"]
 #
-# Le script NE modifie QUE le fichier source infra/authorized_keys.
-# Ensuite : git add / commit / push, puis sur le VPS `infra/sync-authorized-keys.sh`.
+# The script ONLY modifies the source file infra/authorized_keys.
+# Then: git add / commit / push, followed by `infra/sync-authorized-keys.sh` on the VPS.
 #
-# Contrôle d'accès réel :
-#   - qui peut modifier la liste  = qui a le droit de push sur la branche main
-#   - qui peut l'appliquer au VPS = qui a déjà un accès SSH pour lancer le sync
+# Real access control:
+#   - who can edit the list   = who can push to the main branch
+#   - who can apply it to the VPS = who already has SSH access to run the sync
 set -euo pipefail
 
 GH_USER="${1:-}"

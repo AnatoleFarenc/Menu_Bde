@@ -1,70 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import MenuBuilderModal from './components/MenuBuilderModal';
 import CartDrawer from './components/CartDrawer';
-import AdminProductModal from './components/AdminProductModal';
-import KitchenDashboard from './components/KitchenDashboard';
+import KioskApp from './components/KioskApp';
+import AdminKitchenBoard from './components/AdminKitchenBoard';
+import AdminOrderHistory from './components/AdminOrderHistory';
 import OrderStatus from './components/OrderStatus';
-import AdminCatalogTools from './components/AdminCatalogTools';
 import ItemIcon from './components/ItemIcon';
-import { Layers, LogIn, Sparkles, Utensils } from 'lucide-react';
+import CguGateModal from './components/CguGateModal';
+import Footer from './components/Footer';
+import { Layers, LogIn, Sparkles } from 'lucide-react';
+import { playNewOrderSound } from './lib/sound';
+import { showAlert, showConfirm } from './lib/dialogs.jsx';
 
-// Mode borne (kiosk) : activation cachée via l'URL, propre à ce navigateur uniquement.
-// Pour activer sur une borne : ouvrir une fois l'URL avec ?kiosk=1 (puis ?kiosk=0 pour désactiver).
+// Kiosk mode: hidden activation via the URL, specific to this browser only.
+// To activate on a kiosk: open the URL once with ?kiosk=1 (then ?kiosk=0 to deactivate).
+// The kiosk itself never carries a personal identity (see server/index.js) --
+// it activates with a shared device secret, not a per-customer login. The
+// customer-facing flow (attract screen, connect-by-QR-or-guest, ordering)
+// lives entirely in <KioskApp>; App.jsx only handles device activation and
+// the phone-side pairing confirmation below.
 const KIOSK_STORAGE_KEY = 'bde_kiosk_mode';
-const KIOSK_INACTIVITY_MINUTES = 3;
-const KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS = 6;
+const SOUND_STORAGE_KEY = 'bde_admin_sound_enabled';
+// Scanning a kiosk's pairing QR code lands on `?pair=<code>`; persisted here
+// across the 42 OAuth round-trip (which overwrites the URL) so it survives
+// long enough to confirm the pairing once the customer is logged in.
+const PAIR_CODE_STORAGE_KEY = 'bde_pending_pair_code';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState('vitrine'); // 'vitrine' | 'orders' | 'admin'
+  const [cguStatus, setCguStatus] = useState(null); // { needsAcceptance, document } -- see GET /api/auth/me
+  // A tap on a new-order notification opens the site on `?tab=admin` (see
+  // public/sw.js); the tab only actually shows for a signed-in admin, below.
+  const [activeTab, setActiveTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'admin' ? 'admin' : 'vitrine')); // 'vitrine' | 'orders' | 'admin'
+  const [adminSubView, setAdminSubView] = useState('kitchen'); // 'kitchen' | 'history'
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isKioskMode, setIsKioskMode] = useState(() => localStorage.getItem(KIOSK_STORAGE_KEY) === '1');
-  const [kioskLoginInput, setKioskLoginInput] = useState('');
+  const [kioskSecretInput, setKioskSecretInput] = useState('');
+  const [manualPairInput, setManualPairInput] = useState('');
+  const [showManualPairEntry, setShowManualPairEntry] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [templates, setTemplates] = useState([]);
+  const [orderWindow, setOrderWindow] = useState(null); // { start, end } -- see /api/products
   const [cart, setCart] = useState([]);
   const [userOrders, setUserOrders] = useState([]);
 
-  // Admin Kitchen state
-  const [adminOrders, setAdminOrders] = useState([]);
-  const [synthesisByTime, setSynthesisByTime] = useState({});
-  const [dailyReport, setDailyReport] = useState(null);
-  const [reviews, setReviews] = useState([]);
+  // Live order tracking (site-themed "Staff" tab): always follows whichever
+  // storefront is currently active. Event/storefront creation, catalog and
+  // stock management live entirely on the separate /gestion page instead.
+  const [activeStorefront, setActiveStorefront] = useState(null);
+  const [kitchenOrders, setKitchenOrders] = useState([]);
+  const [kitchenSynthesis, setKitchenSynthesis] = useState({});
+  const [kitchenProducts, setKitchenProducts] = useState([]);
+
+  const knownOrderIdsRef = useRef(new Set());
+  const isFirstLoadRef = useRef(true);
 
   // Modals & Drawers state
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [builderMenu, setBuilderMenu] = useState(null);
-  const [adminModalState, setAdminModalState] = useState({ isOpen: false, item: null, type: 'product' });
-
-  // Axios config with token
-  const api = axios.create({
-    baseURL: '',
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
-  });
 
   // 1. Initial Load & Auth Check
   useEffect(() => {
     // Check URL params for OAuth redirect token
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('token');
+    const errorFromUrl = urlParams.get('error');
     if (tokenFromUrl) {
       setAuthToken(tokenFromUrl);
       localStorage.setItem('bde_token', tokenFromUrl);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (errorFromUrl) {
+      setAuthError(errorFromUrl);
+      setIsAuthChecking(false);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (!authToken) {
       setIsAuthChecking(false);
     }
   }, []);
 
-  // Activation cachée du mode borne : ?kiosk=1 (ou ?kiosk=0 pour désactiver), propre à ce navigateur.
+  // Hidden kiosk mode activation: ?kiosk=1 (or ?kiosk=0 to deactivate), specific to this browser.
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const kioskParam = urlParams.get('kiosk');
@@ -81,43 +103,145 @@ export default function App() {
     }
   }, []);
 
-  // Mode borne : déconnexion automatique après inactivité.
+  // Coming from a new-order notification (see public/sw.js): drop `?tab=admin`
+  // from the address so a later refresh behaves normally, and follow the
+  // service worker's "open the staff tab" message when the site was already open.
   useEffect(() => {
-    if (!isKioskMode || !user) return undefined;
-    let timer;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        handleLogout();
-      }, KIOSK_INACTIVITY_MINUTES * 60 * 1000);
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('tab')) {
+      urlParams.delete('tab');
+      window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
+    }
+    if (!('serviceWorker' in navigator)) return undefined;
+    const onMessage = event => {
+      if (event.data && event.data.type === 'open-admin') {
+        setActiveTab('admin');
+        setAdminSubView('kitchen');
+      }
     };
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
-    activityEvents.forEach(evt => window.addEventListener(evt, resetTimer));
-    resetTimer();
-    return () => {
-      clearTimeout(timer);
-      activityEvents.forEach(evt => window.removeEventListener(evt, resetTimer));
-    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, []);
+
+  // The staff tab only exists for an admin: someone landing on it without
+  // being one (or with an expired login) is sent back to the storefront
+  // instead of a blank page.
+  useEffect(() => {
+    if (!isAuthChecking && activeTab === 'admin' && !(user && user.isAdmin)) setActiveTab('vitrine');
+  }, [isAuthChecking, user, activeTab]);
+
+  // Scanning a kiosk's pairing QR code lands here with ?pair=<code>; stash it
+  // before it's overwritten by the 42 OAuth redirect below. This only ever
+  // runs on the CUSTOMER'S OWN phone/browser -- the kiosk itself never goes
+  // through this page with a `pair` param on itself.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const pairCode = urlParams.get('pair');
+    if (pairCode) {
+      localStorage.setItem(PAIR_CODE_STORAGE_KEY, pairCode);
+      urlParams.delete('pair');
+      window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? `?${urlParams}` : ''));
+    }
+  }, []);
+
+  // Confirms whichever kiosk pairing is pending (stashed by the QR-scan
+  // effect above, or typed in by hand -- see handleManualPairSubmit) against
+  // THIS device's own REAL account (never the kiosk's session -- a phone is
+  // never in kiosk mode). This is the only place an identity ever gets
+  // attached to a kiosk order, and it never hands the kiosk this session's
+  // token, only a one-shot attribution token (see
+  // POST /api/kiosk/pairing/:code/confirm).
+  const confirmPendingPairing = () => {
+    const pendingCode = localStorage.getItem(PAIR_CODE_STORAGE_KEY);
+    if (!pendingCode || !user || user.role === 'kiosk_guest') return;
+    localStorage.removeItem(PAIR_CODE_STORAGE_KEY);
+    axios.post(`/api/kiosk/pairing/${pendingCode}/confirm`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(() => {
+        showAlert('Connecté ! Tu peux continuer sur la borne.');
+      })
+      .catch(e => {
+        showAlert(e.response?.data?.error || 'Ce code a expiré, redemande-en un à la borne.');
+      });
+  };
+
+  // Runs the check above automatically as soon as a real login completes
+  // (the QR-scan path: the pending code was already stashed before the
+  // OAuth redirect).
+  useEffect(() => {
+    confirmPendingPairing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isKioskMode, user]);
+  }, [user]);
 
   useEffect(() => {
     fetchProducts();
     if (authToken) {
       fetchUser();
-      fetchUserOrders();
+      // The kiosk has no order history of its own to prefetch (and the
+      // server refuses that role anyway, see GET /api/orders).
+      if (!isKioskMode) fetchUserOrders();
     }
   }, [authToken]);
 
+  // A kiosk can sit idle on its attract screen for a while with nothing else
+  // calling the API -- so a Board member locking it (or regenerating the
+  // shared code) from Gestion wouldn't otherwise be noticed until the next
+  // customer action fails. Re-checking the session periodically here means
+  // a revoked kiosk drops back to the activation screen on its own.
   useEffect(() => {
-    if (user && user.isAdmin && activeTab === 'admin') {
-      fetchAdminOrders();
-      fetchAdminTemplates();
-      const refreshTimer = setInterval(fetchAdminOrders, 5000);
+    if (!isKioskMode || !user) return undefined;
+    const timer = setInterval(fetchUser, 20000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKioskMode, user]);
+
+  // "Admin" tab (site-themed order tracking) always follows the live
+  // storefront, refreshed regularly in case staff switch it while open.
+  useEffect(() => {
+    if (user && user.isAdmin) {
+      const pollAdminOrders = async () => {
+        const sf = await fetchActiveStorefront();
+        if (sf) {
+          fetchKitchenOrders(sf.id);
+          fetchKitchenProducts(sf.id);
+        }
+      };
+      pollAdminOrders();
+      const refreshTimer = setInterval(pollAdminOrders, 5000);
       return () => clearInterval(refreshTimer);
     }
     return undefined;
-  }, [user, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Global sound notification when a new order arrives for admins
+  useEffect(() => {
+    if (!user || !user.isAdmin || !kitchenOrders || kitchenOrders.length === 0) return;
+
+    if (isFirstLoadRef.current) {
+      kitchenOrders.forEach(o => knownOrderIdsRef.current.add(o.id));
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    const newOrders = kitchenOrders.filter(o => !knownOrderIdsRef.current.has(o.id) && o.status !== 'cancelled');
+
+    if (newOrders.length > 0) {
+      newOrders.forEach(o => knownOrderIdsRef.current.add(o.id));
+
+      const soundEnabled = localStorage.getItem(SOUND_STORAGE_KEY) !== 'false';
+      if (soundEnabled) {
+        playNewOrderSound();
+      }
+
+      if (document.hidden || activeTab !== 'admin') {
+        const originalTitle = document.title;
+        document.title = `🔔 (${newOrders.length}) Nouvelle commande !`;
+        setTimeout(() => {
+          document.title = originalTitle;
+        }, 8000);
+      }
+    }
+  }, [kitchenOrders, user, activeTab]);
 
   useEffect(() => {
     if (!user || activeTab !== 'orders') return undefined;
@@ -133,6 +257,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setUser(res.data.user);
+      setCguStatus(res.data.cguStatus);
       setIsAuthChecking(false);
     } catch (e) {
       setUser(null);
@@ -142,12 +267,41 @@ export default function App() {
     }
   };
 
+  const handleAcceptCgu = async () => {
+    try {
+      await axios.post('/api/account/accept-cgu', {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      setCguStatus(prev => (prev ? { ...prev, needsAcceptance: false } : prev));
+    } catch (e) {
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'enregistrement de ton acceptation, réessaie.');
+    }
+  };
+
+  // Right to erasure, self-service (see AccountModal.jsx / Navbar.jsx): the
+  // server anonymizes past orders and hard-deletes everything else that
+  // identifies the account, then this just logs the browser out like
+  // handleLogout does.
+  const handleDeleteAccount = async () => {
+    try {
+      await axios.delete('/api/account', { headers: { Authorization: `Bearer ${authToken}` } });
+    } catch (e) {
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression du compte.');
+      return;
+    }
+    setUser(null);
+    setCguStatus(null);
+    setAuthToken('');
+    localStorage.removeItem('bde_token');
+    setActiveTab('vitrine');
+    showAlert('Ton compte a été supprimé.');
+  };
+
   const fetchProducts = async () => {
     try {
       const res = await axios.get('/api/products');
       setProducts(res.data.products || []);
       setMenus(res.data.menus || []);
       setCategories(res.data.categories || []);
+      setOrderWindow(res.data.orderWindow || null);
     } catch (e) {
       console.error('Error fetching products:', e);
     }
@@ -164,48 +318,40 @@ export default function App() {
     }
   };
 
-  const fetchAdminOrders = async () => {
+  // Whichever storefront is currently live for students -- the site-themed
+  // "Staff" order tracking tab always follows this, not a manually browsed one.
+  const fetchActiveStorefront = async () => {
+    try {
+      const res = await axios.get('/api/admin/active-storefront', { headers: { Authorization: `Bearer ${authToken}` } });
+      setActiveStorefront(res.data.storefront);
+      return res.data.storefront;
+    } catch (e) {
+      console.error('Error fetching active storefront:', e);
+      return null;
+    }
+  };
+
+  const fetchKitchenOrders = async (storefrontId) => {
+    if (!storefrontId) return;
     try {
       const res = await axios.get('/api/admin/orders', {
+        params: { storefrontId },
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      setAdminOrders(res.data.orders || []);
-      setSynthesisByTime(res.data.synthesisByTime || {});
+      setKitchenOrders(res.data.orders || []);
+      setKitchenSynthesis(res.data.synthesisByTime || {});
     } catch (e) {
-      console.error('Error fetching admin orders:', e);
+      console.error('Error fetching kitchen orders:', e);
     }
   };
 
-  const fetchDailyReport = async (from, to) => {
+  const fetchKitchenProducts = async (storefrontId) => {
+    if (!storefrontId) return;
     try {
-      const res = await axios.get('/api/admin/report', {
-        params: { from, to: to || from },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      setDailyReport(res.data);
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
+      setKitchenProducts(res.data.products || []);
     } catch (e) {
-      console.error('Error fetching daily report:', e);
-    }
-  };
-
-  const fetchReviews = async () => {
-    try {
-      const res = await axios.get('/api/admin/reviews', { headers: { Authorization: `Bearer ${authToken}` } });
-      setReviews(res.data.reviews || []);
-    } catch (e) {
-      console.error('Error fetching reviews:', e);
-    }
-  };
-
-  const handleDeleteReview = async (orderId) => {
-    if (!confirm('Supprimer définitivement cet avis ?')) return;
-    try {
-      await axios.delete(`/api/admin/reviews/${orderId}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      fetchReviews();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
+      console.error('Error fetching kitchen products:', e);
     }
   };
 
@@ -216,16 +362,7 @@ export default function App() {
       });
       fetchUserOrders();
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
-    }
-  };
-
-  const fetchAdminTemplates = async () => {
-    try {
-      const res = await axios.get('/api/admin/templates', { headers: { Authorization: `Bearer ${authToken}` } });
-      setTemplates(res.data.templates || []);
-    } catch (e) {
-      console.error('Error fetching templates:', e);
+      showAlert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
     }
   };
 
@@ -233,9 +370,15 @@ export default function App() {
   const handleLogin42 = async () => {
     try {
       const res = await axios.get('/api/auth/42/url');
-      window.location.href = res.data.url;
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        showAlert('Erreur: URL d\'authentification manquante reçue du serveur.');
+      }
     } catch (error) {
-      alert(error.response?.data?.error || 'Erreur lors de la redirection vers 42 Intra OAuth.');
+      const serverErr = error.response?.data?.error;
+      const networkErr = !error.response ? 'Impossible de contacter le serveur backend. Vérifiez que le serveur est bien démarré (npm run dev).' : null;
+      showAlert(serverErr || networkErr || error.message || 'Erreur lors de la redirection vers 42 Intra OAuth.');
     }
   };
 
@@ -246,23 +389,44 @@ export default function App() {
       });
     } catch (e) {}
     setUser(null);
+    setCguStatus(null);
     setAuthToken('');
     setIsAuthChecking(false);
     localStorage.removeItem('bde_token');
     setActiveTab('vitrine');
   };
 
-  // Connexion borne : pas d'OAuth 42, juste un login déclaré à la main pour attribuer la commande.
-  const handleKioskLogin = async (login) => {
-    const trimmed = (login || '').trim();
+  // Activates the kiosk device with the shared secret -- no personal
+  // identity involved (see server/index.js POST /api/auth/kiosk-login).
+  const handleKioskActivate = async (secret) => {
+    const trimmed = (secret || '').trim();
     if (!trimmed) return;
     try {
-      const res = await axios.post('/api/auth/kiosk-login', { login: trimmed });
+      const res = await axios.post('/api/auth/kiosk-login', { secret: trimmed });
       localStorage.setItem('bde_token', res.data.token);
       setAuthToken(res.data.token);
-      setKioskLoginInput('');
+      setKioskSecretInput('');
     } catch (error) {
-      alert('Erreur lors de la connexion à la borne.');
+      showAlert(error.response?.data?.error || 'Erreur lors de l\'activation de la borne.');
+    }
+  };
+
+  // Fallback for the kiosk's pairing code when scanning the QR isn't an
+  // option (no camera, bad lighting...): typed in by hand, on the
+  // customer's own phone, on this same login screen. Stores it exactly like
+  // the QR-scan path does, then either confirms immediately (already
+  // logged in) or starts the 42 login (confirmPendingPairing then runs once
+  // that completes).
+  const handleManualPairSubmit = (e) => {
+    e.preventDefault();
+    const code = manualPairInput.trim().toUpperCase();
+    if (!code) return;
+    localStorage.setItem(PAIR_CODE_STORAGE_KEY, code);
+    setManualPairInput('');
+    if (user && user.role !== 'kiosk_guest') {
+      confirmPendingPairing();
+    } else {
+      handleLogin42();
     }
   };
 
@@ -313,156 +477,49 @@ export default function App() {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Posts the order and returns the response data; callers (CartDrawer,
+  // KioskApp) handle their own success/error UI since they differ a lot
+  // between the two flows.
   const handleSubmitOrder = async (orderPayload) => {
-    try {
-      await axios.post('/api/orders', orderPayload, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+    const res = await axios.post('/api/orders', orderPayload, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    fetchProducts();
+    if (user && user.isAdmin && activeStorefront) {
+      fetchKitchenOrders(activeStorefront.id);
+    }
+    if (!isKioskMode) {
       fetchUserOrders();
-      fetchProducts();
-      if (user && user.isAdmin) {
-        fetchAdminOrders();
-      }
       setActiveTab('orders');
-      if (isKioskMode) {
-        setTimeout(() => {
-          handleLogout();
-        }, KIOSK_POST_ORDER_LOGOUT_DELAY_SECONDS * 1000);
-      }
-    } catch (e) {
-      alert('Erreur lors de la validation de la commande.');
     }
+    return res.data;
   };
 
-  // Admin Stock & Product Handlers
-  const handleToggleStock = async (id, type) => {
-    try {
-      const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
-      await axios.patch(url, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchProducts();
-    } catch (e) {
-      alert('Erreur lors de la modification du stock.');
-    }
-  };
-
-  const handleSaveAdminProduct = async (formData, editingId, type) => {
-    try {
-      if (type === 'menu') {
-        if (editingId) {
-          await axios.put(`/api/admin/menus/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
-        } else {
-          await axios.post('/api/admin/menus', formData, { headers: { Authorization: `Bearer ${authToken}` } });
-        }
-      } else {
-        if (editingId) {
-          await axios.put(`/api/admin/products/${editingId}`, formData, { headers: { Authorization: `Bearer ${authToken}` } });
-        } else {
-          await axios.post('/api/admin/products', formData, { headers: { Authorization: `Bearer ${authToken}` } });
-        }
-      }
-      fetchProducts();
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l\'enregistrement du produit.');
-      return false;
-    }
-  };
-
-  const handleDeleteAdminItem = async (id, type) => {
-    if (!confirm('Voulez-vous vraiment supprimer cet élément ?')) return;
-    try {
-      const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
-      await axios.delete(url, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchProducts();
-    } catch (e) {
-      alert('Erreur lors de la suppression.');
-    }
-  };
-
-  const handleAddCategory = async category => {
-    try {
-      const res = await axios.post('/api/admin/categories', category, { headers: { Authorization: `Bearer ${authToken}` } });
-      setCategories(res.data.categories || []);
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création de la catégorie.');
-      return false;
-    }
-  };
-
-  const handleDeleteCategory = async id => {
-    if (!confirm('Supprimer cette catégorie ?')) return;
-    try {
-      const res = await axios.delete(`/api/admin/categories/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      setCategories(res.data.categories || []);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
-    }
-  };
-
-  const handleToggleCategory = async id => {
-    try {
-      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      setCategories(res.data.categories || []);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
-    }
-  };
-
-  const handleSaveTemplate = async template => {
-    try {
-      await axios.post('/api/admin/templates', template, { headers: { Authorization: `Bearer ${authToken}` } });
-      await fetchAdminTemplates();
-      return true;
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la sauvegarde de la carte.');
-      return false;
-    }
-  };
-
-  const handleApplyTemplate = async id => {
-    if (!confirm('Appliquer cette carte et remplacer la carte actuelle ?')) return;
-    try {
-      const res = await axios.post(`/api/admin/templates/${id}/apply`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
-      setProducts(res.data.products || []);
-      setMenus(res.data.menus || []);
-      setCategories(res.data.categories || []);
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de l’application de la carte.');
-    }
-  };
-
-  const handleDeleteTemplate = async id => {
-    if (!confirm('Supprimer cette carte enregistrée ?')) return;
-    try {
-      await axios.delete(`/api/admin/templates/${id}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      fetchAdminTemplates();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la carte.');
-    }
-  };
-
+  // Order-tracking handlers below all operate on the currently ACTIVE
+  // storefront (the site-themed "Staff" tab), not the one browsed in the
+  // management tool.
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       await axios.patch(`/api/admin/orders/${orderId}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
-      fetchProducts();
+      fetchKitchenOrders(activeStorefront?.id);
+      fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
-      alert('Erreur lors de la mise à jour du statut.');
+      showAlert('Erreur lors de la mise à jour du statut.');
     }
   };
 
   const handleClearOrderHistory = async () => {
-    if (!confirm('Supprimer définitivement tout l\'historique des commandes ? Cette action est irréversible.')) return;
+    if (!(await showConfirm('Supprimer définitivement tout l\'historique des commandes de cette vitrine ? Cette action est irréversible.', { danger: true }))) return;
     try {
       await axios.delete('/api/admin/orders', {
+        params: { storefrontId: activeStorefront?.id },
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
+      fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
-      alert('Erreur lors de la suppression de l\'historique.');
+      showAlert('Erreur lors de la suppression de l\'historique.');
     }
   };
 
@@ -471,38 +528,38 @@ export default function App() {
       await axios.patch(`/api/admin/orders/${orderId}`, updates, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
+      fetchKitchenOrders(activeStorefront?.id);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la modification de la commande.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la modification de la commande.');
       return false;
     }
   };
 
   const handleCreateFreeOrder = async (payload) => {
     try {
-      await axios.post('/api/admin/orders/free', payload, {
+      await axios.post('/api/admin/orders/free', { ...payload, storefrontId: activeStorefront?.id }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
-      fetchProducts();
+      fetchKitchenOrders(activeStorefront?.id);
+      fetchKitchenProducts(activeStorefront?.id);
       return true;
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la création du don.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la création du don.');
       return false;
     }
   };
 
   const handleDeleteOrder = async (orderId) => {
-    if (!confirm('Supprimer définitivement cette commande ?')) return;
+    if (!(await showConfirm('Supprimer définitivement cette commande ?', { danger: true }))) return;
     try {
       await axios.delete(`/api/admin/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
-      fetchProducts();
+      fetchKitchenOrders(activeStorefront?.id);
+      fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la suppression de la commande.');
     }
   };
 
@@ -511,16 +568,16 @@ export default function App() {
       await axios.patch(`/api/admin/orders/${orderId}/paid`, { isPaid }, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      fetchAdminOrders();
+      fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
-      alert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
+      showAlert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
     }
   };
 
   // Filter products by category tab
   const visibleCategoryIds = new Set(categories.filter(category => category.isVisible !== false).map(category => category.id));
   const visibleProducts = products.filter(product => visibleCategoryIds.has(product.category));
-  // Sur "Tous les Produits", on regroupe par type (dans l'ordre des catégories) au lieu de l'ordre de création.
+  // On "All Products", group by type (in category order) instead of creation order.
   const categoryOrder = new Map(categories.map((category, idx) => [category.id, idx]));
   const filteredProducts = categoryFilter === 'all'
     ? [...visibleProducts].sort((a, b) => (categoryOrder.get(a.category) ?? 999) - (categoryOrder.get(b.category) ?? 999))
@@ -540,19 +597,22 @@ export default function App() {
           <div className="auth-panel">
             <div className="logo-badge"><span>42</span></div>
             <h1>Borne de commande BDE</h1>
-            <p>Entre ton login 42 pour passer commande.</p>
-            <form onSubmit={e => { e.preventDefault(); handleKioskLogin(kioskLoginInput); }}>
+            <p>Active cette borne avec le code PIN à 6 chiffres fourni par le Bureau.</p>
+            <form onSubmit={e => { e.preventDefault(); handleKioskActivate(kioskSecretInput); }}>
               <input
-                type="text"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
                 className="form-input"
-                placeholder="Ex: jdupont"
-                value={kioskLoginInput}
-                onChange={e => setKioskLoginInput(e.target.value)}
+                placeholder="000000"
+                value={kioskSecretInput}
+                onChange={e => setKioskSecretInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 autoFocus
-                style={{ marginBottom: '1rem', textAlign: 'center' }}
+                style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.6rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.4em' }}
               />
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                <LogIn size={18} /> Continuer
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={kioskSecretInput.length !== 6}>
+                <LogIn size={18} /> Activer la borne
               </button>
             </form>
           </div>
@@ -565,11 +625,72 @@ export default function App() {
           <div className="logo-badge"><span>42</span></div>
           <h1>Bienvenue sur BDE Sandwicherie</h1>
           <p>Connectez-vous avec votre compte 42 pour accéder à la vitrine, commander et suivre vos commandes.</p>
+          {localStorage.getItem(PAIR_CODE_STORAGE_KEY) && (
+            <p style={{ color: 'var(--color-primary-text)', fontWeight: 600, marginBottom: '1rem' }}>
+              Connecte-toi pour associer ta commande à la borne à ton compte.
+            </p>
+          )}
+          {authError && (
+            <p style={{ color: 'var(--color-accent)', fontWeight: 600, marginBottom: '1rem' }}>{authError}</p>
+          )}
           <button className="btn btn-primary" onClick={handleLogin42}>
             <LogIn size={18} /> Se connecter avec 42
           </button>
+
+          {/* Fallback when the kiosk's QR code can't be scanned (no camera,
+              bad lighting...): type its code in by hand instead. */}
+          {!showManualPairEntry ? (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', marginTop: '0.75rem' }}
+              onClick={() => setShowManualPairEntry(true)}
+            >
+              J'ai un code borne à saisir
+            </button>
+          ) : (
+            <form onSubmit={handleManualPairSubmit} style={{ marginTop: '0.75rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Code de la borne"
+                value={manualPairInput}
+                onChange={e => setManualPairInput(e.target.value.toUpperCase())}
+                maxLength={8}
+                autoFocus
+                style={{ marginBottom: '0.6rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.2em' }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={!manualPairInput.trim()}>
+                Valider le code
+              </button>
+            </form>
+          )}
         </div>
       </main>
+    );
+  }
+
+  // Kiosk device activated: hand off entirely to the self-order-terminal
+  // flow (attract screen, connect-by-QR-or-guest, ordering, confirmation).
+  // It reuses the catalog/cart state and handlers above but owns its own,
+  // completely different, touch-first UI -- see src/components/KioskApp.jsx.
+  if (isKioskMode) {
+    return (
+      <KioskApp
+        authToken={authToken}
+        products={products}
+        menus={menus}
+        categories={categories}
+        cart={cart}
+        onAddToCart={handleAddToCart}
+        onAddMenuToCart={handleAddMenuToCart}
+        updateCartQuantity={updateCartQuantity}
+        removeCartItem={removeCartItem}
+        clearCart={() => setCart([])}
+        onSubmitOrder={handleSubmitOrder}
+        onExitKiosk={handleLogout}
+        orderWindow={orderWindow}
+      />
     );
   }
 
@@ -579,11 +700,17 @@ export default function App() {
       <Navbar
         user={user}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'admin') {
+            setAdminSubView('kitchen');
+          }
+        }}
         cartCount={cartTotalCount}
         onLogin42={handleLogin42}
         onLogout={handleLogout}
         onOpenCart={() => setIsCartOpen(true)}
+        onDeleteAccount={handleDeleteAccount}
       />
 
       {/* TAB 1: STUDENT VITRINE */}
@@ -666,38 +793,40 @@ export default function App() {
         <OrderStatus orders={userOrders} onSubmitReview={handleSubmitReview} />
       )}
 
-      {/* TAB 3: ADMIN BDE DASHBOARD */}
+      {/* TAB 3: STAFF BDE (Kitchen board & Order history sub-views) */}
       {activeTab === 'admin' && user && user.isAdmin && (
-        <KitchenDashboard
-          orders={adminOrders}
-          synthesisByTime={synthesisByTime}
-          products={products}
-          menus={menus}
-          categories={categories}
-          templates={templates}
-          onAddCategory={handleAddCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onToggleCategory={handleToggleCategory}
-          onSaveTemplate={handleSaveTemplate}
-          onApplyTemplate={handleApplyTemplate}
-          onDeleteTemplate={handleDeleteTemplate}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onClearOrderHistory={handleClearOrderHistory}
-          onUpdateOrder={handleUpdateOrder}
-          onCreateFreeOrder={handleCreateFreeOrder}
-          dailyReport={dailyReport}
-          onFetchDailyReport={fetchDailyReport}
-          reviews={reviews}
-          onFetchReviews={fetchReviews}
-          onDeleteReview={handleDeleteReview}
-          onDeleteOrder={handleDeleteOrder}
-          onTogglePaid={handleTogglePaid}
-          onOpenAddModal={(type) => setAdminModalState({ isOpen: true, item: null, type })}
-          onToggleStock={handleToggleStock}
-          onEditItem={(item, type) => setAdminModalState({ isOpen: true, item, type })}
-          onDeleteItem={handleDeleteAdminItem}
-        />
+        adminSubView === 'history' ? (
+          <AdminOrderHistory
+            activeStorefront={activeStorefront}
+            orders={kitchenOrders}
+            products={kitchenProducts}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
+            onClearOrderHistory={handleClearOrderHistory}
+            onUpdateOrder={handleUpdateOrder}
+            onDeleteOrder={handleDeleteOrder}
+            onTogglePaid={handleTogglePaid}
+            onBackToKitchen={() => setAdminSubView('kitchen')}
+          />
+        ) : (
+          <AdminKitchenBoard
+            authToken={authToken}
+            activeStorefront={activeStorefront}
+            orders={kitchenOrders}
+            synthesisByTime={kitchenSynthesis}
+            products={kitchenProducts}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
+            onClearOrderHistory={handleClearOrderHistory}
+            onUpdateOrder={handleUpdateOrder}
+            onCreateFreeOrder={handleCreateFreeOrder}
+            onDeleteOrder={handleDeleteOrder}
+            onTogglePaid={handleTogglePaid}
+            onGoToManagement={() => { window.location.href = '/gestion'; }}
+            onGoToHistory={() => setAdminSubView('history')}
+          />
+        )
       )}
+
+      <Footer />
 
       {/* FLOATING CART BAR (WHEN CART NOT EMPTY & DRAWER CLOSED) */}
       {cart.length > 0 && !isCartOpen && (
@@ -739,18 +868,14 @@ export default function App() {
         clearCart={() => setCart([])}
         onSubmitOrder={handleSubmitOrder}
         user={user}
+        orderWindow={orderWindow}
       />
 
-      {/* ADMIN ADD/EDIT MODAL */}
-      <AdminProductModal
-        isOpen={adminModalState.isOpen}
-        onClose={() => setAdminModalState({ isOpen: false, item: null, type: 'product' })}
-        onSave={handleSaveAdminProduct}
-        editingItem={adminModalState.item}
-        type={adminModalState.type}
-        categories={categories}
-        products={products}
-      />
+      {/* CGU GATE -- blocks the app until the current CGU version is
+          accepted (first login ever, or a new version was published). */}
+      {cguStatus?.needsAcceptance && cguStatus.document && (
+        <CguGateModal document={cguStatus.document} onAccept={handleAcceptCgu} />
+      )}
     </div>
   );
 }

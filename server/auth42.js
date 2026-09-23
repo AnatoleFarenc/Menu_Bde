@@ -1,13 +1,43 @@
 import axios from 'axios';
+import { db } from './db.js';
+
+// Role hierarchy (roadmap item 06): each role includes everything the one
+// below it can do. 'member' (rank 0, no row in the DB) is a plain student --
+// only 'staff' and up ever get a TeamMember row.
+export const ROLE_RANK = { member: 0, staff: 1, admin: 2, board: 3 };
 
 const getAdminLogins = () => (process.env.ADMIN_LOGINS || '')
   .split(',')
   .map(login => login.trim().toLowerCase())
   .filter(Boolean);
 
-// L'URL de redirection OAuth est toujours « <URL publique>/api/auth/42/callback ».
-// On la déduit donc de PUBLIC_APP_URL : une seule variable à renseigner.
-// INTRA42_REDIRECT_URI reste accepté si tu veux forcer une valeur.
+// Separate from ADMIN_LOGINS: gates the /gestion tool (event/catalog/stock
+// management) rather than the live order-tracking board. A login can be in
+// either list, both, or neither -- the two accesses are independent.
+// Falls back to ADMIN_LOGINS when unset, so existing single-tier deployments
+// keep working without extra configuration.
+const getManagerLogins = () => (process.env.MANAGER_LOGINS ?? process.env.ADMIN_LOGINS ?? '')
+  .split(',')
+  .map(login => login.trim().toLowerCase())
+  .filter(Boolean);
+
+// A login's role: an explicit TeamMember row (set by a Board member from the
+// /gestion team screen) always wins. With no such row, falls back to the
+// legacy env-var lists -- ADMIN_LOGINS becomes 'board' (its old isAdmin
+// access, now the top of the hierarchy) and MANAGER_LOGINS becomes 'admin'
+// (its old isManager access) -- so every account already configured before
+// this feature existed keeps working with no manual migration step.
+export const resolveRole = async (login) => {
+  const dbRole = await db.getTeamMemberRole(login);
+  if (dbRole) return dbRole;
+  if (getAdminLogins().includes(login)) return 'board';
+  if (getManagerLogins().includes(login)) return 'admin';
+  return 'member';
+};
+
+// The OAuth redirect URI is always "<public URL>/api/auth/42/callback".
+// We derive it from PUBLIC_APP_URL, so there's only one variable to set.
+// INTRA42_REDIRECT_URI is still accepted if you want to force a value.
 const getRedirectUri = () => {
   if (process.env.INTRA42_REDIRECT_URI) {
     return process.env.INTRA42_REDIRECT_URI.trim();
@@ -16,13 +46,19 @@ const getRedirectUri = () => {
   return `${base}/api/auth/42/callback`;
 };
 
-export const get42AuthUrl = () => {
+export const get42AuthUrl = (state) => {
   const clientId = process.env.INTRA42_CLIENT_ID;
   if (!clientId) {
     throw new Error('INTRA42_CLIENT_ID absent du fichier .env');
   }
-  const redirectUri = encodeURIComponent(getRedirectUri());
-  return `https://api.intra.42.fr/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=public`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: getRedirectUri(),
+    response_type: 'code',
+    scope: 'public',
+  });
+  if (state) params.set('state', state);
+  return `https://api.intra.42.fr/oauth/authorize?${params.toString()}`;
 };
 
 export const handle42Callback = async (code) => {
@@ -56,7 +92,8 @@ export const handle42Callback = async (code) => {
 
   const intraUser = userRes.data;
   const login = intraUser.login.toLowerCase();
-  const isAdmin = getAdminLogins().includes(login);
+  const role = await resolveRole(login);
+  const rank = ROLE_RANK[role] ?? 0;
 
   return {
     id: intraUser.id,
@@ -66,7 +103,9 @@ export const handle42Callback = async (code) => {
     avatarUrl: intraUser.image?.link || intraUser.image?.versions?.medium || 'https://profile.intra.42.fr/assets/42_logo-7e42914c62...png',
     campus: intraUser.campus?.[0]?.name || '42 Perpignan',
     poolYear: intraUser.pool_year || '2024',
-    isAdmin: isAdmin,
-    role: isAdmin ? 'bde_admin' : 'student'
+    isAdmin: rank >= ROLE_RANK.staff,
+    isManager: rank >= ROLE_RANK.admin,
+    isBoard: rank >= ROLE_RANK.board,
+    role
   };
 };

@@ -2,8 +2,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files + the Prisma schema (npm install triggers "prisma generate"
+# on postinstall, which needs prisma/schema.prisma to work).
 COPY package*.json ./
+COPY prisma ./prisma
 
 # Install dependencies
 RUN npm install
@@ -16,5 +18,6 @@ RUN npm run build
 
 EXPOSE 5000 3000
 
-# Start the production Express server, which also serves the built frontend.
-CMD ["node", "server/index.js"]
+# Applies pending migrations (DATABASE_URL is only known at container
+# startup, not at build time) then starts the server.
+CMD ["sh", "-c", "npx prisma migrate deploy && node server/index.js"]

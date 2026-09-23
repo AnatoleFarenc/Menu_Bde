@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Crée un compte pour un nouveau membre de l'équipe et lui donne un accès SSH.
+# Creates an account for a new team member and gives them SSH access.
 #
-#   sudo infra/add-team-member.sh <username> <pseudo-github> [ops|admin]
+#   sudo infra/add-team-member.sh <username> <github-username> [ops|admin]
 #
-# - Doit être lancé via `sudo` par quelqu'un qui a DÉJÀ les droits admin
-#   (groupe `sudo`) — un membre `bde-ops` ou le compte de déploiement `debian`
-#   ne peuvent pas l'exécuter (leurs droits sudo sont trop restreints pour ça).
-# - rôle "ops" (par défaut) : accès limité — build/déploiement du STAGING
-#   uniquement, lecture seule (statut/logs) sur la prod. Aucun accès root.
-# - rôle "admin" : accès complet (groupe `sudo`, mot de passe requis).
-# - Importe la/les clé(s) SSH publique(s) du compte GitHub indiqué.
-# - Génère un mot de passe temporaire fort, affiché UNE SEULE FOIS, à changer
-#   obligatoirement à la première connexion.
-# - Journalise l'action (qui, quand, pour qui, quel rôle) — jamais le mot de passe.
+# - Must be run via `sudo` by someone who ALREADY has admin rights (`sudo`
+#   group) — a `bde-ops` member or the `debian` deployment account cannot run
+#   it (their sudo permissions are too restricted for that).
+# - "ops" role (default): limited access — build/deploy STAGING only,
+#   read-only (status/logs) on prod. No root access.
+# - "admin" role: full access (`sudo` group, password required).
+# - Imports the given GitHub account's public SSH key(s).
+# - Generates a strong temporary password, shown ONLY ONCE, that must be
+#   changed on first login.
+# - Logs the action (who, when, for whom, which role) — never the password.
 set -euo pipefail
 
 AUDIT_LOG="/var/log/bde-team-changes.log"
@@ -46,7 +46,7 @@ if ! printf '%s' "$USERNAME" | grep -qE '^[a-z][a-z0-9_-]{2,31}$'; then
   exit 1
 fi
 if id "$USERNAME" &>/dev/null; then
-  echo "❌ An acount with the username '$USERNAME' already exists."
+  echo "❌ An account with the username '$USERNAME' already exists."
   exit 1
 fi
 if ! printf '%s' "$GH_USER" | grep -qE '^[A-Za-z0-9-]+$'; then
@@ -54,7 +54,7 @@ if ! printf '%s' "$GH_USER" | grep -qE '^[A-Za-z0-9-]+$'; then
   exit 1
 fi
 
-# --- 2. Récupérer les clés SSH publiques depuis GitHub ---
+# --- 2. Fetch public SSH keys from GitHub ---
 KEYS_URL="https://github.com/${GH_USER}.keys"
 TMP_KEYS="$(mktemp)"
 trap 'rm -f "$TMP_KEYS"' EXIT
@@ -71,7 +71,7 @@ if [ -z "$KEYS" ]; then
   exit 1
 fi
 
-# --- 3. Créer le compte ---
+# --- 3. Create the account ---
 useradd -m -s /bin/bash -c "BDE team member - github $GH_USER" "$USERNAME"
 
 mkdir -p "/home/$USERNAME/.ssh"
@@ -86,16 +86,16 @@ else
   usermod -aG bde-ops "$USERNAME"
 fi
 
-# --- 4. Mot de passe temporaire, à changer obligatoirement à la 1ère connexion ---
+# --- 4. Temporary password, must be changed on first login ---
 TEMP_PASSWORD="$(openssl rand -base64 30 | tr -d '\n')"
 echo "${USERNAME}:${TEMP_PASSWORD}" | chpasswd
 chage -d 0 "$USERNAME"
 
-# --- 5. Journal d'audit (jamais le mot de passe) ---
+# --- 5. Audit log (never the password) ---
 echo "$(date -Is) admin=${ADMIN} action=create_user target=${USERNAME} github=${GH_USER} role=${ROLE}" >> "$AUDIT_LOG"
 
 echo
-echo "✅ Account '$USERNAME' created successfully (role : $ROLE)."
+echo "✅ Account '$USERNAME' created successfully (role: $ROLE)."
 echo
 echo "   Temporary password (send this to the account owner, it will never be displayed again):"
 echo

@@ -1,28 +1,25 @@
-version: '3.8'
-
 services:
   app:
     build: .
     ports:
       - "3000:3000"
       - "5001:5001"
-    volumes:
-      - ./server/data:/app/server/data
     environment:
       - NODE_ENV=production
       - PORT=5001
       - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost:5001}
       - INTRA42_CLIENT_ID=${INTRA42_CLIENT_ID}
       - INTRA42_CLIENT_SECRET=${INTRA42_CLIENT_SECRET}
-      # Optionnel : déduit de PUBLIC_APP_URL si non défini.
+      # Optional: derived from PUBLIC_APP_URL if not set.
       - INTRA42_REDIRECT_URI=${INTRA42_REDIRECT_URI:-}
       - ADMIN_LOGINS=${ADMIN_LOGINS}
+      - KIOSK_SECRET=${KIOSK_SECRET:-}
       - DATABASE_URL=mysql://bde_app:devpassword@mariadb:3306/bde_sandwich
     depends_on:
       - mariadb
 
-  # Base de données pour le développement local (staging/prod utilisent
-  # MariaDB natif sur le VPS, voir infra/setup-mariadb.sh).
+  # Database for local development (staging/prod use native MariaDB on the
+  # VPS, see infra/setup-mariadb.sh).
   mariadb:
     image: mariadb:11
     restart: unless-stopped
@@ -35,6 +32,7 @@ services:
       - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./docker/mariadb-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
 volumes:
   mariadb_data:

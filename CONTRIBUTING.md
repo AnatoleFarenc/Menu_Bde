@@ -58,9 +58,10 @@ When several features validated on staging are ready to go to prod, open a
 ```
   This surfaces any conflicts right away, on your own machine, rather than
   letting GitHub block the merge later.
-- Keep `server/data/db.json` **out of Git** (already in `.gitignore`): each
-  environment (your PC, staging, prod) has its own data, so there's no
-  possible conflict over "who has which orders/products" during development.
+- Each environment (your PC, staging, prod) has its own MariaDB database, so
+  there's no possible conflict over "who has which orders/products" during
+  development.
+
 ## Testing locally (just like in industry)
  
 In industry, before a change goes anywhere, you run it on your own machine
@@ -81,15 +82,23 @@ first. Same thing here:
    (https://profile.intra.42.fr/oauth/applications → "dev" app → Redirect
    URI). This only needs to be done once, by someone with access to that
    OAuth app.
-3. **Run the project**:
+3. **Database**: MariaDB runs in Docker, a disposable database specific to
+   each machine (no native install needed):
+```bash
+   docker compose up -d mariadb
+```
+   Keep `.env.example`'s default `DATABASE_URL` — these are local-dev-only
+   credentials, unrelated to staging/prod. Details:
+   [`infra/README.md`](infra/README.md#6-mariadb).
+4. **Run the project**:
 ```bash
    npm install
    npm run dev      # backend (5001) + frontend (5173) in parallel
 ```
-   Each person has their own `server/data/db.json`, created automatically on
-   first run — no risk of overwriting someone else's data.
+   Each person has their own local database, isolated from everyone else's —
+   no risk of overwriting someone else's data.
  
-4. Once it works locally → push the branch → PR to `dev` → it goes to
+5. Once it works locally → push the branch → PR to `dev` → it goes to
    staging → the team checks it there under the same conditions as prod
    (HTTPS, real domain) → then on to `main`.
 ## GitHub rules to enable (do this once, in the repo Settings)

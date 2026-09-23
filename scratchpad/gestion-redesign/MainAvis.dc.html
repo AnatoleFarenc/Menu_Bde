@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f7f6f2; color: #262220; }
+    a { color: #2b4f76; text-decoration: none; }
+    a:hover { color: #35618f; }
+    .icon { display: block; flex-shrink: 0; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 600px; background: #f7f6f2; display: flex; flex-direction: column;">
+
+  <!-- TOP BAR -->
+  <div style="height: 64px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6; display: flex; align-items: center; padding: 0 28px; gap: 20px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 32px; height: 32px; border-radius: 8px; background: #35618f; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">42</div>
+      <span style="font-weight: 700; font-size: 15px; letter-spacing: -0.01em;">Gestion BDE</span>
+    </div>
+    <div style="width: 1px; height: 24px; background: #e6e1d6;"></div>
+    <button style="display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; cursor: pointer; font-size: 13px; font-weight: 600; color: #262220;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #4c7a3f; flex-shrink: 0;"></span>
+      Sandwich Piscine Septembre 2026
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid #e6e1d6; background: #f7f6f2; color: #a39a8d; width: 220px;">
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="font-size: 13px;">Rechercher...</span>
+    </div>
+    <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(53,97,143,0.14); color: #2b4f76; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">AF</div>
+  </div>
+
+  <!-- BREADCRUMB + TABS -->
+  <div style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e1d6;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 28px; height: 46px;">
+      <a href="#" style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #7a7269;">
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Tableau de bord
+      </a>
+      <span style="color: #e6e1d6;">/</span>
+      <span style="font-size: 12.5px; font-weight: 700;">Avis</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 4px; padding: 0 28px; overflow-x: auto;">
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Catalogue</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Stock</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Bilan</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Statistiques</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #7a7269; border-bottom: 2px solid transparent; white-space: nowrap;">Historique</div>
+      <div style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: #2b4f76; border-bottom: 2px solid #35618f; white-space: nowrap;">Avis</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div style="flex: 1; padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 12px; max-width: 760px;">
+
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+      <span style="font-size: 13px; font-weight: 700;">18 avis</span>
+      <div style="display: flex; align-items: center; gap: 2px;">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span style="font-size: 12.5px; color: #7a7269;">4,6 / 5 en moyenne</span>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 14px 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong style="font-size: 13.5px;">l.martin</strong>
+          <span style="font-size: 11.5px; color: #a39a8d;">SW-1042</span>
+        </div>
+        <div style="display: flex; gap: 1px;">
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+      </div>
+      <p style="margin: 0 0 6px; font-size: 13px; color: #262220; font-style: italic;">"Le Jaws est excellent, merci à toute l'équipe !"</p>
+      <span style="font-size: 11px; color: #a39a8d;">13 septembre 2026, 12h47</span>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 14px 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong style="font-size: 13.5px;">t.moga</strong>
+          <span style="font-size: 11.5px; color: #a39a8d;">SW-1039</span>
+        </div>
+        <div style="display: flex; gap: 1px;">
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e6e1d6" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+      </div>
+      <p style="margin: 0 0 6px; font-size: 13px; color: #262220; font-style: italic;">"Bon rapport qualité-prix, un peu d'attente au retrait."</p>
+      <span style="font-size: 11px; color: #a39a8d;">12 septembre 2026, 13h02</span>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #e6e1d6; border-radius: 12px; padding: 14px 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong style="font-size: 13.5px;">a.simoni</strong>
+          <span style="font-size: 11.5px; color: #a39a8d;">SW-1035</span>
+        </div>
+        <div style="display: flex; gap: 1px;">
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="#2b4f76" stroke="#2b4f76" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #a39a8d; font-style: italic;">Aucun commentaire laissé.</p>
+      <span style="font-size: 11px; color: #a39a8d;">11 septembre 2026, 12h18</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
