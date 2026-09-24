@@ -3654,7 +3654,6 @@ main h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: clamp(1.25rem, 5vh, 2.5rem);
   text-align: center;
   padding: clamp(1.25rem, 5vw, 2rem);
@@ -3721,13 +3720,32 @@ main h3 {
   opacity: 0;
 }
 
+/* Vertical centering of the kiosk stages WITHOUT `justify-content: center`:
+   on a screen too short for the content, that overflows upwards as well,
+   where scrolling can't reach it -- the top of the stage (the "Retour"
+   button, the heading...) just disappears. Auto margins center the same way
+   when there's room, and collapse to 0 when there isn't, so the stage then
+   simply scrolls from its top. On the choice/pairing stages the back button
+   stays pinned at the top and the rest is centered in the space below it. */
+.kiosk-home > :first-child,
+.kiosk-confirmation > :first-child {
+  margin-top: auto;
+}
+
+.kiosk-home > :last-child,
+.kiosk-choice > :last-child,
+.kiosk-pairing > :last-child,
+.kiosk-confirmation > :last-child,
+.kiosk-back-btn {
+  margin-bottom: auto;
+}
+
 /* --- Choice screen (connect vs. guest) --- */
 .kiosk-choice {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: clamp(1.25rem, 5vh, 2.5rem);
   padding: clamp(1.25rem, 5vw, 2rem);
   overflow-y: auto;
@@ -3809,7 +3827,6 @@ main h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: clamp(0.85rem, 3vh, 1.5rem);
   padding: clamp(1.25rem, 5vw, 2rem);
   overflow-y: auto;
@@ -3937,6 +3954,10 @@ main h3 {
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(128px, 38vw, 210px), 1fr));
+  /* Without this, the tiles' `overflow: hidden` lets the grid squeeze its
+     rows to fit a short screen (clipping names/prices/the + button) instead
+     of keeping them full-size and scrolling. */
+  grid-auto-rows: max-content;
   gap: clamp(0.6rem, 2.5vw, 1.1rem);
   padding: 0.25rem 0.25rem 1.5rem;
   align-content: start;
@@ -4160,7 +4181,6 @@ main h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: clamp(0.85rem, 4vh, 1.25rem);
   text-align: center;
   padding: clamp(1.25rem, 5vw, 2rem);
@@ -4225,14 +4245,13 @@ main h3 {
 }
 
 /* Short / landscape screens (a lot of kiosk hardware is a wide, short
-   panel): the centered stages need to start from the top and shrink their
-   big decorative elements, or the CTA button can end up below the fold. */
+   panel): shrink the big decorative elements, or the CTA button can end up
+   below the fold. */
 @media (max-height: 560px) {
   .kiosk-home,
   .kiosk-choice,
   .kiosk-pairing,
   .kiosk-confirmation {
-    justify-content: flex-start;
     padding-top: 1.25rem;
     padding-bottom: 1.25rem;
   }
@@ -4255,5 +4274,33 @@ main h3 {
   .kiosk-confirmation-check {
     width: 64px;
     height: 64px;
+  }
+  /* Not enough height to split between a fixed header, a scrolling grid
+     and the legal footer: the whole order screen scrolls instead (the
+     floating cart bar stays reachable), and so does the cart drawer, whose
+     pickup-time/total/submit block alone can be taller than the screen. */
+  .kiosk-order-main {
+    overflow-y: auto;
+  }
+  .kiosk-product-grid {
+    flex: none;
+    overflow: visible;
+  }
+  .kiosk-product-visual {
+    height: 72px;
+  }
+  .kiosk-cart-drawer {
+    overflow-y: auto;
+  }
+  .kiosk-cart-items {
+    flex: none;
+    overflow: visible;
+  }
+  .kiosk-app > .kiosk-footer {
+    padding: 0.3rem 1rem !important;
+  }
+  .kiosk-app > .kiosk-footer p {
+    display: inline;
+    margin-right: 1rem !important;
   }
 }
