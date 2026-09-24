@@ -11,8 +11,6 @@ const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
 const isAndroid = () => /Android/.test(navigator.userAgent);
 const isFirefox = () => /Firefox|FxiOS/.test(navigator.userAgent);
 
-const authHeaders = token => ({ headers: { Authorization: `Bearer ${token}` } });
-
 // The server's VAPID public key, as the bytes pushManager.subscribe wants.
 function keyToBytes(base64url) {
   const padded = base64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(base64url.length / 4) * 4, '=');
@@ -33,9 +31,9 @@ const sameKey = (buffer, bytes) => {
 //   'unsupported' -- this browser can't do Web Push
 //   'blocked'     -- the user refused (or blocked) notifications in the browser
 //   'off' | 'on'
-export async function getPushStatus(token) {
+export async function getPushStatus() {
   try {
-    const { data } = await axios.get('/api/admin/push/config', authHeaders(token));
+    const { data } = await axios.get('/api/admin/push/config');
     if (!data.enabled) return { status: 'server-off', detail: data.error };
     const publicKey = data.publicKey;
 
@@ -55,7 +53,7 @@ export async function getPushStatus(token) {
         await subscription.unsubscribe();
         return { status: 'off', publicKey };
       }
-      await axios.post('/api/admin/push/subscribe', { subscription: subscription.toJSON() }, authHeaders(token));
+      await axios.post('/api/admin/push/subscribe', { subscription: subscription.toJSON() });
       return { status: 'on', publicKey };
     }
     return { status: 'off', publicKey };
@@ -67,7 +65,7 @@ export async function getPushStatus(token) {
 
 // Must run from a click (browsers refuse the permission prompt otherwise).
 // Returns the new status, or throws a message-carrying Error.
-export async function enablePush(token, publicKey) {
+export async function enablePush(publicKey) {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return 'blocked';
 
@@ -77,22 +75,22 @@ export async function enablePush(token, publicKey) {
     userVisibleOnly: true,
     applicationServerKey: keyToBytes(publicKey)
   });
-  await axios.post('/api/admin/push/subscribe', { subscription: subscription.toJSON() }, authHeaders(token));
+  await axios.post('/api/admin/push/subscribe', { subscription: subscription.toJSON() });
   return 'on';
 }
 
-export async function disablePush(token) {
+export async function disablePush() {
   const registration = await navigator.serviceWorker.getRegistration('/');
   const subscription = registration ? await registration.pushManager.getSubscription() : null;
   if (subscription) {
-    await axios.post('/api/admin/push/unsubscribe', { endpoint: subscription.endpoint }, authHeaders(token)).catch(() => {});
+    await axios.post('/api/admin/push/unsubscribe', { endpoint: subscription.endpoint }).catch(() => {});
     await subscription.unsubscribe();
   }
   return 'off';
 }
 
-export async function sendTestPush(token) {
-  const { data } = await axios.post('/api/admin/push/test', {}, authHeaders(token));
+export async function sendTestPush() {
+  const { data } = await axios.post('/api/admin/push/test', {});
   return data;
 }
 
@@ -125,7 +123,7 @@ const platformName = () => {
 // A plain-text report of everything that decides whether an alert can reach
 // this device, browser side and server side, in the order things happen --
 // so "I got nothing" can be traced to the first step that is not OK.
-export async function getPushDiagnostics(token) {
+export async function getPushDiagnostics() {
   const yes = value => (value ? 'oui' : 'NON');
   const lines = [];
 
@@ -167,7 +165,7 @@ export async function getPushDiagnostics(token) {
   lines.push('');
   lines.push('— Serveur —');
   try {
-    const { data } = await axios.get('/api/admin/push/diagnostics', authHeaders(token));
+    const { data } = await axios.get('/api/admin/push/diagnostics');
     lines.push(`Notifications prêtes côté serveur : ${yes(data.enabled)}${data.enabled ? ` (clés ${data.keysSource === 'env' ? 'du .env' : 'générées automatiquement'})` : ` -- ${data.error || 'raison inconnue'}`}`);
     if (data.subject) lines.push(`Contact envoyé au service de notification : ${data.subject}`);
     lines.push(`Appareils enregistrés pour ton compte : ${data.subscriptions.length}${data.subscriptions.length ? ` (${data.subscriptions.map(sub => sub.host).join(', ')})` : ' -- active les notifications sur cet appareil'}`);

@@ -30,7 +30,7 @@ const HELP = {
 // these arrive with the app closed or the phone locked -- that's the one
 // line that matters here, spelled out in the row's own description rather
 // than left for the two rows to be told apart by their icon alone.
-export default function PushNotificationsButton({ authToken }) {
+export default function PushNotificationsButton() {
   const [status, setStatus] = useState('loading');
   const [publicKey, setPublicKey] = useState(null);
   const [serverError, setServerError] = useState('');
@@ -40,14 +40,14 @@ export default function PushNotificationsButton({ authToken }) {
 
   useEffect(() => {
     let alive = true;
-    getPushStatus(authToken).then(result => {
+    getPushStatus().then(result => {
       if (!alive) return;
       setStatus(result.status);
       setPublicKey(result.publicKey || null);
       setServerError(result.detail || '');
     });
     return () => { alive = false; };
-  }, [authToken]);
+  }, []);
 
   const run = async action => {
     setBusy(true);
@@ -61,8 +61,8 @@ export default function PushNotificationsButton({ authToken }) {
   };
 
   const handleToggle = () => run(async () => {
-    if (status === 'on') setStatus(await disablePush(authToken));
-    else setStatus(await enablePush(authToken, publicKey));
+    if (status === 'on') setStatus(await disablePush());
+    else setStatus(await enablePush(publicKey));
   });
 
   const showWhy = () => setMessage(status === 'server-off'
@@ -70,7 +70,7 @@ export default function PushNotificationsButton({ authToken }) {
     : HELP[status] || '');
 
   const handleTest = () => run(async () => {
-    const result = await sendTestPush(authToken);
+    const result = await sendTestPush();
     const failed = result.devices.filter(device => !device.ok);
     if (failed.length === 0) {
       setMessage(`Notification de test envoyée (acceptée par ${result.devices.map(d => d.host).join(', ')}). Elle doit arriver dans quelques secondes ; sinon, vérifie les réglages de notification d'Android/iOS pour ce site, puis ouvre « Diagnostic ».`);
@@ -81,7 +81,7 @@ export default function PushNotificationsButton({ authToken }) {
 
   const handleDiagnostic = () => run(async () => {
     if (diagnostic) { setDiagnostic(null); return; }
-    setDiagnostic(await getPushDiagnostics(authToken));
+    setDiagnostic(await getPushDiagnostics());
   });
 
   const isOn = status === 'on';
