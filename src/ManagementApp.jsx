@@ -19,10 +19,9 @@ import { showAlert, showConfirm, showPrompt } from './lib/dialogs.jsx';
 
 // Top-level component for the /gestion route: a genuinely separate page from
 // the storefront (see main.jsx), with its own auth check, its own state, and
-// none of the site's navigation or visual identity. Only the auth token in
-// localStorage and the backend API are shared with the site.
+// none of the site's navigation or visual identity. Only the httpOnly session
+// cookie and the backend API are shared with the site.
 export default function ManagementApp() {
-  const [authToken] = useState(localStorage.getItem('bde_token') || '');
   const [user, setUser] = useState(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
@@ -66,20 +65,16 @@ export default function ManagementApp() {
   }, []);
 
   useEffect(() => {
-    if (!authToken) {
-      setIsAuthChecking(false);
-      return;
-    }
     (async () => {
       try {
-        const res = await axios.get('/api/auth/me', { headers: { Authorization: `Bearer ${authToken}` } });
+        const res = await axios.get('/api/auth/me');
         setUser(res.data.user);
       } catch (e) {
         setUser(null);
       }
       setIsAuthChecking(false);
     })();
-  }, [authToken]);
+  }, []);
 
   useEffect(() => {
     if (!user || !user.isManager) return;
@@ -125,8 +120,6 @@ export default function ManagementApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStorefrontId]);
 
-  const authHeaders = { headers: { Authorization: `Bearer ${authToken}` } };
-
   const fetchCategories = async () => {
     try {
       const res = await axios.get('/api/products');
@@ -141,7 +134,7 @@ export default function ManagementApp() {
   // categories/products -- fetched once per session, same as categories.
   const fetchStockItems = async () => {
     try {
-      const res = await axios.get('/api/admin/stock-items', authHeaders);
+      const res = await axios.get('/api/admin/stock-items');
       setStockItems(res.data.items || []);
     } catch (e) {
       console.error('Error fetching stock items:', e);
@@ -165,7 +158,7 @@ export default function ManagementApp() {
 
   const handleAddStockItem = async data => {
     try {
-      await axios.post('/api/admin/stock-items', data, { ...authHeaders, ...stockParams });
+      await axios.post('/api/admin/stock-items', data, stockParams);
       refreshAfterStockChange();
       return true;
     } catch (e) {
@@ -176,7 +169,7 @@ export default function ManagementApp() {
 
   const handleUpdateStockItem = async (id, updates) => {
     try {
-      await axios.put(`/api/admin/stock-items/${id}`, updates, { ...authHeaders, ...stockParams });
+      await axios.put(`/api/admin/stock-items/${id}`, updates, stockParams);
       refreshAfterStockChange();
       return true;
     } catch (e) {
@@ -188,7 +181,7 @@ export default function ManagementApp() {
   const handleDeleteStockItem = async id => {
     if (!(await showConfirm('Supprimer cet article du stock ?', { danger: true }))) return;
     try {
-      await axios.delete(`/api/admin/stock-items/${id}`, authHeaders);
+      await axios.delete(`/api/admin/stock-items/${id}`);
       fetchStockItems();
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la suppression.');
@@ -197,7 +190,7 @@ export default function ManagementApp() {
 
   const fetchAdminEvents = async () => {
     try {
-      const res = await axios.get('/api/admin/events', authHeaders);
+      const res = await axios.get('/api/admin/events');
       setEvents(res.data.events || []);
     } catch (e) {
       console.error('Error fetching events:', e);
@@ -209,7 +202,7 @@ export default function ManagementApp() {
   const fetchStorefronts = async (eventId) => {
     if (!eventId) return [];
     try {
-      const res = await axios.get(`/api/admin/events/${eventId}/storefronts`, authHeaders);
+      const res = await axios.get(`/api/admin/events/${eventId}/storefronts`);
       const list = res.data.storefronts || [];
       setStorefronts(list);
       return list;
@@ -222,7 +215,7 @@ export default function ManagementApp() {
   const fetchAdminCatalog = async (storefrontId) => {
     if (!storefrontId) return;
     try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, authHeaders);
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`);
       setAdminProducts(res.data.products || []);
       setAdminMenus(res.data.menus || []);
     } catch (e) {
@@ -233,7 +226,7 @@ export default function ManagementApp() {
   const fetchShoppingList = async (storefrontId) => {
     if (!storefrontId) return;
     try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/shopping-list`, authHeaders);
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/shopping-list`);
       setShoppingList(res.data.items || []);
     } catch (e) {
       console.error('Error fetching shopping list:', e);
@@ -242,7 +235,7 @@ export default function ManagementApp() {
 
   const handleAddShoppingListItem = async item => {
     try {
-      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list`, item, authHeaders);
+      await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list`, item);
       fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
@@ -253,7 +246,7 @@ export default function ManagementApp() {
 
   const handleUpdateShoppingListItem = async (id, updates) => {
     try {
-      await axios.put(`/api/admin/shopping-list/${id}`, updates, authHeaders);
+      await axios.put(`/api/admin/shopping-list/${id}`, updates);
       fetchShoppingList(selectedStorefrontId);
       return true;
     } catch (e) {
@@ -264,7 +257,7 @@ export default function ManagementApp() {
 
   const handleDeleteShoppingListItem = async id => {
     try {
-      await axios.delete(`/api/admin/shopping-list/${id}`, authHeaders);
+      await axios.delete(`/api/admin/shopping-list/${id}`);
       fetchShoppingList(selectedStorefrontId);
     } catch (e) {
       showAlert('Erreur lors de la suppression.');
@@ -273,7 +266,7 @@ export default function ManagementApp() {
 
   const handleGenerateShoppingList = async () => {
     try {
-      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/generate`, {}, authHeaders);
+      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/generate`, {});
       fetchShoppingList(selectedStorefrontId);
       return res.data;
     } catch (e) {
@@ -284,7 +277,7 @@ export default function ManagementApp() {
 
   const fetchRestockCandidates = async () => {
     try {
-      const res = await axios.get(`/api/admin/storefronts/${selectedStorefrontId}/restock-candidates`, authHeaders);
+      const res = await axios.get(`/api/admin/storefronts/${selectedStorefrontId}/restock-candidates`);
       return res.data.items || [];
     } catch (e) {
       console.error('Error fetching restock candidates:', e);
@@ -295,7 +288,7 @@ export default function ManagementApp() {
   const handleCloseShoppingTrip = async () => {
     if (!(await showConfirm('Clôturer la liste de courses actuelle ? Elle passera dans l\'historique, une nouvelle liste vide démarrera, et le stock des produits liés à un seul article coché sera mis à jour.'))) return false;
     try {
-      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {}, authHeaders);
+      const res = await axios.post(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/close`, {});
       fetchShoppingList(selectedStorefrontId);
       refreshAfterStockChange(); // restocked counts, and with them product availability
       return res.data.trip;
@@ -307,7 +300,7 @@ export default function ManagementApp() {
 
   const fetchShoppingTripHistory = async () => {
     try {
-      const res = await axios.get(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/history`, authHeaders);
+      const res = await axios.get(`/api/admin/storefronts/${selectedStorefrontId}/shopping-list/history`);
       return res.data.trips || [];
     } catch (e) {
       console.error('Error fetching shopping trip history:', e);
@@ -317,7 +310,7 @@ export default function ManagementApp() {
 
   const fetchDailyReport = async (from, to) => {
     try {
-      const res = await axios.get('/api/admin/report', { params: { from, to: to || from, storefrontId: selectedStorefrontId }, ...authHeaders });
+      const res = await axios.get('/api/admin/report', { params: { from, to: to || from, storefrontId: selectedStorefrontId } });
       setDailyReport(res.data);
     } catch (e) {
       console.error('Error fetching daily report:', e);
@@ -326,7 +319,7 @@ export default function ManagementApp() {
 
   const fetchStats = async (from, to, groupBy) => {
     try {
-      const res = await axios.get('/api/admin/stats', { params: { from, to: to || from, groupBy, storefrontId: selectedStorefrontId }, ...authHeaders });
+      const res = await axios.get('/api/admin/stats', { params: { from, to: to || from, groupBy, storefrontId: selectedStorefrontId } });
       setStats(res.data);
     } catch (e) {
       console.error('Error fetching stats:', e);
@@ -335,7 +328,7 @@ export default function ManagementApp() {
 
   const fetchForecast = async (unit, count) => {
     try {
-      const res = await axios.get('/api/admin/forecast', { params: { unit, count }, ...authHeaders });
+      const res = await axios.get('/api/admin/forecast', { params: { unit, count } });
       return res.data;
     } catch (e) {
       console.error('Error fetching forecast:', e);
@@ -348,7 +341,7 @@ export default function ManagementApp() {
   // no state kept here.
   const fetchEventReport = async (eventId) => {
     try {
-      const res = await axios.get(`/api/admin/events/${eventId}/report`, authHeaders);
+      const res = await axios.get(`/api/admin/events/${eventId}/report`);
       return res.data;
     } catch (e) {
       console.error('Error fetching event report:', e);
@@ -358,7 +351,7 @@ export default function ManagementApp() {
 
   const fetchEventShoppingList = async (eventId) => {
     try {
-      const res = await axios.get(`/api/admin/events/${eventId}/shopping-list`, authHeaders);
+      const res = await axios.get(`/api/admin/events/${eventId}/shopping-list`);
       return res.data.items || [];
     } catch (e) {
       console.error('Error fetching event shopping list:', e);
@@ -368,7 +361,7 @@ export default function ManagementApp() {
 
   const fetchAverageShoppingList = async () => {
     try {
-      const res = await axios.get('/api/admin/shopping-list/average', { params: { storefrontId: selectedStorefrontId }, ...authHeaders });
+      const res = await axios.get('/api/admin/shopping-list/average', { params: { storefrontId: selectedStorefrontId } });
       return res.data.items || [];
     } catch (e) {
       console.error('Error fetching average shopping list:', e);
@@ -378,7 +371,7 @@ export default function ManagementApp() {
 
   const fetchReviews = async () => {
     try {
-      const res = await axios.get('/api/admin/reviews', { params: { storefrontId: selectedStorefrontId }, ...authHeaders });
+      const res = await axios.get('/api/admin/reviews', { params: { storefrontId: selectedStorefrontId } });
       setReviews(res.data.reviews || []);
     } catch (e) {
       console.error('Error fetching reviews:', e);
@@ -388,7 +381,7 @@ export default function ManagementApp() {
   const handleDeleteReview = async (orderId) => {
     if (!(await showConfirm('Supprimer définitivement cet avis ?', { danger: true }))) return;
     try {
-      await axios.delete(`/api/admin/reviews/${orderId}`, authHeaders);
+      await axios.delete(`/api/admin/reviews/${orderId}`);
       fetchReviews();
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la suppression de l\'avis.');
@@ -397,7 +390,7 @@ export default function ManagementApp() {
 
   const fetchTeamMembers = async () => {
     try {
-      const res = await axios.get('/api/admin/team', authHeaders);
+      const res = await axios.get('/api/admin/team');
       setTeamMembers(res.data.members || []);
     } catch (e) {
       console.error('Error fetching team members:', e);
@@ -406,7 +399,7 @@ export default function ManagementApp() {
 
   const handleSetTeamMemberRole = async (login, role) => {
     try {
-      await axios.post('/api/admin/team', { login, role }, authHeaders);
+      await axios.post('/api/admin/team', { login, role });
       fetchTeamMembers();
       return true;
     } catch (e) {
@@ -418,7 +411,7 @@ export default function ManagementApp() {
   const handleRemoveTeamMember = async (login) => {
     if (!(await showConfirm(`Retirer le rôle de ${login} ? Redeviendra un membre normal (sauf s'il est encore listé dans les variables d'environnement historiques).`, { danger: true }))) return;
     try {
-      await axios.delete(`/api/admin/team/${login}`, authHeaders);
+      await axios.delete(`/api/admin/team/${login}`);
       fetchTeamMembers();
     } catch (e) {
       showAlert('Erreur lors du retrait.');
@@ -438,7 +431,7 @@ export default function ManagementApp() {
 
   const fetchLegalVersions = async (kind) => {
     try {
-      const res = await axios.get(`/api/admin/legal/${kind}/versions`, authHeaders);
+      const res = await axios.get(`/api/admin/legal/${kind}/versions`);
       setLegalVersions(prev => ({ ...prev, [kind]: res.data.versions || [] }));
     } catch (e) {
       console.error('Error fetching legal versions:', e);
@@ -447,7 +440,7 @@ export default function ManagementApp() {
 
   const fetchCguStats = async () => {
     try {
-      const res = await axios.get('/api/admin/legal/cgu/acceptance-stats', authHeaders);
+      const res = await axios.get('/api/admin/legal/cgu/acceptance-stats');
       setCguStats(res.data);
     } catch (e) {
       console.error('Error fetching CGU acceptance stats:', e);
@@ -456,7 +449,7 @@ export default function ManagementApp() {
 
   const handlePublishLegal = async (kind, title, content) => {
     try {
-      await axios.post(`/api/admin/legal/${kind}`, { title, content }, authHeaders);
+      await axios.post(`/api/admin/legal/${kind}`, { title, content });
       fetchLegalDoc(kind);
       fetchLegalVersions(kind);
       if (kind === 'cgu') fetchCguStats();
@@ -471,7 +464,7 @@ export default function ManagementApp() {
   // see LegalPanel.jsx.
   const fetchCguAcceptances = async () => {
     try {
-      const res = await axios.get('/api/admin/legal/cgu/acceptances', authHeaders);
+      const res = await axios.get('/api/admin/legal/cgu/acceptances');
       setCguAcceptances(res.data.acceptances || []);
     } catch (e) {
       console.error('Error fetching CGU acceptance history:', e);
@@ -482,7 +475,7 @@ export default function ManagementApp() {
   // itself, and the individual terminals currently activated with it.
   const fetchKioskSecret = async () => {
     try {
-      const res = await axios.get('/api/admin/kiosk-secret', authHeaders);
+      const res = await axios.get('/api/admin/kiosk-secret');
       setKioskSecretInfo(res.data);
     } catch (e) {
       console.error('Error fetching kiosk secret:', e);
@@ -492,7 +485,7 @@ export default function ManagementApp() {
   const handleRegenerateKioskSecret = async () => {
     if (!(await showConfirm('Régénérer le code borne ? Toutes les bornes actuellement activées seront immédiatement déconnectées.', { danger: true }))) return;
     try {
-      const res = await axios.post('/api/admin/kiosk-secret/regenerate', {}, authHeaders);
+      const res = await axios.post('/api/admin/kiosk-secret/regenerate', {});
       setKioskSecretInfo(res.data);
       fetchKioskSessions();
     } catch (e) {
@@ -502,7 +495,7 @@ export default function ManagementApp() {
 
   const fetchKioskSessions = async () => {
     try {
-      const res = await axios.get('/api/admin/kiosk-sessions', authHeaders);
+      const res = await axios.get('/api/admin/kiosk-sessions');
       setKioskSessions(res.data.kiosks || []);
     } catch (e) {
       console.error('Error fetching kiosk sessions:', e);
@@ -512,7 +505,7 @@ export default function ManagementApp() {
   const handleLockKioskSession = async (id) => {
     if (!(await showConfirm('Verrouiller cette borne ? Elle devra être réactivée avec le code pour reprendre des commandes.'))) return;
     try {
-      await axios.delete(`/api/admin/kiosk-sessions/${id}`, authHeaders);
+      await axios.delete(`/api/admin/kiosk-sessions/${id}`);
       fetchKioskSessions();
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors du verrouillage de la borne.');
@@ -522,7 +515,7 @@ export default function ManagementApp() {
   const handleToggleStock = async (id, type) => {
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}/toggle-stock` : `/api/admin/products/${id}/toggle-stock`;
-      await axios.patch(url, {}, authHeaders);
+      await axios.patch(url, {});
       fetchAdminCatalog(selectedStorefrontId);
     } catch (e) {
       showAlert('Erreur lors de la modification du stock.');
@@ -533,15 +526,15 @@ export default function ManagementApp() {
     try {
       if (type === 'menu') {
         if (editingId) {
-          await axios.put(`/api/admin/menus/${editingId}`, formData, authHeaders);
+          await axios.put(`/api/admin/menus/${editingId}`, formData);
         } else {
-          await axios.post('/api/admin/menus', { ...formData, storefrontId: selectedStorefrontId }, authHeaders);
+          await axios.post('/api/admin/menus', { ...formData, storefrontId: selectedStorefrontId });
         }
       } else {
         if (editingId) {
-          await axios.put(`/api/admin/products/${editingId}`, formData, authHeaders);
+          await axios.put(`/api/admin/products/${editingId}`, formData);
         } else {
-          await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId }, authHeaders);
+          await axios.post('/api/admin/products', { ...formData, storefrontId: selectedStorefrontId });
         }
       }
       // Saving a product can create/update its stock article and recipe.
@@ -559,7 +552,7 @@ export default function ManagementApp() {
     if (!(await showConfirm('Voulez-vous vraiment supprimer cet élément ?', { danger: true }))) return;
     try {
       const url = type === 'menu' ? `/api/admin/menus/${id}` : `/api/admin/products/${id}`;
-      await axios.delete(url, authHeaders);
+      await axios.delete(url);
       fetchAdminCatalog(selectedStorefrontId);
       fetchStockItems(); // its article's "used by" list changed
     } catch (e) {
@@ -569,7 +562,7 @@ export default function ManagementApp() {
 
   const handleAddCategory = async category => {
     try {
-      const res = await axios.post('/api/admin/categories', category, authHeaders);
+      const res = await axios.post('/api/admin/categories', category);
       setCategories(res.data.categories || []);
       return true;
     } catch (e) {
@@ -581,7 +574,7 @@ export default function ManagementApp() {
   const handleDeleteCategory = async id => {
     if (!(await showConfirm('Supprimer cette catégorie ?', { danger: true }))) return;
     try {
-      const res = await axios.delete(`/api/admin/categories/${id}`, authHeaders);
+      const res = await axios.delete(`/api/admin/categories/${id}`);
       setCategories(res.data.categories || []);
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la suppression de la catégorie.');
@@ -590,7 +583,7 @@ export default function ManagementApp() {
 
   const handleToggleCategory = async id => {
     try {
-      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {}, authHeaders);
+      const res = await axios.patch(`/api/admin/categories/${id}/visibility`, {});
       setCategories(res.data.categories || []);
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la modification de la visibilité.');
@@ -604,7 +597,7 @@ export default function ManagementApp() {
   // The event switcher's "+": a genuinely new, empty event.
   const handleCreateEvent = async eventData => {
     try {
-      const res = await axios.post('/api/admin/events', eventData, authHeaders);
+      const res = await axios.post('/api/admin/events', eventData);
       await fetchAdminEvents();
       setSelectedEventId(res.data.event.id);
       return true;
@@ -620,7 +613,7 @@ export default function ManagementApp() {
     const name = await showPrompt('Nom du nouvel événement :', source ? `${source.name} (copie)` : '');
     if (!name || !name.trim()) return;
     try {
-      const res = await axios.post('/api/admin/events', { name, copyFromEventId: id }, authHeaders);
+      const res = await axios.post('/api/admin/events', { name, copyFromEventId: id });
       await fetchAdminEvents();
       setSelectedEventId(res.data.event.id);
     } catch (e) {
@@ -630,7 +623,7 @@ export default function ManagementApp() {
 
   const handleUpdateEvent = async (id, updates) => {
     try {
-      await axios.patch(`/api/admin/events/${id}`, updates, authHeaders);
+      await axios.patch(`/api/admin/events/${id}`, updates);
       await fetchAdminEvents();
       return true;
     } catch (e) {
@@ -642,7 +635,7 @@ export default function ManagementApp() {
   const handleDeleteEvent = async id => {
     if (!(await showConfirm('Supprimer cet événement enregistré ?', { danger: true }))) return;
     try {
-      await axios.delete(`/api/admin/events/${id}`, authHeaders);
+      await axios.delete(`/api/admin/events/${id}`);
       if (selectedEventId === id) setSelectedEventId(null);
       fetchAdminEvents();
     } catch (e) {
@@ -656,7 +649,7 @@ export default function ManagementApp() {
 
   const handleCreateStorefront = async name => {
     try {
-      const res = await axios.post(`/api/admin/events/${selectedEventId}/storefronts`, { name }, authHeaders);
+      const res = await axios.post(`/api/admin/events/${selectedEventId}/storefronts`, { name });
       await fetchStorefronts(selectedEventId);
       setSelectedStorefrontId(res.data.storefront.id);
     } catch (e) {
@@ -666,7 +659,7 @@ export default function ManagementApp() {
 
   const handleDuplicateStorefront = async (id, name) => {
     try {
-      const res = await axios.post(`/api/admin/storefronts/${id}/duplicate`, { name }, authHeaders);
+      const res = await axios.post(`/api/admin/storefronts/${id}/duplicate`, { name });
       await fetchStorefronts(selectedEventId);
       setSelectedStorefrontId(res.data.storefront.id);
     } catch (e) {
@@ -677,7 +670,7 @@ export default function ManagementApp() {
   const handleActivateStorefront = async id => {
     if (!(await showConfirm('Mettre cette vitrine en ligne pour les étudiants ?'))) return;
     try {
-      await axios.post(`/api/admin/storefronts/${id}/activate`, {}, authHeaders);
+      await axios.post(`/api/admin/storefronts/${id}/activate`, {});
       await Promise.all([fetchAdminEvents(), fetchStorefronts(selectedEventId)]);
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors du changement de vitrine.');
@@ -687,7 +680,7 @@ export default function ManagementApp() {
   const handleDeleteStorefront = async id => {
     if (!(await showConfirm('Supprimer cette vitrine ?', { danger: true }))) return;
     try {
-      await axios.delete(`/api/admin/storefronts/${id}`, authHeaders);
+      await axios.delete(`/api/admin/storefronts/${id}`);
       if (selectedStorefrontId === id) setSelectedStorefrontId(null);
       fetchStorefronts(selectedEventId);
     } catch (e) {
@@ -697,7 +690,7 @@ export default function ManagementApp() {
 
   const handleUpdateStorefrontHours = async (id, updates) => {
     try {
-      await axios.patch(`/api/admin/storefronts/${id}`, updates, authHeaders);
+      await axios.patch(`/api/admin/storefronts/${id}`, updates);
       fetchStorefronts(selectedEventId);
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la mise à jour des horaires.');
@@ -706,9 +699,8 @@ export default function ManagementApp() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('/api/auth/logout', {}, authHeaders);
+      await axios.post('/api/auth/logout', {});
     } catch (e) {}
-    localStorage.removeItem('bde_token');
     window.location.href = '/';
   };
 

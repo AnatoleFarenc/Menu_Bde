@@ -1,9 +1,20 @@
-// One-time import: copies server/data/db.json (categories, products, meal
-// deals, templates, orders) into MariaDB via Prisma. Run once per
-// environment, right after the first migration.
+// One-time recovery: imports the ORDER HISTORY from the old server/data/db.json
+// (the pre-MariaDB, file-based backend) into a dedicated, never-active
+// "Archive" event/storefront. Catalog data (categories/products/menus/
+// templates) from that era is deliberately NOT re-imported -- it's the old
+// menu, not useful today, and every OrderItem/OrderItemChoice is already a
+// self-contained snapshot (name/price/category frozen at order time, no
+// foreign key to a live Product), so the order history stands on its own
+// without it. See prisma/schema.prisma: every Order needs a storefrontId,
+// which this script provides via the archive storefront it creates.
 //
 //   node prisma/import-from-json.mjs
 //
+// Safe to run only ONCE per environment: re-running would violate the
+// unique orderNumber constraint on some rows and duplicate the rest. If you
+// need to redo it, delete the "Archive (pre-MariaDB)" event first (deleting
+// an Event cascades to its Storefronts/Orders, see onDelete: Cascade in the
+// schema).
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -41,103 +52,53 @@ function extractChoices(item) {
 
 async function main() {
   const data = readJsonDb();
-
-  console.log('▶ Categories...');
-  for (const category of data.categories || []) {
-    await prisma.category.create({
-      data: {
-        id: category.id,
-        name: category.name,
-        icon: category.icon || '📦',
-        isVisible: category.isVisible !== false
-      }
-    });
+  const orders = data.orders || [];
+  if (orders.length === 0) {
+    console.log('No orders in server/data/db.json -- nothing to import.');
+    return;
   }
 
-  console.log('▶ Products...');
-  for (const product of data.products || []) {
-    await prisma.product.create({
-      data: {
-        id: product.id,
-        name: product.name,
-        categoryId: product.category,
-        price: parseFloat(product.price) || 0,
-        extraMenuPrice: parseFloat(product.extraMenuPrice) || 0,
-        costPrice: product.costPrice ?? null,
-        stock: product.stock ?? null,
-        description: product.description || '',
-        badge: product.badge || '',
-        enabled: product.available !== false,
-        icon: product.icon || '🥪'
-      }
-    });
-  }
+  const dates = orders.map(o => new Date(o.createdAt)).filter(d => !isNaN(d));
+  const startDate = dates.length ? new Date(Math.min(...dates)) : null;
+  const endDate = dates.length ? new Date(Math.max(...dates)) : null;
 
-  console.log('▶ Meal deals & choice groups...');
-  for (const menu of data.menus || []) {
-    await prisma.menu.create({
-      data: {
-        id: menu.id,
-        name: menu.name,
-        price: parseFloat(menu.price) || 0,
-        description: menu.description || '',
-        badge: menu.badge || '',
-        available: menu.available !== false,
-        icon: menu.icon || '🍱'
-      }
-    });
-    const knownProductIds = new Set((data.products || []).map(p => p.id));
-    for (const [index, group] of (menu.groups || []).entries()) {
-      const validProductIds = (group.productIds || []).filter(id => knownProductIds.has(id));
-      await prisma.menuGroup.create({
-        data: {
-          id: group.id,
-          menuId: menu.id,
-          name: group.name || '',
-          position: index,
-          products: {
-            create: validProductIds.map(productId => ({ productId }))
-          }
-        }
-      });
+  console.log('▶ Creating the archive event/storefront...');
+  const event = await prisma.event.create({
+    data: {
+      name: 'Archive (pré-MariaDB)',
+      description: `Historique des ${orders.length} commandes importées depuis l'ancien server/data/db.json (backend fichier, avant la migration vers MariaDB).`,
+      status: 'completed',
+      startDate,
+      endDate
     }
-  }
+  });
+  const storefront = await prisma.storefront.create({
+    data: { eventId: event.id, name: 'Archive', isActive: false }
+  });
 
-  console.log('▶ Templates (saved catalogs)...');
-  for (const template of data.templates || []) {
-    await prisma.template.create({
-      data: {
-        id: template.id,
-        name: template.name,
-        description: template.description || '',
-        createdAt: new Date(template.createdAt),
-        products: template.products || [],
-        menus: template.menus || [],
-        categories: template.categories || []
-      }
-    });
-  }
-
-  console.log('▶ Orders...');
+  console.log(`▶ Importing ${orders.length} orders...`);
   const seenOrderNumbers = new Set();
-  for (const order of data.orders || []) {
+  let imported = 0;
+  for (const order of orders) {
     let orderNumber = order.orderNumber;
-    if (seenOrderNumbers.has(orderNumber)) {
-      // Historical duplicate detected (a generation bug never checked before
-      // this cleanup): suffixed to satisfy the unique constraint, the original
-      // is still visible in server/data/db.json.
-      orderNumber = `${orderNumber}-dup`;
-      console.warn(`  ⚠️  duplicate orderNumber "${order.orderNumber}" (order ${order.id}) → renamed to "${orderNumber}"`);
+    if (!orderNumber || seenOrderNumbers.has(orderNumber)) {
+      // Historical duplicate/missing orderNumber (a generation bug never
+      // checked before this cleanup): suffixed to satisfy the unique
+      // constraint, the original is still visible in server/data/db.json.
+      orderNumber = `${orderNumber || 'ARCHIVE'}-${order.id}`;
+      console.warn(`  ⚠️  duplicate/missing orderNumber for order ${order.id} → renamed to "${orderNumber}"`);
     }
     seenOrderNumbers.add(orderNumber);
 
     await prisma.order.create({
       data: {
         id: order.id,
+        storefrontId: storefront.id,
         orderNumber,
-        status: order.status || 'pending',
+        status: order.status || 'completed',
         isPaid: !!order.isPaid,
         isFree: !!order.isFree,
+        isKioskOrder: false,
         userId: String(order.userId),
         userLogin: order.userLogin,
         userDisplayName: order.userDisplayName,
@@ -162,17 +123,11 @@ async function main() {
         }
       }
     });
+    imported++;
   }
 
-  const [categories, products, menus, templates, orders] = await Promise.all([
-    prisma.category.count(),
-    prisma.product.count(),
-    prisma.menu.count(),
-    prisma.template.count(),
-    prisma.order.count()
-  ]);
   console.log('');
-  console.log('✅ Import complete:', { categories, products, menus, templates, orders });
+  console.log('✅ Import complete:', { event: event.name, eventId: event.id, ordersImported: imported });
 }
 
 main()

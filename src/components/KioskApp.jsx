@@ -3,6 +3,8 @@ import axios from 'axios';
 import { Plus, Minus, Trash2, Sparkles, Layers, User, LogIn, ArrowLeft, Check, ShoppingBag, X } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 import MenuBuilderModal from './MenuBuilderModal';
+import Footer from './Footer';
+import LegalDocumentModal from './LegalDocumentModal';
 import { normalizeChoices } from '../lib/menuChoices';
 import { getPickupTimeSlots } from '../lib/pickupTime';
 import { showConfirm } from '../lib/dialogs.jsx';
@@ -20,7 +22,7 @@ const CONFIRMATION_DISPLAY_MS = 14000;
 // to scan on THEIR phone, which does the real login and hands back a
 // single-use `attributionToken` (never a session token) for the order about
 // to be placed.
-export default function KioskApp({ authToken, products, menus, categories, cart, onAddToCart, onAddMenuToCart, updateCartQuantity, removeCartItem, clearCart, onSubmitOrder, onExitKiosk, orderWindow }) {
+export default function KioskApp({ products, menus, categories, cart, onAddToCart, onAddMenuToCart, updateCartQuantity, removeCartItem, clearCart, onSubmitOrder, onExitKiosk, orderWindow }) {
   const [stage, setStage] = useState('home'); // home | choice | pairing | order | confirmation
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [builderMenu, setBuilderMenu] = useState(null);
@@ -41,6 +43,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
   // storefront (a floating bar while it's closed, a drawer once opened),
   // used identically at every screen size rather than a permanent sidebar.
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [legalKind, setLegalKind] = useState(null); // 'mentions' | 'privacy' | 'cgu' while one is open
 
   const resetAll = () => {
     clearCart();
@@ -56,12 +59,13 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
     setOrderError('');
     setConfirmedOrder(null);
     setIsCartOpen(false);
+    setLegalKind(null);
   };
 
   // Idle reset: once past the attract screen, any stretch of inactivity
   // sends the terminal back to a clean state for the next customer.
   useEffect(() => {
-    if (stage === 'home') return undefined;
+    if (stage === 'home' && !legalKind) return undefined;
     let timer;
     const reset = () => { clearTimeout(timer); timer = setTimeout(resetAll, IDLE_RESET_MS); };
     const events = ['mousedown', 'touchstart', 'keydown'];
@@ -69,7 +73,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
     reset();
     return () => { clearTimeout(timer); events.forEach(evt => window.removeEventListener(evt, reset)); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage]);
+  }, [stage, legalKind]);
 
   // Entering the "pairing" stage: request a fresh code + QR, then poll for
   // the phone's confirmation.
@@ -81,7 +85,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
     setPairingError('');
 
     const poll = (code) => {
-      axios.get(`/api/kiosk/pairing/${code}`, { headers: { Authorization: `Bearer ${authToken}` } })
+      axios.get(`/api/kiosk/pairing/${code}`)
         .then(res => {
           if (cancelled) return;
           if (res.data.status === 'confirmed') {
@@ -94,7 +98,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
         .catch(() => { if (!cancelled) setPairingError('Ce QR code a expiré.'); });
     };
 
-    axios.post('/api/kiosk/pairing', {}, { headers: { Authorization: `Bearer ${authToken}` } })
+    axios.post('/api/kiosk/pairing', {})
       .then(res => {
         if (cancelled) return;
         setPairing(res.data);
@@ -103,7 +107,7 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
       .catch(() => { if (!cancelled) setPairingError('Impossible de générer le QR code, réessaie.'); });
 
     return () => { cancelled = true; clearTimeout(pollTimer); };
-  }, [stage, authToken]);
+  }, [stage]);
 
   useEffect(() => {
     if (stage !== 'confirmation') return undefined;
@@ -419,6 +423,15 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
         </div>
       )}
 
+      {/* Kiosk customers are anonymous (no account, no CGU gate -- see
+          GET /api/auth/me): using the terminal is their acceptance, so the
+          CGU are stated and one tap away rather than recorded per person. */}
+      <Footer
+        className="kiosk-footer"
+        notice="En commandant sur cette borne, tu acceptes les CGU."
+        onOpenDocument={setLegalKind}
+      />
+
       {builderMenu && (
         <MenuBuilderModal
           menu={builderMenu}
@@ -427,6 +440,8 @@ export default function KioskApp({ authToken, products, menus, categories, cart,
           onAddMenuToCart={onAddMenuToCart}
         />
       )}
+
+      {legalKind && <LegalDocumentModal kind={legalKind} onClose={() => setLegalKind(null)} />}
     </div>
   );
 }

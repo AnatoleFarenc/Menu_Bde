@@ -145,6 +145,8 @@ Any other origin is rejected.
 - Session token = **`crypto.randomBytes(32)` base64url-encoded** (256 bits of entropy, unpredictable).
 - **12-hour sliding expiration**: each authenticated request pushes back the deadline; beyond that, the token is invalidated.
 - Automatic purge of expired sessions every 30 minutes.
+- The token lives **only in an `httpOnly`, `SameSite=Lax` cookie** (`__Host-bde_session` over HTTPS: `Secure`, `Path=/`, host-only). It is never put in a URL, a response body or `localStorage`, so page JavaScript -- and therefore an XSS -- can't read it. The OAuth callback and kiosk activation set it server-side.
+- **CSRF**: on top of `SameSite=Lax`, every non-GET `/api/` request must carry an `Origin` from the app's own origins (or, with no `Origin`, must not be flagged `Sec-Fetch-Site: cross-site`), otherwise it gets a 403.
 - **In-memory** store: a server restart logs users out (data is not lost). A deliberate choice at this scale; migrating to a persistent store is possible.
 
 ### Authentication — 42 Intra OAuth2
@@ -327,7 +329,6 @@ Identified points, not yet addressed (by priority):
 
 | Topic | Status |
 |---|---|
-| Session token in `localStorage` | To be migrated to an **`httpOnly` + `SameSite` cookie** (XSS protection for the token). |
 | `debian` retains broad `sudo` | A deliberate decision while the infra is still being built (see [§3](#3-server-hardening-vps)). To be restricted to deployment commands only once stabilized — the principle (dedicated application account + named commands) is already in place for `bde-ops`; it will just need to be duplicated. |
 | `fail2ban` | Not installed — to be added (SSH + application). |
 | Automatic security updates | `unattended-upgrades` to be enabled. |

@@ -348,7 +348,6 @@ function KitchenTicket({
 }
 
 export default function AdminKitchenBoard({
-  authToken,
   activeStorefront,
   orders = [],
   synthesisByTime = {},
@@ -533,7 +532,7 @@ export default function AdminKitchenBoard({
             </button>
           )}
         </AlertRow>
-        <PushNotificationsButton authToken={authToken} />
+        <PushNotificationsButton />
         <InstallAppButton />
       </div>
 

@@ -31,7 +31,6 @@ const PAIR_CODE_STORAGE_KEY = 'bde_pending_pair_code';
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [authToken, setAuthToken] = useState(localStorage.getItem('bde_token') || '');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [cguStatus, setCguStatus] = useState(null); // { needsAcceptance, document } -- see GET /api/auth/me
   // A tap on a new-order notification opens the site on `?tab=admin` (see
@@ -67,23 +66,21 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [builderMenu, setBuilderMenu] = useState(null);
 
-  // 1. Initial Load & Auth Check
+  // 1. Initial Load & Auth Check. The session itself is an httpOnly cookie
+  // set by the server (OAuth callback / kiosk activation) -- this page never
+  // sees or stores the token, it just asks /api/auth/me who it is.
   useEffect(() => {
-    // Check URL params for OAuth redirect token
+    // Leftover from before the cookie migration: never trust or keep it.
+    localStorage.removeItem('bde_token');
     const urlParams = new URLSearchParams(window.location.search);
-    const tokenFromUrl = urlParams.get('token');
     const errorFromUrl = urlParams.get('error');
-    if (tokenFromUrl) {
-      setAuthToken(tokenFromUrl);
-      localStorage.setItem('bde_token', tokenFromUrl);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (errorFromUrl) {
+    if (errorFromUrl) {
       setAuthError(errorFromUrl);
-      setIsAuthChecking(false);
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (!authToken) {
-      setIsAuthChecking(false);
     }
+    fetchProducts();
+    fetchUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Hidden kiosk mode activation: ?kiosk=1 (or ?kiosk=0 to deactivate), specific to this browser.
@@ -155,7 +152,7 @@ export default function App() {
     const pendingCode = localStorage.getItem(PAIR_CODE_STORAGE_KEY);
     if (!pendingCode || !user || user.role === 'kiosk_guest') return;
     localStorage.removeItem(PAIR_CODE_STORAGE_KEY);
-    axios.post(`/api/kiosk/pairing/${pendingCode}/confirm`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
+    axios.post(`/api/kiosk/pairing/${pendingCode}/confirm`, {})
       .then(() => {
         showAlert('Connecté ! Tu peux continuer sur la borne.');
       })
@@ -172,15 +169,12 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // The kiosk has no order history of its own to prefetch (and the server
+  // refuses that role anyway, see GET /api/orders).
   useEffect(() => {
-    fetchProducts();
-    if (authToken) {
-      fetchUser();
-      // The kiosk has no order history of its own to prefetch (and the
-      // server refuses that role anyway, see GET /api/orders).
-      if (!isKioskMode) fetchUserOrders();
-    }
-  }, [authToken]);
+    if (user && !isKioskMode) fetchUserOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // A kiosk can sit idle on its attract screen for a while with nothing else
   // calling the API -- so a Board member locking it (or regenerating the
@@ -253,23 +247,19 @@ export default function App() {
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get('/api/auth/me', {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      const res = await axios.get('/api/auth/me');
       setUser(res.data.user);
       setCguStatus(res.data.cguStatus);
       setIsAuthChecking(false);
     } catch (e) {
       setUser(null);
-      setAuthToken('');
       setIsAuthChecking(false);
-      localStorage.removeItem('bde_token');
     }
   };
 
   const handleAcceptCgu = async () => {
     try {
-      await axios.post('/api/account/accept-cgu', {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.post('/api/account/accept-cgu', {});
       setCguStatus(prev => (prev ? { ...prev, needsAcceptance: false } : prev));
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de l\'enregistrement de ton acceptation, réessaie.');
@@ -282,15 +272,13 @@ export default function App() {
   // handleLogout does.
   const handleDeleteAccount = async () => {
     try {
-      await axios.delete('/api/account', { headers: { Authorization: `Bearer ${authToken}` } });
+      await axios.delete('/api/account');
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la suppression du compte.');
       return;
     }
     setUser(null);
     setCguStatus(null);
-    setAuthToken('');
-    localStorage.removeItem('bde_token');
     setActiveTab('vitrine');
     showAlert('Ton compte a été supprimé.');
   };
@@ -309,9 +297,7 @@ export default function App() {
 
   const fetchUserOrders = async () => {
     try {
-      const res = await axios.get('/api/orders', {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      const res = await axios.get('/api/orders');
       setUserOrders(res.data.orders || []);
     } catch (e) {
       console.error('Error fetching user orders:', e);
@@ -322,7 +308,7 @@ export default function App() {
   // "Staff" order tracking tab always follows this, not a manually browsed one.
   const fetchActiveStorefront = async () => {
     try {
-      const res = await axios.get('/api/admin/active-storefront', { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get('/api/admin/active-storefront');
       setActiveStorefront(res.data.storefront);
       return res.data.storefront;
     } catch (e) {
@@ -335,8 +321,7 @@ export default function App() {
     if (!storefrontId) return;
     try {
       const res = await axios.get('/api/admin/orders', {
-        params: { storefrontId },
-        headers: { Authorization: `Bearer ${authToken}` }
+        params: { storefrontId }
       });
       setKitchenOrders(res.data.orders || []);
       setKitchenSynthesis(res.data.synthesisByTime || {});
@@ -348,7 +333,7 @@ export default function App() {
   const fetchKitchenProducts = async (storefrontId) => {
     if (!storefrontId) return;
     try {
-      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await axios.get(`/api/admin/storefronts/${storefrontId}/catalog`);
       setKitchenProducts(res.data.products || []);
     } catch (e) {
       console.error('Error fetching kitchen products:', e);
@@ -357,9 +342,7 @@ export default function App() {
 
   const handleSubmitReview = async (orderId, rating, comment) => {
     try {
-      await axios.post(`/api/orders/${orderId}/review`, { rating, comment }, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.post(`/api/orders/${orderId}/review`, { rating, comment });
       fetchUserOrders();
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de l\'envoi de l\'avis.');
@@ -384,15 +367,11 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('/api/auth/logout', {}, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.post('/api/auth/logout', {});
     } catch (e) {}
     setUser(null);
     setCguStatus(null);
-    setAuthToken('');
     setIsAuthChecking(false);
-    localStorage.removeItem('bde_token');
     setActiveTab('vitrine');
   };
 
@@ -402,10 +381,9 @@ export default function App() {
     const trimmed = (secret || '').trim();
     if (!trimmed) return;
     try {
-      const res = await axios.post('/api/auth/kiosk-login', { secret: trimmed });
-      localStorage.setItem('bde_token', res.data.token);
-      setAuthToken(res.data.token);
+      await axios.post('/api/auth/kiosk-login', { secret: trimmed });
       setKioskSecretInput('');
+      await fetchUser();
     } catch (error) {
       showAlert(error.response?.data?.error || 'Erreur lors de l\'activation de la borne.');
     }
@@ -481,9 +459,7 @@ export default function App() {
   // KioskApp) handle their own success/error UI since they differ a lot
   // between the two flows.
   const handleSubmitOrder = async (orderPayload) => {
-    const res = await axios.post('/api/orders', orderPayload, {
-      headers: { Authorization: `Bearer ${authToken}` }
-    });
+    const res = await axios.post('/api/orders', orderPayload);
     fetchProducts();
     if (user && user.isAdmin && activeStorefront) {
       fetchKitchenOrders(activeStorefront.id);
@@ -500,9 +476,7 @@ export default function App() {
   // management tool.
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      await axios.patch(`/api/admin/orders/${orderId}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.patch(`/api/admin/orders/${orderId}/status`, { status: newStatus });
       fetchKitchenOrders(activeStorefront?.id);
       fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
@@ -514,8 +488,7 @@ export default function App() {
     if (!(await showConfirm('Supprimer définitivement tout l\'historique des commandes de cette vitrine ? Cette action est irréversible.', { danger: true }))) return;
     try {
       await axios.delete('/api/admin/orders', {
-        params: { storefrontId: activeStorefront?.id },
-        headers: { Authorization: `Bearer ${authToken}` }
+        params: { storefrontId: activeStorefront?.id }
       });
       fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
@@ -525,9 +498,7 @@ export default function App() {
 
   const handleUpdateOrder = async (orderId, updates) => {
     try {
-      await axios.patch(`/api/admin/orders/${orderId}`, updates, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.patch(`/api/admin/orders/${orderId}`, updates);
       fetchKitchenOrders(activeStorefront?.id);
       return true;
     } catch (e) {
@@ -538,9 +509,7 @@ export default function App() {
 
   const handleCreateFreeOrder = async (payload) => {
     try {
-      await axios.post('/api/admin/orders/free', { ...payload, storefrontId: activeStorefront?.id }, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.post('/api/admin/orders/free', { ...payload, storefrontId: activeStorefront?.id });
       fetchKitchenOrders(activeStorefront?.id);
       fetchKitchenProducts(activeStorefront?.id);
       return true;
@@ -553,9 +522,7 @@ export default function App() {
   const handleDeleteOrder = async (orderId) => {
     if (!(await showConfirm('Supprimer définitivement cette commande ?', { danger: true }))) return;
     try {
-      await axios.delete(`/api/admin/orders/${orderId}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.delete(`/api/admin/orders/${orderId}`);
       fetchKitchenOrders(activeStorefront?.id);
       fetchKitchenProducts(activeStorefront?.id);
     } catch (e) {
@@ -565,9 +532,7 @@ export default function App() {
 
   const handleTogglePaid = async (orderId, isPaid) => {
     try {
-      await axios.patch(`/api/admin/orders/${orderId}/paid`, { isPaid }, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      await axios.patch(`/api/admin/orders/${orderId}/paid`, { isPaid });
       fetchKitchenOrders(activeStorefront?.id);
     } catch (e) {
       showAlert(e.response?.data?.error || 'Erreur lors de la mise à jour du règlement.');
@@ -677,7 +642,6 @@ export default function App() {
   if (isKioskMode) {
     return (
       <KioskApp
-        authToken={authToken}
         products={products}
         menus={menus}
         categories={categories}
@@ -809,7 +773,6 @@ export default function App() {
           />
         ) : (
           <AdminKitchenBoard
-            authToken={authToken}
             activeStorefront={activeStorefront}
             orders={kitchenOrders}
             synthesisByTime={kitchenSynthesis}

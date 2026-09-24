@@ -3701,6 +3701,15 @@ main h3 {
   animation: pulseGlow 3.5s infinite ease-in-out;
 }
 
+/* Legal links pinned under every kiosk screen: compact so it never eats
+   into the ordering area. The inline padding in Footer.jsx is for the
+   regular storefront. */
+.kiosk-app > .kiosk-footer {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.75rem !important;
+}
+
 .kiosk-exit-tap {
   position: absolute;
   top: 0;

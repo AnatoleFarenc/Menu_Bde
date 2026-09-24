@@ -81,9 +81,34 @@ const createSession = (user) => {
   return token;
 };
 
+// The session token lives ONLY in an httpOnly cookie: never in the URL,
+// never in the response body, never readable by page JavaScript -- so an
+// XSS can't exfiltrate it (it used to sit in localStorage). The `__Host-`
+// prefix (HTTPS only) additionally pins it to this exact host: no Domain,
+// Path=/, Secure, so a sibling subdomain can't set or shadow it.
+const cookieSecure = publicAppUrl.startsWith('https://');
+const SESSION_COOKIE = cookieSecure ? '__Host-bde_session' : 'bde_session';
+const sessionCookieOptions = { httpOnly: true, secure: cookieSecure, sameSite: 'lax', path: '/' };
+
+const setSessionCookie = (res, token) => {
+  res.cookie(SESSION_COOKIE, token, { ...sessionCookieOptions, maxAge: SESSION_TTL_MS });
+};
+const clearSessionCookie = (res) => {
+  res.clearCookie(SESSION_COOKIE, sessionCookieOptions);
+};
+
+const getSessionToken = (req) => {
+  const header = req.headers.cookie || '';
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() === SESSION_COOKIE) return decodeURIComponent(part.slice(idx + 1).trim());
+  }
+  return '';
+};
+
 const getUserFromReq = (req) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = getSessionToken(req);
   if (!token) return null;
   const entry = sessions.get(token);
   if (!entry) return null;
@@ -102,6 +127,29 @@ setInterval(() => {
     if (entry.expiresAt < now) sessions.delete(token);
   }
 }, 30 * 60 * 1000).unref();
+
+// Cookie-based auth means the browser attaches the session to every request
+// to this origin, including ones a hostile site triggers. SameSite=Lax
+// already withholds it from cross-site subrequests; on top of that, any
+// state-changing API call must come from one of our own origins.
+app.use('/api/', (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const origin = req.headers.origin;
+  const isOwnOrigin = origin && (allowedOrigins.has(origin) || origin === `${req.protocol}://${req.get('host')}`);
+  if (origin ? !isOwnOrigin : req.headers['sec-fetch-site'] === 'cross-site') {
+    return res.status(403).json({ error: 'Origine de la requête refusée' });
+  }
+  next();
+});
+
+// Keeps the cookie's lifetime in step with the server-side sliding expiry
+// (see getUserFromReq), so a kiosk polling all day never loses its cookie.
+app.use('/api/', (req, res, next) => {
+  const token = getSessionToken(req);
+  const entry = token && sessions.get(token);
+  if (entry && entry.expiresAt >= Date.now()) setSessionCookie(res, token);
+  next();
+});
 
 // Authorization middlewares
 const requireAuth = (req, res, next) => {
@@ -193,8 +241,8 @@ app.get('/api/auth/42/callback', authLimiter, async (req, res) => {
       return res.redirect(`${publicAppUrl}/?error=${encodeURIComponent('Accès réservé aux testeurs sur cet environnement de développement.')}`);
     }
     await db.upsertUser({ login: user.login, displayName: user.displayName, email: user.email });
-    const token = createSession(user);
-    res.redirect(`${publicAppUrl}/?token=${token}`);
+    setSessionCookie(res, createSession(user));
+    res.redirect(`${publicAppUrl}/`);
   } catch (error) {
     console.error('42 Auth error:', error.message);
     res.redirect(`${publicAppUrl}/?error=${encodeURIComponent(error.message)}`);
@@ -233,9 +281,8 @@ app.post('/api/account/accept-cgu', requireAuth, ah(async (req, res) => {
 app.delete('/api/account', requireAuth, ah(async (req, res) => {
   if (req.user.role === 'kiosk_guest') return res.status(403).json({ error: 'Sans objet pour une session borne' });
   await db.deleteUserAccount(req.user.login);
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (token) sessions.delete(token);
+  sessions.delete(getSessionToken(req));
+  clearSessionCookie(res);
   res.json({ success: true });
 }));
 
@@ -313,14 +360,13 @@ app.post('/api/auth/kiosk-login', authLimiter, ah(async (req, res) => {
     isBoard: false,
     role: 'kiosk_guest'
   };
-  const token = createSession(user);
-  res.json({ token, user });
+  setSessionCookie(res, createSession(user));
+  res.json({ user });
 }));
 
 app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (token) sessions.delete(token);
+  sessions.delete(getSessionToken(req));
+  clearSessionCookie(res);
   res.json({ success: true });
 });
 
