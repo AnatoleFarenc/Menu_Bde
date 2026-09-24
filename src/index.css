@@ -3991,19 +3991,27 @@ main h3 {
   justify-content: center;
   background: rgba(215, 154, 59, 0.16);
   color: var(--color-primary-text);
-  position: relative;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0 0.5rem;
 }
 
+/* In the flow, stacked above the icon: pinned in a corner, it landed right
+   on top of the icon on any tile narrower or shorter than a big screen's.
+   A long one ("Best-seller du BDE"...) is cut with an ellipsis rather than
+   spilling out of the tile. */
 .kiosk-product-badge {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
+  order: -1;
   background: var(--color-accent);
   color: #fff8e9;
   font-size: 0.68rem;
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-full);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kiosk-product-info {
